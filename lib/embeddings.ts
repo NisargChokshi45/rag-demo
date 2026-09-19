@@ -17,7 +17,7 @@ export async function embedDocument(text: string): Promise<number[]> {
   const google = getGoogleClient();
 
   const result = await embed({
-    model: google.textEmbedding("models/embedding-001"),
+    model: google.textEmbedding("text-embedding-004"),
     value: text,
   });
 
@@ -28,7 +28,7 @@ export async function embedQuery(text: string): Promise<number[]> {
   const google = getGoogleClient();
 
   const result = await embed({
-    model: google.textEmbedding("models/embedding-001"),
+    model: google.textEmbedding("text-embedding-004"),
     value: text,
   });
 
