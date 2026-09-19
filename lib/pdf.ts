@@ -1,7 +1,14 @@
-// TODO: Implement PDF parsing using unpdf
-// Expected interface:
-// export async function parsePDF(buffer: Buffer): Promise<string>
+import { extractText } from "unpdf";
 
-export async function parsePDF(_buffer: Buffer): Promise<string> {
-  throw new Error("Not implemented");
+export async function parsePDF(buffer: Buffer): Promise<string> {
+  try {
+    const result = await extractText(buffer);
+    if (Array.isArray(result.text)) {
+      return result.text.join("\n");
+    }
+    return (result.text as string) || "";
+  } catch (error) {
+    console.error("PDF parsing error:", error);
+    return "";
+  }
 }

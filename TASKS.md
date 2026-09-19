@@ -11,28 +11,29 @@
 - [ ] Generate Google AI Studio API key — awaiting user to create key
 - [ ] Verify actual embedding vector dimension from first test call (constraint #2) — will do in Phase 3 (first ingest)
 
-## 2. Test Data (≈15 min)
+## 2. Test Data (≈15 min) ✓ COMPLETE
 
-- [ ] Download sample resume PDFs (notebook-cited dataset or own set)
-- [ ] Organize PDFs in a local scratch folder for upload testing
+- [x] Download sample resume PDFs (notebook-cited dataset or own set) — 25 PDFs in `/resumes` folder
+- [x] Organize PDFs in a local scratch folder for upload testing — ready at `/resumes`
 
-## 3. Ingestion Pipeline (≈2 hr)
+## 3. Ingestion Pipeline (≈2 hr) ✓ COMPLETE
 
-- [ ] Implement `lib/pdf.ts` — PDF parsing with `unpdf`
-- [ ] Implement `lib/chunk.ts` — hand-rolled text splitter (chunkSize=800, overlap=100)
-- [ ] Implement `lib/embeddings.ts` — embedDocument/embedQuery with taskType differentiation
-- [ ] Implement `lib/db.ts` — DB functions (insertCandidate, insertChunks, searchChunks, getFullResumeById, listCandidates)
-- [ ] Implement `api/upload-url/route.ts` — generate signed upload URLs
-- [ ] Implement `api/ingest/route.ts` — parse, chunk, batch-embed, insert (set maxDuration, runtime=nodejs)
-- [ ] Test: ingest sample PDFs and verify row counts in Supabase
+- [x] Implement `lib/pdf.ts` — PDF parsing with `unpdf` (extractText)
+- [x] Implement `lib/chunk.ts` — hand-rolled text splitter (chunkSize=800, overlap=100)
+- [x] Implement `lib/embeddings.ts` — embedDocument/embedQuery with Google Gemini embedding-001
+- [x] Implement `lib/db.ts` — DB functions (insertCandidate, insertChunks, searchChunks via RPC, getFullResumeById, listCandidates)
+- [x] Implement `api/upload-url/route.ts` — generate signed upload URLs for Supabase Storage
+- [x] Implement `api/ingest/route.ts` — parse, chunk, batch-embed with retry/backoff, insert (maxDuration=300s, runtime=nodejs)
+- [x] Add `match_resume_chunks` RPC function to schema.sql for vector search
+- ⏳ Test: ingest sample PDFs and verify row counts in Supabase — **BLOCKED: awaiting Supabase credentials**
 
-## 4. Candidates Page (≈30 min)
+## 4. Candidates Page (≈30 min) ✓ COMPLETE
 
-- [ ] Implement `lib/supabase/client.ts` — browser client (anon key)
-- [ ] Implement `lib/supabase/server.ts` — server client (service-role key, server-only)
-- [ ] Implement `api/candidates/route.ts` — GET endpoint listing candidates
-- [ ] Implement `app/candidates/page.tsx` — display candidate list (name, role, chunk count)
-- [ ] Test: upload PDFs via Upload page → see candidates listed on Candidates page
+- [x] Implement `lib/supabase/client.ts` — browser client (anon key)
+- [x] Implement `lib/supabase/server.ts` — server client (service-role key, server-only)
+- [x] Implement `api/candidates/route.ts` — GET endpoint listing candidates with chunk counts
+- [x] Implement `app/candidates/page.tsx` — display candidate list (name, role, chunk count) with upload/screen buttons
+- ⏳ Test: upload PDFs via Upload page → see candidates listed on Candidates page — **BLOCKED: awaiting Supabase credentials**
 
 ## 5. Agent Route (≈2 hr)
 
