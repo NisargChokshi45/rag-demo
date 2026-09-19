@@ -14,15 +14,21 @@ importers:
       '@langchain/google-genai':
         specifier: ^0.0.18
         version: 0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76)
+      '@langchain/groq':
+        specifier: ^0.0.14
+        version: 0.0.14(openai@4.104.0(zod@3.25.76))
       '@langchain/langgraph':
         specifier: ^0.0.20
         version: 0.0.20(openai@4.104.0(zod@3.25.76))
       '@supabase/supabase-js':
         specifier: ^2.44.0
         version: 2.116.0(@opentelemetry/api@1.9.0)
+      groq-sdk:
+        specifier: ^0.5.0
+        version: 0.5.0
       langchain:
         specifier: ^0.2.0
-        version: 0.2.20(@langchain/google-genai@0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76))(@supabase/supabase-js@2.116.0(@opentelemetry/api@1.9.0))(ignore@7.0.9)(openai@4.104.0(zod@3.25.76))
+        version: 0.2.20(@langchain/google-genai@0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76))(@langchain/groq@0.0.14(openai@4.104.0(zod@3.25.76)))(@supabase/supabase-js@2.116.0(@opentelemetry/api@1.9.0))(ignore@7.0.9)(openai@4.104.0(zod@3.25.76))
       next:
         specifier: ^15.0.0
         version: 15.5.25(@opentelemetry/api@1.9.0)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -303,6 +309,10 @@ packages:
     resolution: {integrity: sha512-y7BpyUE3TOQLqY3VP+k1rqK7kev7bWpln51J0HB7ccz4ZdtYGsLHKdO3u5ujZxjKtd7vcfd8YHwtCakyU7w2zg==}
     engines: {node: '>=18'}
 
+  '@langchain/groq@0.0.14':
+    resolution: {integrity: sha512-Nws2rgB0f+/gue0vLY7PWGVE3Q1IwXQ4iimLvQ465mbaKo1cBS5FiW9Ow0A8aZn2UtIvfLGlQYKO/GAAF6wJGw==}
+    engines: {node: '>=18'}
+
   '@langchain/langgraph@0.0.20':
     resolution: {integrity: sha512-/byqz3WDbIQqaPDmC+Bo2n36LBpD42yj8wR7KiDZvrOIJSlMIoqwZeRkONEp9D7o61ZRaAMwoUJWriG8L9xdFg==}
     engines: {node: '>=18'}
@@ -311,6 +321,10 @@ packages:
     peerDependenciesMeta:
       better-sqlite3:
         optional: true
+
+  '@langchain/openai@0.1.3':
+    resolution: {integrity: sha512-riv/JC9x2A8b7GcHu8sx+mlZJ8KAwSSi231IPTlcciYnKozmrQ5H0vrtiD31fxiDbaRsk7tyCpkSBIOQEo7CyQ==}
+    engines: {node: '>=18'}
 
   '@langchain/openai@0.2.11':
     resolution: {integrity: sha512-Pu8+WfJojCgSf0bAsXb4AjqvcDyAWyoEB1AoCRNACgEnBWZuitz3hLwCo9I+6hAbeg3QJ37g82yKcmvKAg1feg==}
@@ -778,6 +792,9 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
+  base-64@0.1.0:
+    resolution: {integrity: sha512-Y5gU45svrR5tI2Vt/X9GPd3L0HNIKzGu202EjxrXMpuc2V2CiKgemAbUUsqYmZJvPtCXoUKjNZwBJzsNScUbXA==}
+
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
@@ -837,6 +854,9 @@ packages:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
 
+  charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
+
   chokidar@3.6.0:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
@@ -869,6 +889,9 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
+
+  crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
 
   cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -935,6 +958,9 @@ packages:
 
   didyoumean@1.2.2:
     resolution: {integrity: sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw==}
+
+  digest-fetch@1.3.0:
+    resolution: {integrity: sha512-CGJuv6iKNM7QyZlM2T3sPAdZWd/p9zQiRNS9G+9COUCwzWFTs0Xp8NF5iePx7wtvhDykReiRRrSeNb4oMmB8lA==}
 
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
@@ -1250,6 +1276,12 @@ packages:
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
 
+  groq-sdk@0.3.3:
+    resolution: {integrity: sha512-wdOeZ2QymPjjP3tmFpUAnfMisoLbt7xF2MfpROeFAngcqWbfTyB9j9pMWSEAMF/E4gZx8f2Y+5zswO0q92CSxA==}
+
+  groq-sdk@0.5.0:
+    resolution: {integrity: sha512-RVmhW7qZ+XZoy5fIuSdx/LGQJONpL8MHgZEW7dFwTdgkzStub2XQx6OKv28CHogijdwH41J+Npj/z2jBPu3vmw==}
+
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
     engines: {node: '>= 0.4'}
@@ -1330,6 +1362,9 @@ packages:
   is-boolean-object@1.2.2:
     resolution: {integrity: sha512-wa56o2/ElJMYqjCjGkXri7it5FbebW5usLw/nPmCMs5DeZ7eziSYZhSmPRn0txqeW4LnAmQQU7FgqLpsEFKM4A==}
     engines: {node: '>= 0.4'}
+
+  is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
 
   is-bun-module@2.0.0:
     resolution: {integrity: sha512-gNCGbnnnnFAUGKeZ9PdbyeGYJqewpmc2aKHUEMO5nQPWU9lOmv7jcmQIv+qHD8fXW6W7qfuCwX4rY9LNRjXrkQ==}
@@ -1694,6 +1729,9 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
+
+  md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   merge2@1.4.1:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
@@ -2295,6 +2333,10 @@ packages:
     deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+    engines: {node: '>= 8'}
+
   web-streams-polyfill@4.0.0-beta.3:
     resolution: {integrity: sha512-QW95TCTaHmsYfHDybGMwO5IJIM93I/6vTRk+daHTWFPhwh+C8Cg7j7XyKrwrj8Ib6vYXe0ocYNrmzY4xAAN6ug==}
     engines: {node: '>= 14'}
@@ -2558,12 +2600,35 @@ snapshots:
       - openai
       - zod
 
+  '@langchain/groq@0.0.14(openai@4.104.0(zod@3.25.76))':
+    dependencies:
+      '@langchain/core': 0.2.36(openai@4.104.0(zod@3.25.76))
+      '@langchain/openai': 0.1.3
+      groq-sdk: 0.3.3
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - encoding
+      - openai
+      - ws
+
   '@langchain/langgraph@0.0.20(openai@4.104.0(zod@3.25.76))':
     dependencies:
       '@langchain/core': 0.2.36(openai@4.104.0(zod@3.25.76))
       uuid: 9.0.1
     transitivePeerDependencies:
       - openai
+
+  '@langchain/openai@0.1.3':
+    dependencies:
+      '@langchain/core': 0.2.36(openai@4.104.0(zod@3.25.76))
+      js-tiktoken: 1.0.21
+      openai: 4.104.0(zod@3.25.76)
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - encoding
+      - ws
 
   '@langchain/openai@0.2.11':
     dependencies:
@@ -3013,6 +3078,8 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
+  base-64@0.1.0: {}
+
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.25: {}
@@ -3070,6 +3137,8 @@ snapshots:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
 
+  charenc@0.0.2: {}
+
   chokidar@3.6.0:
     dependencies:
       anymatch: 3.1.3
@@ -3105,6 +3174,8 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+
+  crypt@0.0.2: {}
 
   cssesc@3.0.0: {}
 
@@ -3160,6 +3231,11 @@ snapshots:
     optional: true
 
   didyoumean@1.2.2: {}
+
+  digest-fetch@1.3.0:
+    dependencies:
+      base-64: 0.1.0
+      md5: 2.3.0
 
   dlv@1.1.3: {}
 
@@ -3651,6 +3727,33 @@ snapshots:
 
   graphemer@1.4.0: {}
 
+  groq-sdk@0.3.3:
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      digest-fetch: 1.3.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+      web-streams-polyfill: 3.3.3
+    transitivePeerDependencies:
+      - encoding
+
+  groq-sdk@0.5.0:
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+      web-streams-polyfill: 3.3.3
+    transitivePeerDependencies:
+      - encoding
+
   has-bigints@1.1.0: {}
 
   has-flag@4.0.0: {}
@@ -3729,6 +3832,8 @@ snapshots:
     dependencies:
       call-bound: 1.0.4
       has-tostringtag: 1.0.2
+
+  is-buffer@1.1.6: {}
 
   is-bun-module@2.0.0:
     dependencies:
@@ -3873,7 +3978,7 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  langchain@0.2.20(@langchain/google-genai@0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76))(@supabase/supabase-js@2.116.0(@opentelemetry/api@1.9.0))(ignore@7.0.9)(openai@4.104.0(zod@3.25.76)):
+  langchain@0.2.20(@langchain/google-genai@0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76))(@langchain/groq@0.0.14(openai@4.104.0(zod@3.25.76)))(@supabase/supabase-js@2.116.0(@opentelemetry/api@1.9.0))(ignore@7.0.9)(openai@4.104.0(zod@3.25.76)):
     dependencies:
       '@langchain/core': 0.2.36(openai@4.104.0(zod@3.25.76))
       '@langchain/openai': 0.2.11
@@ -3891,6 +3996,7 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@3.25.76)
     optionalDependencies:
       '@langchain/google-genai': 0.0.18(openai@4.104.0(zod@3.25.76))(zod@3.25.76)
+      '@langchain/groq': 0.0.14(openai@4.104.0(zod@3.25.76))
       '@supabase/supabase-js': 2.116.0(@opentelemetry/api@1.9.0)
       ignore: 7.0.9
     transitivePeerDependencies:
@@ -3934,6 +4040,12 @@ snapshots:
       js-tokens: 4.0.0
 
   math-intrinsics@1.1.0: {}
+
+  md5@2.3.0:
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
 
   merge2@1.4.1: {}
 
@@ -4628,6 +4740,8 @@ snapshots:
   uuid@10.0.0: {}
 
   uuid@9.0.1: {}
+
+  web-streams-polyfill@3.3.3: {}
 
   web-streams-polyfill@4.0.0-beta.3: {}
 
