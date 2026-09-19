@@ -116,18 +116,27 @@ export default function UploadPage() {
 
     setIsUploading(false);
 
-    // Redirect to candidates after all files complete (with a delay for final state update)
-    setTimeout(() => {
-      router.push("/candidates");
-    }, 2000);
+    // Redirect to candidates only if all files succeeded
+    setUploadProgress((finalProgress) => {
+      const hasErrors = finalProgress.some((p) => p.status === "error");
+      if (!hasErrors) {
+        setTimeout(() => {
+          router.push("/candidates");
+        }, 2000);
+      }
+      return finalProgress;
+    });
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-[calc(100vh-80px)] bg-gray-50 p-4 md:p-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Upload Resumes & Job Description</h1>
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Upload Resumes</h1>
+          <p className="text-gray-600">Add candidate resumes and job description to start screening</p>
+        </div>
 
-        <div className="bg-white p-8 rounded-lg shadow space-y-6">
+        <div className="bg-white p-6 md:p-8 rounded-lg shadow space-y-6">
           {/* Job Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -146,7 +155,11 @@ export default function UploadPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Upload Resumes (PDF)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
+            <div className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
+              isUploading
+                ? "border-gray-300 bg-gray-50 cursor-not-allowed"
+                : "border-gray-300 hover:border-blue-400 cursor-pointer"
+            }`}>
               <input
                 type="file"
                 multiple
@@ -158,11 +171,15 @@ export default function UploadPage() {
               />
               <label
                 htmlFor="resume-input"
-                className="cursor-pointer text-gray-600 hover:text-blue-600"
+                className={`block ${
+                  isUploading
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-gray-600 hover:text-blue-600 cursor-pointer"
+                }`}
               >
-                <div className="text-2xl mb-2">📁</div>
+                <div className="text-3xl mb-2">📄</div>
                 <p className="font-medium">Click to select PDF files</p>
-                <p className="text-sm text-gray-500">or drag and drop</p>
+                <p className="text-sm text-gray-500">Select one or more resumes to upload</p>
               </label>
             </div>
           </div>
@@ -171,33 +188,43 @@ export default function UploadPage() {
           {uploadProgress.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-medium text-gray-900">Upload Progress</h3>
-              {uploadProgress.map((item, idx) => (
-                <div key={idx} className="p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      {item.filename}
-                    </span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-                      {item.status}
-                    </span>
-                  </div>
-                  {item.status === "error" && (
-                    <p className="text-sm text-red-600">{item.error}</p>
-                  )}
-                  {item.progress !== undefined && (
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${item.progress}%` }}
-                      />
+              {uploadProgress.map((item, idx) => {
+                const statusConfig = {
+                  pending: { label: "Waiting", color: "bg-gray-100 text-gray-700" },
+                  uploading: { label: "Uploading", color: "bg-blue-100 text-blue-700" },
+                  ingesting: { label: "Processing", color: "bg-purple-100 text-purple-700" },
+                  done: { label: "Complete", color: "bg-green-100 text-green-700" },
+                  error: { label: "Failed", color: "bg-red-100 text-red-700" },
+                };
+                const config = statusConfig[item.status];
+                return (
+                  <div key={idx} className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {item.filename}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}>
+                        {config.label}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {item.status === "error" && (
+                      <p className="text-sm text-red-600">{item.error}</p>
+                    )}
+                    {item.progress !== undefined && item.status !== "error" && (
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

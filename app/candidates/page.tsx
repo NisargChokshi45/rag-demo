@@ -34,43 +34,51 @@ export default function CandidatesPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-[calc(100vh-80px)] bg-gray-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Candidates ({candidates.length})</h1>
-          <div className="space-x-4">
-            <Link
-              href="/upload"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Upload More
-            </Link>
-            <Link
-              href="/screen"
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Screen
-            </Link>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Candidates</h1>
+          <p className="text-gray-600">{candidates.length} {candidates.length === 1 ? "candidate" : "candidates"} ingested</p>
+        </div>
+        <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+          {candidates.length > 0 && (
+            <div className="flex gap-4">
+              <Link
+                href="/upload"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                Upload More
+              </Link>
+              <Link
+                href="/screen"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                Screen Candidates
+              </Link>
+            </div>
+          )}
         </div>
 
         {loading && (
-          <div className="bg-white p-8 rounded-lg shadow">
+          <div className="bg-white p-8 rounded-lg shadow text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
             <p className="text-gray-600">Loading candidates...</p>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 p-8 rounded-lg shadow">
-            <p className="text-red-600">Error: {error}</p>
+          <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
+            <p className="text-red-700 font-semibold mb-2">Error Loading Candidates</p>
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
         {!loading && candidates.length === 0 && (
-          <div className="bg-white p-8 rounded-lg shadow">
-            <p className="text-gray-600">No candidates yet.</p>
-            <Link href="/upload" className="text-blue-600 hover:underline">
-              Upload some resumes to get started
+          <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
+            <p className="text-4xl mb-4">📋</p>
+            <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
+            <Link href="/upload" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              Upload Resumes to Get Started
             </Link>
           </div>
         )}
@@ -78,7 +86,11 @@ export default function CandidatesPage() {
         {!loading && candidates.length > 0 && (
           <div className="grid gap-4">
             {candidates.map((candidate) => (
-              <div key={candidate.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+              <div key={candidate.id} className={`p-6 rounded-lg shadow hover:shadow-lg transition ${
+                candidate.chunk_count === 0
+                  ? "bg-amber-50 border border-amber-200"
+                  : "bg-white"
+              }`}>
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -88,18 +100,24 @@ export default function CandidatesPage() {
                       {candidate.role_guess}
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
-                      {candidate.original_filename} • {candidate.chunk_count} chunks
+                      {candidate.original_filename}
                     </p>
                   </div>
-                  <span className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
-                    {candidate.chunk_count} chunks
-                  </span>
+                  {candidate.chunk_count === 0 ? (
+                    <span className="px-3 py-1 text-sm font-medium text-amber-700 bg-amber-100 rounded-full whitespace-nowrap">
+                      ⚠️ Not Indexed
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 text-sm font-medium text-green-700 bg-green-100 rounded-full whitespace-nowrap">
+                      ✓ Indexed
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

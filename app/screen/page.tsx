@@ -109,22 +109,17 @@ export default function ScreenPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex gap-4">
-          <button
-            onClick={() => router.push("/candidates")}
-            className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
-          >
-            ← Back to Candidates
-          </button>
-          <h1 className="text-3xl font-bold">Screen Candidates</h1>
+    <div className="min-h-[calc(100vh-80px)] bg-gray-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Screen Candidates</h1>
+          <p className="text-gray-600">Ask screening questions and get AI-powered candidate assessments</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {/* Query Input */}
           <div className="col-span-1">
-            <div className="bg-white p-6 rounded-lg shadow sticky top-8">
+            <div className="bg-white p-6 rounded-lg shadow sticky top-24">
               <h2 className="text-lg font-semibold mb-4">Screening Query</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <textarea
@@ -203,9 +198,6 @@ export default function ScreenPage() {
                             <h4 className="font-semibold text-lg">
                               {assessment.candidateName}
                             </h4>
-                            <p className="text-sm text-gray-600">
-                              ID: {assessment.candidateId}
-                            </p>
                           </div>
                           <div className="text-right">
                             <div className="text-3xl font-bold text-blue-600">
@@ -270,6 +262,6 @@ export default function ScreenPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
