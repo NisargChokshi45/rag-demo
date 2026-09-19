@@ -1,5 +1,4 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { embed } from "ai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 
 function getGoogleClient() {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -10,27 +9,20 @@ function getGoogleClient() {
     );
   }
 
-  return createGoogleGenerativeAI({ apiKey });
+  return new GoogleGenerativeAIEmbeddings({
+    apiKey,
+    model: "models/text-embedding-004",
+  });
 }
 
 export async function embedDocument(text: string): Promise<number[]> {
-  const google = getGoogleClient();
-
-  const result = await embed({
-    model: google.textEmbedding("text-embedding-004"),
-    value: text,
-  });
-
-  return result.embedding;
+  const embedder = getGoogleClient();
+  const embedding = await embedder.embedQuery(text);
+  return embedding;
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
-  const google = getGoogleClient();
-
-  const result = await embed({
-    model: google.textEmbedding("text-embedding-004"),
-    value: text,
-  });
-
-  return result.embedding;
+  const embedder = getGoogleClient();
+  const embedding = await embedder.embedQuery(text);
+  return embedding;
 }

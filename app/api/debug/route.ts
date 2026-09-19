@@ -9,6 +9,7 @@ export async function GET(_request: NextRequest) {
     hasGoogleApiKey: !!process.env.GOOGLE_API_KEY,
     apiKeyUsed: process.env.GOOGLE_GENERATIVE_AI_API_KEY ? "GOOGLE_GENERATIVE_AI_API_KEY" : (process.env.GOOGLE_API_KEY ? "GOOGLE_API_KEY" : "NONE"),
     maskedKey: apiKey ? apiKey.substring(0, 20) + "..." : null,
+    sdk: "LangChain",
     connectionTest: null as any,
   };
 
@@ -24,7 +25,7 @@ export async function GET(_request: NextRequest) {
     response.connectionTest = {
       status: "SUCCESS",
       embeddingLength: testResult.length,
-      message: "Google Generative AI API is working correctly",
+      message: "Google Generative AI embeddings via LangChain working correctly",
     };
   } catch (error) {
     response.connectionTest = {
@@ -32,10 +33,10 @@ export async function GET(_request: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       hint:
         error instanceof Error && error.message.includes("Not Found")
-          ? "API key may be invalid, expired, or the billing account is not set up"
+          ? "Model name may be invalid or the billing account is not set up"
           : error instanceof Error && error.message.includes("permission")
           ? "API key doesn't have permission to access embeddings"
-          : "Unknown error - check API key validity",
+          : "Unknown error - check API key validity and model name",
     };
   }
 

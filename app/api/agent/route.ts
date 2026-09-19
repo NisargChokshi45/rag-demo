@@ -2,8 +2,8 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { generateObject, streamText } from "ai";
-import { google } from "@ai-sdk/google";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createAgentTools } from "@/lib/agent-tools";
 import { ScreeningReportSchema } from "@/lib/schema";
 
@@ -23,6 +23,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Google API key is missing" },
+        { status: 500 }
+      );
+    }
+
     const toolContext = { fetchedCandidates: new Set<string>() };
     const tools = createAgentTools(toolContext);
 
@@ -30,6 +38,18 @@ export async function POST(request: NextRequest) {
       jobDescription
         ? `You are a resume screening assistant. The job description is:\n\n${jobDescription}\n\nYour job is to screen candidates and provide assessments. Use the available tools to search for candidates and retrieve their full resumes when needed.`
         : "You are a resume screening assistant. Your job is to screen candidates based on the provided criteria. Use the available tools to search for candidates and retrieve their full resumes when needed.";
+
+    const model = new ChatGoogleGenerativeAI({
+      apiKey,
+      model: "gemini-2.5-flash",
+      temperature: 0.7,
+    });
+
+    const agent = createReactAgent({
+      llm: model,
+      tools,
+      messageModifier: systemPrompt,
+    });
 
     const encoder = new TextEncoder();
     const toolCalls: Array<{
@@ -41,23 +61,20 @@ export async function POST(request: NextRequest) {
     const response = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          // Stream the agent response with tool calls
-          const { fullStream } = streamText({
-            model: google("gemini-2.5-flash"),
-            system: systemPrompt,
-            prompt: query,
-            tools,
-            maxSteps: 10,
-            temperature: 0.7,
+          const input = { messages: [{ type: "human", content: query }] };
+          const stream = await agent.streamEvents(input, {
+            version: "v2",
           });
 
-          // Process the stream and extract tool calls
-          for await (const chunk of fullStream) {
-            if (chunk.type === "tool-call") {
+          for await (const event of stream) {
+            if (event.event === "on_tool_start") {
+              const toolName = event.name;
+              const toolInput = event.data?.input || {};
+
               const toolMessage = {
                 type: "tool-call",
-                toolName: chunk.toolName,
-                toolInput: chunk.args as Record<string, unknown>,
+                toolName,
+                toolInput,
               };
 
               controller.enqueue(
@@ -65,15 +82,15 @@ export async function POST(request: NextRequest) {
               );
 
               toolCalls.push({
-                toolName: chunk.toolName,
-                toolInput: chunk.args as Record<string, unknown>,
+                toolName,
+                toolInput: toolInput as Record<string, unknown>,
                 result: null,
               });
-            } else if (chunk.type === "tool-result") {
+            } else if (event.event === "on_tool_end") {
               if (toolCalls.length > 0) {
                 const lastToolCall = toolCalls[toolCalls.length - 1];
-                if (lastToolCall.toolName === chunk.toolName) {
-                  lastToolCall.result = chunk.result;
+                if (lastToolCall.toolName === event.name) {
+                  lastToolCall.result = event.data?.output;
                 }
               }
             }
@@ -98,16 +115,18 @@ ${contextForReport}
 Provide assessments for the candidates mentioned in the results. For each candidate, include their ID, name, a relevance score (0-100), evidence from the resume, and any unknowns.`;
 
           // Generate final structured report
-          const report = await generateObject({
-            model: google("gemini-2.5-flash"),
-            schema: ScreeningReportSchema,
-            prompt: reportPrompt,
+          const reportModel = new ChatGoogleGenerativeAI({
+            apiKey,
+            model: "gemini-2.5-flash",
             temperature: 0.3,
           });
 
+          const structuredOutput = reportModel.withStructuredOutput(ScreeningReportSchema);
+          const report = await structuredOutput.invoke(reportPrompt);
+
           const reportMessage = {
             type: "report",
-            report: report.object,
+            report,
           };
 
           controller.enqueue(
