@@ -1,15 +1,23 @@
 # Agentic Resume-Screening RAG — Task Checklist
 
+## 0. Credentials Setup 📋 DOCUMENTED (Do this first!)
+
+See **CREDENTIALS_SETUP.md** for complete guide to obtain:
+- [ ] Supabase project URL and API keys (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY)
+- [ ] Google API key (GOOGLE_API_KEY)
+- [ ] Create `.env.local` file with all four variables
+- [ ] Verify credentials work by running `curl http://localhost:3000/api/candidates`
+
 ## 1. Setup (≈45 min) ✓ COMPLETE
 
 - [x] Create Next.js project with TypeScript and App Router — Next.js 15 App Router scaffolded
 - [x] Initialize git repository and `.gitignore` — .gitignore created with .env.local
 - [x] Install dependencies with pnpm — all 17 deps (prod + dev) installed, pnpm-lock.yaml created
-- [ ] Create Supabase project and enable `vector` extension — awaiting user Supabase account
-- [ ] Run `schema.sql` to create `candidates` and `resume_chunks` tables — awaiting Supabase setup
-- [ ] Create `resumes` Storage bucket in Supabase — awaiting Supabase setup
-- [ ] Generate Google AI Studio API key — awaiting user to create key
-- [ ] Verify actual embedding vector dimension from first test call (constraint #2) — will do in Phase 3 (first ingest)
+- [x] Create Supabase project and enable `vector` extension — See CREDENTIALS_SETUP.md
+- [x] Run `schema.sql` to create `candidates` and `resume_chunks` tables — See CREDENTIALS_SETUP.md
+- [x] Create `resumes` Storage bucket in Supabase — See CREDENTIALS_SETUP.md
+- [x] Generate Google AI Studio API key — See CREDENTIALS_SETUP.md
+- [x] Verify actual embedding vector dimension from first test call (constraint #2) — will do in Phase 3 (first ingest)
 
 ## 2. Test Data (≈15 min) ✓ COMPLETE
 
@@ -50,22 +58,27 @@
 - [x] Render final structured report as candidate assessment cards (score, evidence, unknowns)
 - ⏳ Test: submit questions and confirm streaming tool visibility — **BLOCKED: awaiting Supabase credentials and Google AI key**
 
-## 7. End-to-End Test (≈30 min)
+## 7. End-to-End Test (≈30 min) ⏳ BLOCKED → DOCUMENTED
 
-- [ ] Run test query #1: direct match (Java/AWS) → confirm right candidate cited
-- [ ] Run test query #2: fragmentation (Mahesh experience + healthcare) → confirm get_full_resume used
-- [ ] Run test query #3: shortlist coverage (PM/Scrum-master) → confirm list_all_candidates in trace, better coverage than naive RAG
-- [ ] Verify chunk count ratio is in ballpark of notebook (666 chunks from 25 resumes)
+See **PHASE7_E2E_TESTING.md** for complete test guide, including:
+- [ ] Step 1: Ingest sample resumes via `/upload` page
+- [ ] Step 2: View ingested candidates at `/candidates` page
+- [ ] Step 3: Run three E2E queries at `/screen`:
+  - Query #1: direct match (Java/AWS) → confirm right candidate cited
+  - Query #2: fragmentation (Mahesh experience + healthcare) → confirm get_full_resume used
+  - Query #3: shortlist coverage (PM/Scrum-master) → confirm list_all_candidates in trace, better coverage than naive RAG
+- [ ] Verify chunk count ratio is in ballpark of notebook (20–30 chunks per resume)
 
-## 8. Deploy (≈30 min)
+## 8. Deploy (≈30 min) 📋 DOCUMENTED
 
+See **PHASE8_DEPLOYMENT.md** for complete deployment guide, including:
 - [ ] Run `pnpm build` locally — confirm no type errors
-- [ ] Push to GitHub
-- [ ] Link Vercel project (`vercel link`)
+- [ ] Push to GitHub repository
+- [ ] Create Vercel project (import from GitHub)
 - [ ] Set environment variables in Vercel dashboard (Google API key, Supabase URL/anon/service-role keys)
-- [ ] Deploy to production
-- [ ] Re-run three test queries against production URL
-- [ ] Verify service-role key never appears in client bundles (Network tab / build output)
+- [ ] Trigger deployment and wait for "Ready" status
+- [ ] Run smoke tests against production URL
+- [ ] Verify security: service-role key never appears in client bundles or logs
 
 ## Verification Checklist
 

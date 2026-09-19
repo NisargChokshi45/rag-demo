@@ -116,21 +116,10 @@ export default function UploadPage() {
 
     setIsUploading(false);
 
-    // Check if all uploads are done
+    // Redirect to candidates after all files complete (with a delay for final state update)
     setTimeout(() => {
-      if (
-        newProgress.every(
-          (p) =>
-            p.status === "done" ||
-            p.status === "error"
-        )
-      ) {
-        // Redirect to candidates page after a short delay
-        setTimeout(() => {
-          router.push("/candidates");
-        }, 1000);
-      }
-    }, 100);
+      router.push("/candidates");
+    }, 2000);
   };
 
   return (
