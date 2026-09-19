@@ -11,18 +11,39 @@ function getGoogleClient() {
 
   return new GoogleGenerativeAIEmbeddings({
     apiKey,
-    model: "models/embedding-001",
+    model: "embedding-001",
   });
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 60000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Embedding request timeout after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
+
 export async function embedDocument(text: string): Promise<number[]> {
-  const embedder = getGoogleClient();
-  const embedding = await embedder.embedQuery(text);
-  return embedding;
+  try {
+    const embedder = getGoogleClient();
+    const embedding = await withTimeout(embedder.embedQuery(text), 60000);
+    return embedding;
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("[EMBEDDINGS] Failed to embed:", err.message);
+    throw err;
+  }
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
-  const embedder = getGoogleClient();
-  const embedding = await embedder.embedQuery(text);
-  return embedding;
+  try {
+    const embedder = getGoogleClient();
+    const embedding = await withTimeout(embedder.embedQuery(text), 60000);
+    return embedding;
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("[EMBEDDINGS] Failed to embed:", err.message);
+    throw err;
+  }
 }

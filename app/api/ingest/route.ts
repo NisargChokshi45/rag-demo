@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
     const body: IngestRequest = await request.json();
     const { storagePath } = body;
 
+    console.log(`[INGEST] Starting ingestion for: ${storagePath}`);
+
     if (!storagePath) {
       return NextResponse.json(
         { error: "storagePath is required" },
@@ -30,6 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Download PDF from Supabase Storage
+    console.log(`[INGEST] Downloading from Supabase Storage...`);
     const client = createServerClient();
     const { data, error: downloadError } = await client.storage
       .from("resumes")
@@ -98,13 +101,17 @@ export async function POST(request: NextRequest) {
 
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
+          console.log(`[INGEST] Embedding chunk ${i}/${textChunks.length} (attempt ${attempt + 1}/${MAX_RETRIES})`);
           embedding = await embedDocument(chunk);
+          console.log(`[INGEST] ✓ Chunk ${i} embedded successfully (${embedding.length} dimensions)`);
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
+          console.error(`[INGEST] ✗ Chunk ${i} embedding failed (attempt ${attempt + 1}): ${lastError.message}`);
           if (attempt < MAX_RETRIES - 1) {
             // Exponential backoff: 1s, 2s, 4s
             const backoffMs = Math.pow(2, attempt) * 1000;
+            console.log(`[INGEST] Retrying in ${backoffMs}ms...`);
             await delay(backoffMs);
           }
         }
@@ -123,13 +130,16 @@ export async function POST(request: NextRequest) {
 
       // Add delay between batches to avoid rate limiting
       if ((i + 1) % 5 === 0) {
+        console.log(`[INGEST] Completed batch of 5 chunks, pausing for ${BATCH_DELAY}ms`);
         await delay(BATCH_DELAY);
       }
     }
 
     // Insert chunks
+    console.log(`[INGEST] Inserting ${chunks.length} chunks into database...`);
     await insertChunks(candidateId, chunks);
 
+    console.log(`[INGEST] ✓ Ingestion complete for ${nameFromFile}`);
     return NextResponse.json({
       success: true,
       candidateId,
@@ -139,8 +149,10 @@ export async function POST(request: NextRequest) {
       textLength: fullText.length,
     });
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[INGEST] ✗ Ingestion failed: ${errorMsg}`);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      { error: errorMsg },
       { status: 500 }
     );
   }
