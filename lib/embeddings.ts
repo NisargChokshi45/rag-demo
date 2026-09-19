@@ -11,7 +11,7 @@ function getGoogleClient() {
 
   return new GoogleGenerativeAIEmbeddings({
     apiKey,
-    model: "models/text-embedding-004",
+    model: "models/embedding-001",
   });
 }
 
