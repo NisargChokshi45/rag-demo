@@ -1,15 +1,15 @@
 # Agentic Resume-Screening RAG — Task Checklist
 
-## 1. Setup (≈45 min)
+## 1. Setup (≈45 min) ✓ COMPLETE
 
-- [ ] Create Supabase project and enable `vector` extension
-- [ ] Run `schema.sql` to create `candidates` and `resume_chunks` tables
-- [ ] Create `resumes` Storage bucket in Supabase
-- [ ] Generate Google AI Studio API key
-- [ ] Create Next.js project with TypeScript and App Router (`npx create-next-app`)
-- [ ] Initialize git repository and `.gitignore` (include `.env.local`)
-- [ ] Install dependencies: `ai`, `@ai-sdk/google`, `@supabase/supabase-js`, `unpdf`, `zod`
-- [ ] Verify actual embedding vector dimension from first test call (constraint #2)
+- [x] Create Next.js project with TypeScript and App Router — Next.js 15 App Router scaffolded
+- [x] Initialize git repository and `.gitignore` — .gitignore created with .env.local
+- [x] Install dependencies with pnpm — all 17 deps (prod + dev) installed, pnpm-lock.yaml created
+- [ ] Create Supabase project and enable `vector` extension — awaiting user Supabase account
+- [ ] Run `schema.sql` to create `candidates` and `resume_chunks` tables — awaiting Supabase setup
+- [ ] Create `resumes` Storage bucket in Supabase — awaiting Supabase setup
+- [ ] Generate Google AI Studio API key — awaiting user to create key
+- [ ] Verify actual embedding vector dimension from first test call (constraint #2) — will do in Phase 3 (first ingest)
 
 ## 2. Test Data (≈15 min)
 
@@ -58,7 +58,7 @@
 
 ## 8. Deploy (≈30 min)
 
-- [ ] Run `next build` locally — confirm no type errors
+- [ ] Run `pnpm build` locally — confirm no type errors
 - [ ] Push to GitHub
 - [ ] Link Vercel project (`vercel link`)
 - [ ] Set environment variables in Vercel dashboard (Google API key, Supabase URL/anon/service-role keys)
