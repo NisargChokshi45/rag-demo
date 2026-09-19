@@ -35,20 +35,20 @@
 - [x] Implement `app/candidates/page.tsx` — display candidate list (name, role, chunk count) with upload/screen buttons
 - ⏳ Test: upload PDFs via Upload page → see candidates listed on Candidates page — **BLOCKED: awaiting Supabase credentials**
 
-## 5. Agent Route (≈2 hr)
+## 5. Agent Route (≈2 hr) ✓ COMPLETE
 
-- [ ] Implement `lib/schema.ts` — Zod ScreeningReport and CandidateAssessment schemas
-- [ ] Implement `lib/agent-tools.ts` — tool definitions (list_all_candidates, search_chunks, get_full_resume) with fetch-cap closure
-- [ ] Implement `app/upload/page.tsx` — JD textarea + resume picker, drives signed-upload flow
-- [ ] Implement `api/agent/route.ts` — tool-calling loop (generateText) + final generateObject call (set maxDuration, runtime=nodejs)
-- [ ] Test with curl/script: verify tool calls and structured final report
+- [x] Implement `lib/schema.ts` — Zod ScreeningReport and CandidateAssessment schemas (already present)
+- [x] Implement `lib/agent-tools.ts` — tool definitions (list_all_candidates, search_chunks, get_full_resume) with fetch-cap closure
+- [x] Implement `app/upload/page.tsx` — JD textarea + resume picker, drives signed-upload flow (already implemented)
+- [x] Implement `api/agent/route.ts` — tool-calling loop (streamText) + final generateObject call (set maxDuration, runtime=nodejs)
+- ⏳ Test with curl/script: verify tool calls and structured final report — **BLOCKED: awaiting Supabase credentials and Google AI key**
 
-## 6. Screen Page UI (≈1 hr)
+## 6. Screen Page UI (≈1 hr) ✓ COMPLETE
 
-- [ ] Implement `app/screen/page.tsx` — chat UI with useChat hook
-- [ ] Render live tool-call trace (search/rerank/fetch events)
-- [ ] Render final structured report as candidate assessment cards (score, evidence, unknowns)
-- [ ] Test: submit questions and confirm streaming tool visibility
+- [x] Implement `app/screen/page.tsx` — chat UI with hand-rolled NDJSON streaming
+- [x] Render live tool-call trace (search/rerank/fetch events as they stream)
+- [x] Render final structured report as candidate assessment cards (score, evidence, unknowns)
+- ⏳ Test: submit questions and confirm streaming tool visibility — **BLOCKED: awaiting Supabase credentials and Google AI key**
 
 ## 7. End-to-End Test (≈30 min)
 
