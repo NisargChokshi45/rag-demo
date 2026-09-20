@@ -1,19 +1,14 @@
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { Embeddings } from "@langchain/core/embeddings";
+import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
 
-function getEmbedder(): Embeddings {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Google API key is missing. Set GOOGLE_GENERATIVE_AI_API_KEY or GOOGLE_API_KEY in environment"
-    );
+let embedder: HuggingFaceTransformersEmbeddings | null = null;
+
+async function getEmbedder(): Promise<HuggingFaceTransformersEmbeddings> {
+  if (!embedder) {
+    embedder = new HuggingFaceTransformersEmbeddings({
+      model: process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2",
+    });
   }
-
-  const model = process.env.EMBEDDING_MODEL || "embedding-001";
-  return new GoogleGenerativeAIEmbeddings({
-    apiKey,
-    model,
-  });
+  return embedder;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 60000): Promise<T> {
@@ -27,7 +22,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 60000): Promise
 
 export async function embedDocument(text: string): Promise<number[]> {
   try {
-    const embedder = getEmbedder();
+    const embedder = await getEmbedder();
     const embedding = await withTimeout(embedder.embedQuery(text), 60000);
     return embedding;
   } catch (error) {
@@ -39,7 +34,7 @@ export async function embedDocument(text: string): Promise<number[]> {
 
 export async function embedQuery(text: string): Promise<number[]> {
   try {
-    const embedder = getEmbedder();
+    const embedder = await getEmbedder();
     const embedding = await withTimeout(embedder.embedQuery(text), 60000);
     return embedding;
   } catch (error) {
