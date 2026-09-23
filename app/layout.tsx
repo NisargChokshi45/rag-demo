@@ -35,12 +35,6 @@ export default function RootLayout({
                 Home
               </Link>
               <Link
-                href="/upload"
-                className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-              >
-                Upload
-              </Link>
-              <Link
                 href="/candidates"
                 className="text-gray-600 hover:text-gray-900 font-medium text-sm"
               >

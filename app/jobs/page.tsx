@@ -74,7 +74,7 @@ export default function JobsPage() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-end justify-between gap-4">
+        <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-600">
               Hiring workspace

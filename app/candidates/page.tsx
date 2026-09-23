@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+interface UploadProgress {
+  filename: string;
+  status: 'pending' | 'uploading' | 'ingesting' | 'done' | 'error';
+  progress?: number;
+  error?: string;
+}
+
 interface Candidate {
   id: string;
   name: string;
@@ -42,21 +49,25 @@ export default function CandidatesPage() {
   const [selectedAssessment, setSelectedAssessment] =
     useState<Assessment | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobDescription, setJobDescription] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+
+  const fetchCandidates = async () => {
+    try {
+      const response = await fetch('/api/candidates');
+      if (!response.ok) throw new Error('Failed to fetch candidates');
+      const data = await response.json();
+      setCandidates(data.candidates || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCandidates = async () => {
-      try {
-        const response = await fetch('/api/candidates');
-        if (!response.ok) throw new Error('Failed to fetch candidates');
-        const data = await response.json();
-        setCandidates(data.candidates || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     const fetchJobs = async () => {
       try {
         const response = await fetch('/api/jobs');
@@ -77,6 +88,122 @@ export default function CandidatesPage() {
     fetchCandidates();
     fetchJobs();
   }, []);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setIsUploading(true);
+    localStorage.setItem('screeningJobDescription', jobDescription);
+    const newProgress: UploadProgress[] = files.map((f) => ({
+      filename: f.name,
+      status: 'pending',
+    }));
+    setUploadProgress(newProgress);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      try {
+        // Update to uploading
+        setUploadProgress((prev) =>
+          prev.map((p, idx) =>
+            idx === i ? { ...p, status: 'uploading', progress: 0 } : p
+          )
+        );
+
+        // Get signed upload URL
+        const urlResponse = await fetch('/api/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name }),
+        });
+
+        if (!urlResponse.ok) {
+          throw new Error('Failed to get upload URL');
+        }
+
+        const { signedUrl, path } = await urlResponse.json();
+
+        // Upload to Supabase Storage using signed URL
+        const uploadResponse = await fetch(signedUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': 'application/pdf' },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file to storage');
+        }
+
+        // Update to ingesting
+        setUploadProgress((prev) =>
+          prev.map((p, idx) =>
+            idx === i ? { ...p, status: 'ingesting', progress: 50 } : p
+          )
+        );
+
+        // Trigger ingestion
+        const ingestResponse = await fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storagePath: path,
+            jobDescription,
+          }),
+        });
+
+        if (!ingestResponse.ok) {
+          const errorData = await ingestResponse.json();
+          throw new Error(errorData.error || 'Ingestion failed');
+        }
+
+        await ingestResponse.json();
+
+        // Mark as done
+        setUploadProgress((prev) =>
+          prev.map((p, idx) =>
+            idx === i
+              ? {
+                  ...p,
+                  status: 'done',
+                  progress: 100,
+                }
+              : p
+          )
+        );
+      } catch (error) {
+        setUploadProgress((prev) =>
+          prev.map((p, idx) =>
+            idx === i
+              ? {
+                  ...p,
+                  status: 'error',
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
+                }
+              : p
+          )
+        );
+      }
+    }
+
+    setIsUploading(false);
+
+    // Refresh candidates list after upload
+    setUploadProgress((finalProgress) => {
+      const hasErrors = finalProgress.some((p) => p.status === 'error');
+      if (!hasErrors) {
+        setTimeout(() => {
+          fetchCandidates();
+          setShowUploadForm(false);
+          setJobDescription('');
+          setUploadProgress([]);
+        }, 2000);
+      }
+      return finalProgress;
+    });
+  };
 
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
@@ -107,15 +234,142 @@ export default function CandidatesPage() {
               : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} ingested`}
           </p>
         </div>
+
+        {/* Upload Form Section */}
+        {showUploadForm && (
+          <div className="bg-white p-6 md:p-8 rounded-lg shadow mb-8 space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Upload Resumes</h2>
+              <button
+                onClick={() => {
+                  setShowUploadForm(false);
+                  setUploadProgress([]);
+                }}
+                className="text-2xl text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Job Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Job Description (Optional)
+              </label>
+              <textarea
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the job description here..."
+                className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Resume Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Resumes (PDF)
+              </label>
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
+                  isUploading
+                    ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                    : 'border-gray-300 hover:border-blue-400 cursor-pointer'
+                }`}
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf"
+                  onChange={handleFileSelect}
+                  disabled={isUploading}
+                  className="hidden"
+                  id="resume-input"
+                />
+                <label
+                  htmlFor="resume-input"
+                  className={`block ${
+                    isUploading
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-gray-600 hover:text-blue-600 cursor-pointer'
+                  }`}
+                >
+                  <div className="text-3xl mb-2">📄</div>
+                  <p className="font-medium">Click to select PDF files</p>
+                  <p className="text-sm text-gray-500">
+                    Select one or more resumes to upload
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            {/* Upload Progress */}
+            {uploadProgress.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-gray-900">Upload Progress</h3>
+                {uploadProgress.map((item, idx) => {
+                  const statusConfig = {
+                    pending: {
+                      label: 'Waiting',
+                      color: 'bg-gray-100 text-gray-700',
+                    },
+                    uploading: {
+                      label: 'Uploading',
+                      color: 'bg-blue-100 text-blue-700',
+                    },
+                    ingesting: {
+                      label: 'Processing',
+                      color: 'bg-purple-100 text-purple-700',
+                    },
+                    done: {
+                      label: 'Complete',
+                      color: 'bg-green-100 text-green-700',
+                    },
+                    error: { label: 'Failed', color: 'bg-red-100 text-red-700' },
+                  };
+                  const config = statusConfig[item.status];
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-900">
+                          {item.filename}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}
+                        >
+                          {config.label}
+                        </span>
+                      </div>
+                      {item.status === 'error' && (
+                        <p className="text-sm text-red-600">{item.error}</p>
+                      )}
+                      {item.progress !== undefined && item.status !== 'error' && (
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${item.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
           {candidates.length > 0 && (
             <div className="flex gap-4">
-              <Link
-                href="/upload"
+              <button
+                onClick={() => setShowUploadForm(!showUploadForm)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
               >
-                Upload More
-              </Link>
+                {showUploadForm ? 'Cancel' : 'Upload More'}
+              </button>
               <Link
                 href="/screen"
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
@@ -146,12 +400,12 @@ export default function CandidatesPage() {
           <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
             <p className="text-4xl mb-4">📋</p>
             <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
-            <Link
-              href="/upload"
+            <button
+              onClick={() => setShowUploadForm(true)}
               className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Upload Resumes to Get Started
-            </Link>
+            </button>
           </div>
         )}
 

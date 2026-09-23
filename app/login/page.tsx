@@ -56,7 +56,7 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/upload');
+        router.push('/candidates');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
