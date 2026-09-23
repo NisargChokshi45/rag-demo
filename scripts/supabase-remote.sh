@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Automatically export all variables loaded from this point
+set -a
+source .env.local
+set +a
+
 operation="${1:-setup}"
 
 run_with_db_url() {
