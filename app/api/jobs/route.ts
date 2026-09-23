@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createJob, listJobs } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    return NextResponse.json({ jobs: await listJobs() });
+    const activeOnly =
+      new URL(request.url).searchParams.get('active') === 'true';
+    return NextResponse.json({ jobs: await listJobs(activeOnly) });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to load jobs' },
@@ -28,6 +30,8 @@ export async function POST(request: NextRequest) {
           .map((skill: string) => skill.trim())
           .filter(Boolean)
       : [];
+    const is_active =
+      typeof body.is_active === 'boolean' ? body.is_active : true;
 
     if (!title || !description || !experience || skills.length === 0) {
       return NextResponse.json(
@@ -40,7 +44,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { job: await createJob({ title, description, experience, skills }) },
+      {
+        job: await createJob({
+          title,
+          description,
+          experience,
+          skills,
+          is_active,
+        }),
+      },
       { status: 201 }
     );
   } catch (error) {

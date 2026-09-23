@@ -11,6 +11,7 @@ export interface Job {
   description: string;
   experience: string;
   skills: string[];
+  is_active: boolean;
   created_at: string;
 }
 
@@ -19,38 +20,86 @@ export interface CreateJobInput {
   description: string;
   experience: string;
   skills: string[];
+  is_active?: boolean;
 }
+
+export type UpdateJobInput = CreateJobInput;
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
   const client = createServiceClient();
   const { data, error } = await client
     .from('jobs')
-    .insert(input)
-    .select('id, title, description, experience, skills, created_at')
+    .insert({ ...input, is_active: input.is_active ?? true })
+    .select('id, title, description, experience, skills, is_active, created_at')
     .single();
 
   if (error) throw error;
   return data as Job;
 }
 
-export async function listJobs(): Promise<Job[]> {
+export async function updateJob(
+  jobId: string,
+  input: UpdateJobInput
+): Promise<Job> {
   const client = createServiceClient();
+  const update =
+    input.is_active === undefined
+      ? {
+          title: input.title,
+          description: input.description,
+          experience: input.experience,
+          skills: input.skills,
+        }
+      : input;
   const { data, error } = await client
     .from('jobs')
-    .select('id, title, description, experience, skills, created_at')
-    .order('created_at', { ascending: false });
+    .update(update)
+    .eq('id', jobId)
+    .select('id, title, description, experience, skills, is_active, created_at')
+    .single();
+
+  if (error) throw error;
+  return data as Job;
+}
+
+export async function deleteJob(jobId: string): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client.from('jobs').delete().eq('id', jobId);
+
+  if (error) throw error;
+}
+
+export async function listJobs(activeOnly = false): Promise<Job[]> {
+  const client = createServiceClient();
+  let query = client
+    .from('jobs')
+    .select(
+      'id, title, description, experience, skills, is_active, created_at'
+    );
+
+  if (activeOnly) query = query.eq('is_active', true);
+
+  const { data, error } = await query.order('created_at', {
+    ascending: false,
+  });
 
   if (error) throw error;
   return (data || []) as Job[];
 }
 
-export async function getJobById(jobId: string): Promise<Job> {
+export async function getJobById(
+  jobId: string,
+  activeOnly = false
+): Promise<Job> {
   const client = createServiceClient();
-  const { data, error } = await client
+  let query = client
     .from('jobs')
-    .select('id, title, description, experience, skills, created_at')
-    .eq('id', jobId)
-    .single();
+    .select('id, title, description, experience, skills, is_active, created_at')
+    .eq('id', jobId);
+
+  if (activeOnly) query = query.eq('is_active', true);
+
+  const { data, error } = await query.single();
 
   if (error) throw error;
   return data as Job;

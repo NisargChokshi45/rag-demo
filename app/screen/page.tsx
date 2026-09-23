@@ -9,6 +9,7 @@ interface Job {
   description: string;
   experience: string;
   skills: string[];
+  is_active: boolean;
 }
 
 interface ToolCall {
@@ -70,7 +71,7 @@ export default function ScreenPage() {
     if (saved) {
       setHistory(JSON.parse(saved));
     }
-    fetch('/api/jobs')
+    fetch('/api/jobs?active=true')
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to load jobs');

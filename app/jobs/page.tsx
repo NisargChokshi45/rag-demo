@@ -9,7 +9,36 @@ interface Job {
   description: string;
   experience: string;
   skills: string[];
+  is_active: boolean;
   created_at: string;
+}
+
+function EditIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 fill-none stroke-current stroke-2"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 fill-none stroke-current stroke-2"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
 }
 
 export default function JobsPage() {
@@ -22,6 +51,9 @@ export default function JobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [deletingJob, setDeletingJob] = useState<Job | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetch('/api/jobs')
@@ -44,30 +76,113 @@ export default function JobsPage() {
     }
   };
 
+  const openCreateModal = () => {
+    setEditingJob(null);
+    setTitle('');
+    setDescription('');
+    setExperience('');
+    setSkills([]);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (job: Job) => {
+    setEditingJob(job);
+    setTitle(job.title);
+    setDescription(job.description);
+    setExperience(job.experience);
+    setSkills(job.skills);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setIsSaving(true);
     try {
-      const response = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, experience, skills }),
-      });
+      const response = await fetch(
+        editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs',
+        {
+          method: editingJob ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description, experience, skills }),
+        }
+      );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to create job');
-      setJobs((current) => [data.job, ...current]);
+      if (!response.ok) throw new Error(data.error || 'Unable to save job');
+      setJobs((current) =>
+        editingJob
+          ? current.map((job) => (job.id === data.job.id ? data.job : job))
+          : [data.job, ...current]
+      );
       setTitle('');
       setDescription('');
       setExperience('');
       setSkills([]);
+      setEditingJob(null);
       setIsModalOpen(false);
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : 'Unable to create job'
+        saveError instanceof Error ? saveError.message : 'Unable to save job'
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingJob) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/${deletingJob.id}`, {
+        method: 'DELETE',
+      });
+      const data = response.status === 204 ? null : await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Unable to delete job');
+      }
+      setJobs((current) => current.filter((job) => job.id !== deletingJob.id));
+      setDeletingJob(null);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Unable to delete job'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleToggleActive = async (job: Job) => {
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: job.title,
+          description: job.description,
+          experience: job.experience,
+          skills: job.skills,
+          is_active: !job.is_active,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update job');
+      setJobs((current) =>
+        current.map((currentJob) =>
+          currentJob.id === data.job.id ? data.job : currentJob
+        )
+      );
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : 'Unable to update job'
+      );
     }
   };
 
@@ -87,7 +202,7 @@ export default function JobsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Add Job
@@ -113,9 +228,20 @@ export default function JobsPage() {
                     <h3 className="font-semibold text-slate-900">
                       {job.title}
                     </h3>
-                    <span className="text-xs text-slate-500">
-                      {new Date(job.created_at).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          job.is_active
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {job.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">
                     {job.description}
@@ -146,6 +272,36 @@ export default function JobsPage() {
                     >
                       Screen this job
                     </Link>
+                    <div className="ml-auto flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(job)}
+                        className="inline-flex items-center gap-1.5 rounded border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                        aria-label={`Edit ${job.title}`}
+                      >
+                        <EditIcon />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setDeletingJob(job);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded border border-red-200 px-2.5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                        aria-label={`Delete ${job.title}`}
+                      >
+                        <TrashIcon />
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(job)}
+                        className="rounded border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+                      >
+                        {job.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))
@@ -158,19 +314,22 @@ export default function JobsPage() {
             className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="add-job-title"
+            aria-labelledby="job-form-title"
           >
             <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-5 flex items-center justify-between">
                 <h2
-                  id="add-job-title"
+                  id="job-form-title"
                   className="text-xl font-semibold text-slate-900"
                 >
-                  Add Job
+                  {editingJob ? 'Edit Job' : 'Add Job'}
                 </h2>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingJob(null);
+                  }}
                   className="text-2xl leading-none text-slate-500 hover:text-slate-900"
                   aria-label="Close"
                 >
@@ -282,9 +441,59 @@ export default function JobsPage() {
                   disabled={isSaving}
                   className="w-full rounded bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-slate-400"
                 >
-                  {isSaving ? 'Saving job...' : 'Create job'}
+                  {isSaving
+                    ? 'Saving job...'
+                    : editingJob
+                      ? 'Save changes'
+                      : 'Create job'}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {deletingJob && (
+          <div
+            className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-job-title"
+          >
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <h2
+                id="delete-job-title"
+                className="text-xl font-semibold text-slate-900"
+              >
+                Delete this job?
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                This will permanently delete{' '}
+                <strong>{deletingJob.title}</strong> and its screening history.
+              </p>
+              {error && (
+                <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeletingJob(null)}
+                  disabled={isDeleting}
+                  className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:bg-slate-400"
+                >
+                  <TrashIcon />
+                  {isDeleting ? 'Deleting...' : 'Delete job'}
+                </button>
+              </div>
             </div>
           </div>
         )}

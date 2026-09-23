@@ -8,6 +8,7 @@ create table if not exists jobs (
   description text not null default '',
   experience text not null default '',
   skills text[] not null default '{}',
+  is_active boolean not null default true,
   created_at timestamptz default now()
 );
 

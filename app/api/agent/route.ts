@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const toolContext = { fetchedCandidates: new Set<string>() };
     const tools = createAgentTools(toolContext);
-    const job = jobId ? await getJobById(jobId) : null;
+    const job = jobId ? await getJobById(jobId, true) : null;
     const jobContext = job
       ? `Job title: ${job.title}\nDescription: ${job.description}\nExperience: ${job.experience}\nRequired skills: ${job.skills.join(', ')}`
       : '';
