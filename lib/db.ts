@@ -25,6 +25,12 @@ export interface CreateJobInput {
 
 export type UpdateJobInput = CreateJobInput;
 
+export interface ListJobsOptions {
+  search?: string;
+  status?: 'all' | 'active' | 'inactive';
+  sort?: 'title' | 'newest' | 'oldest';
+}
+
 export async function createJob(input: CreateJobInput): Promise<Job> {
   const client = createServiceClient();
   const { data, error } = await client
@@ -69,7 +75,10 @@ export async function deleteJob(jobId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function listJobs(activeOnly = false): Promise<Job[]> {
+export async function listJobs(
+  activeOnly = false,
+  options: ListJobsOptions = {}
+): Promise<Job[]> {
   const client = createServiceClient();
   let query = client
     .from('jobs')
@@ -77,11 +86,29 @@ export async function listJobs(activeOnly = false): Promise<Job[]> {
       'id, title, description, experience, skills, is_active, created_at'
     );
 
-  if (activeOnly) query = query.eq('is_active', true);
+  if (activeOnly || options.status === 'active') {
+    query = query.eq('is_active', true);
+  } else if (options.status === 'inactive') {
+    query = query.eq('is_active', false);
+  }
 
-  const { data, error } = await query.order('created_at', {
-    ascending: false,
-  });
+  const search = options.search
+    ?.trim()
+    .replace(/[,%(){}.*]/g, ' ')
+    .slice(0, 100);
+  if (search) {
+    query = query.or(
+      `title.ilike.%${search}%,description.ilike.%${search}%,experience.ilike.%${search}%,skills.cs.{${search}}`
+    );
+  }
+
+  const sort = options.sort || 'newest';
+  const { data, error } = await query.order(
+    sort === 'title' ? 'title' : 'created_at',
+    {
+      ascending: sort === 'oldest' || sort === 'title',
+    }
+  );
 
   if (error) throw error;
   return (data || []) as Job[];
@@ -188,12 +215,46 @@ export async function getFullResumeById(candidateId: string): Promise<string> {
   return data.full_text;
 }
 
-export async function listCandidates(): Promise<any[]> {
+export interface ListCandidatesOptions {
+  search?: string;
+  role?: string;
+  status?: 'all' | 'indexed' | 'not-indexed';
+  sort?: 'name' | 'role' | 'indexed';
+}
+
+export async function listCandidates(
+  options: ListCandidatesOptions = {}
+): Promise<any[]> {
   const client = createServiceClient();
 
-  const { data: candidates, error: candidatesError } = await client
+  let candidateQuery = client
     .from('candidates')
     .select('id, name, role_guess, original_filename');
+
+  if (options.search?.trim()) {
+    const search = options.search.trim().replace(/[%(),]/g, ' ');
+    candidateQuery = candidateQuery.or(
+      `name.ilike.%${search}%,role_guess.ilike.%${search}%,original_filename.ilike.%${search}%`
+    );
+  }
+
+  if (options.role && options.role !== 'all') {
+    candidateQuery = candidateQuery.eq('role_guess', options.role);
+  }
+
+  if (options.sort === 'role') {
+    candidateQuery = candidateQuery.order('role_guess', {
+      ascending: true,
+      nullsFirst: false,
+    });
+  } else if (options.sort !== 'indexed') {
+    candidateQuery = candidateQuery.order('name', {
+      ascending: true,
+      nullsFirst: false,
+    });
+  }
+
+  const { data: candidates, error: candidatesError } = await candidateQuery;
 
   if (candidatesError) throw candidatesError;
 
@@ -209,10 +270,42 @@ export async function listCandidates(): Promise<any[]> {
     countMap[chunk.candidate_id] = (countMap[chunk.candidate_id] || 0) + 1;
   });
 
-  return candidates.map((candidate: any) => ({
+  const results = candidates.map((candidate: any) => ({
     ...candidate,
     chunk_count: countMap[candidate.id] || 0,
   }));
+
+  const filtered =
+    options.status === 'indexed'
+      ? results.filter((candidate) => candidate.chunk_count > 0)
+      : options.status === 'not-indexed'
+        ? results.filter((candidate) => candidate.chunk_count === 0)
+        : results;
+
+  if (options.sort === 'indexed') {
+    return filtered.sort((left, right) => right.chunk_count - left.chunk_count);
+  }
+
+  return filtered;
+}
+
+export async function listCandidateRoles(): Promise<string[]> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('candidates')
+    .select('role_guess')
+    .not('role_guess', 'is', null)
+    .order('role_guess', { ascending: true });
+
+  if (error) throw error;
+
+  return Array.from(
+    new Set(
+      (data || [])
+        .map((candidate) => candidate.role_guess)
+        .filter((role): role is string => Boolean(role))
+    )
+  );
 }
 
 export interface ScreeningAssessment {

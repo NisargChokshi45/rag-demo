@@ -3,9 +3,23 @@ import { createJob, listJobs } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const activeOnly =
-      new URL(request.url).searchParams.get('active') === 'true';
-    return NextResponse.json({ jobs: await listJobs(activeOnly) });
+    const searchParams = new URL(request.url).searchParams;
+    const statusParam = searchParams.get('status');
+    const sortParam = searchParams.get('sort');
+    const status =
+      statusParam === 'active' || statusParam === 'inactive'
+        ? statusParam
+        : 'all';
+    const sort =
+      sortParam === 'title' || sortParam === 'oldest' ? sortParam : 'newest';
+
+    return NextResponse.json({
+      jobs: await listJobs(searchParams.get('active') === 'true', {
+        search: searchParams.get('search') || undefined,
+        status,
+        sort,
+      }),
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to load jobs' },
