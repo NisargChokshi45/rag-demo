@@ -64,13 +64,46 @@ export default function ScreenPage() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<ScreeningHistory[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('screeningHistory');
-    if (saved) {
-      setHistory(JSON.parse(saved));
+  // Load screening history from Supabase (or localStorage as fallback)
+  const loadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch('/api/screenings');
+      if (response.ok) {
+        const { screenings } = await response.json();
+        const formattedHistory: ScreeningHistory[] = screenings.map(
+          (s: any) => ({
+            id: s.id,
+            query: s.query,
+            timestamp: new Date(s.created_at).getTime(),
+            report: s.report,
+          })
+        );
+        setHistory(formattedHistory);
+      } else {
+        // Fallback to localStorage if API fails
+        const saved = localStorage.getItem('screeningHistory');
+        if (saved) {
+          setHistory(JSON.parse(saved));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load history from Supabase, using localStorage:', err);
+      const saved = localStorage.getItem('screeningHistory');
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      }
+    } finally {
+      setIsLoadingHistory(false);
     }
+  };
+
+  useEffect(() => {
+    loadHistory();
     fetch('/api/jobs?active=true')
       .then(async (response) => {
         const data = await response.json();
@@ -95,26 +128,128 @@ export default function ScreenPage() {
     scrollToBottom();
   }, [toolCalls, report]);
 
-  const saveToHistory = (q: string, r: ReportData | null) => {
-    const newEntry: ScreeningHistory = {
-      id: Date.now().toString(),
-      query: q,
-      timestamp: Date.now(),
-      report: r,
-    };
-    const updated = [newEntry, ...history];
-    setHistory(updated);
-    localStorage.setItem('screeningHistory', JSON.stringify(updated));
+  const saveToHistory = async (q: string, r: ReportData | null) => {
+    if (!r) return;
+
+    try {
+      // Save to Supabase
+      const response = await fetch('/api/screenings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: selectedJobId || undefined,
+          query: q,
+          report: r,
+        }),
+      });
+
+      if (response.ok) {
+        const { screeningId } = await response.json();
+        const newEntry: ScreeningHistory = {
+          id: screeningId,
+          query: q,
+          timestamp: Date.now(),
+          report: r,
+        };
+        const updated = [newEntry, ...history];
+        setHistory(updated);
+        // Also save to localStorage as backup
+        localStorage.setItem('screeningHistory', JSON.stringify(updated));
+      } else {
+        // Fallback to localStorage if Supabase save fails
+        const newEntry: ScreeningHistory = {
+          id: Date.now().toString(),
+          query: q,
+          timestamp: Date.now(),
+          report: r,
+        };
+        const updated = [newEntry, ...history];
+        setHistory(updated);
+        localStorage.setItem('screeningHistory', JSON.stringify(updated));
+        console.warn('Failed to save to Supabase, saved to localStorage instead');
+      }
+    } catch (err) {
+      console.error('Error saving to history:', err);
+      // Fallback to localStorage
+      const newEntry: ScreeningHistory = {
+        id: Date.now().toString(),
+        query: q,
+        timestamp: Date.now(),
+        report: r,
+      };
+      const updated = [newEntry, ...history];
+      setHistory(updated);
+      localStorage.setItem('screeningHistory', JSON.stringify(updated));
+    }
   };
 
-  const loadFromHistory = (item: ScreeningHistory) => {
+  const loadFromHistory = async (item: ScreeningHistory) => {
     setQuery(item.query);
+    setSubmittedQuery(item.query);
     setToolCalls([]);
-    setReport(item.report);
     setError(null);
+
+    // Fetch full details from Supabase for better data integrity
+    try {
+      const response = await fetch(`/api/screenings/${item.id}`);
+      if (response.ok) {
+        const screening = await response.json();
+        // Reconstruct report with assessments
+        const report: ReportData = {
+          query: screening.query,
+          summary: screening.summary,
+          reasoning: screening.reasoning,
+          context: screening.context,
+          assessments: screening.screening_assessments.map((assessment: any) => ({
+            candidateId: assessment.candidate_id,
+            candidateName: '', // Will be fetched from candidates if needed
+            score: assessment.score,
+            evidence: assessment.evidence,
+            unknowns: assessment.unknowns,
+            citations: assessment.screening_citations,
+          })),
+        };
+        setReport(report);
+      } else {
+        // Fallback to local report data
+        setReport(item.report);
+      }
+    } catch (err) {
+      console.error('Error loading screening details:', err);
+      setReport(item.report);
+    }
   };
 
-  const clearHistory = () => {
+  const deleteFromHistory = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/screenings/${itemId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setHistory((prev) => prev.filter((item) => item.id !== itemId));
+        localStorage.setItem(
+          'screeningHistory',
+          JSON.stringify(history.filter((item) => item.id !== itemId))
+        );
+      } else {
+        setError('Failed to delete screening');
+      }
+    } catch (err) {
+      console.error('Error deleting screening:', err);
+      setError('Error deleting screening');
+    }
+  };
+
+  const clearHistory = async () => {
+    // Delete all screenings from Supabase
+    for (const item of history) {
+      try {
+        await fetch(`/api/screenings/${item.id}`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('Error deleting screening:', err);
+      }
+    }
     setHistory([]);
     localStorage.removeItem('screeningHistory');
   };
@@ -123,6 +258,7 @@ export default function ScreenPage() {
     e.preventDefault();
     if (!query.trim()) return;
 
+    setSubmittedQuery(query);
     setIsLoading(true);
     setError(null);
     setToolCalls([]);
@@ -200,7 +336,13 @@ export default function ScreenPage() {
             Screening History
           </h2>
           <button
-            onClick={() => setQuery('')}
+            onClick={() => {
+              setQuery('');
+              setSubmittedQuery('');
+              setReport(null);
+              setToolCalls([]);
+              setError(null);
+            }}
             className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
           >
             New Query
@@ -208,31 +350,49 @@ export default function ScreenPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {history.length === 0 ? (
+          {isLoadingHistory ? (
+            <div className="p-4 text-sm text-gray-500">
+              Loading history...
+            </div>
+          ) : history.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               No screening history yet. Start with a new query.
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
               {history.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  onClick={() => loadFromHistory(item)}
-                  className="w-full text-left p-3 hover:bg-gray-50 transition group"
+                  className="p-3 hover:bg-gray-50 transition group border-b border-gray-100 flex items-start justify-between gap-2"
                 >
-                  <p className="text-xs text-gray-500 mb-1">
-                    {new Date(item.timestamp).toLocaleDateString()} at{' '}
-                    {new Date(item.timestamp).toLocaleTimeString()}
-                  </p>
-                  <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
-                    {item.query}
-                  </p>
-                  {item.report && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {item.report.assessments.length} candidates
+                  <button
+                    onClick={() => loadFromHistory(item)}
+                    className="flex-1 text-left"
+                  >
+                    <p className="text-xs text-gray-500 mb-1">
+                      {new Date(item.timestamp).toLocaleDateString()} at{' '}
+                      {new Date(item.timestamp).toLocaleTimeString()}
                     </p>
-                  )}
-                </button>
+                    <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
+                      {item.query}
+                    </p>
+                    {item.report && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {item.report.assessments.length} candidates
+                      </p>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      deleteFromHistory(item.id);
+                    }}
+                    className="flex-shrink-0 text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100"
+                    title="Delete screening"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -273,6 +433,14 @@ export default function ScreenPage() {
         {/* Results Area */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
+            {/* Submitted Query Display */}
+            {submittedQuery && (
+              <div className="mb-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                <p className="text-sm text-gray-600 mb-1">Your Query:</p>
+                <p className="text-gray-900 font-medium">{submittedQuery}</p>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
                 <p className="text-red-700 font-medium">Error</p>
@@ -454,9 +622,34 @@ export default function ScreenPage() {
             )}
 
             {isLoading && !report && (
-              <div className="bg-white p-8 rounded-lg text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-                <p className="text-gray-600">Screening candidates...</p>
+              <div className="bg-white border border-gray-200 p-6 rounded-lg">
+                <div className="space-y-4">
+                  {/* Thinking Indicator */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                    <p className="text-gray-700 font-medium">AI Assistant is thinking...</p>
+                  </div>
+
+                  {/* Tool Calls in Progress */}
+                  {toolCalls.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm text-gray-600 mb-2">
+                        Retrieved {toolCalls.length} tool {toolCalls.length === 1 ? 'call' : 'calls'}
+                      </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {toolCalls.map((call, idx) => (
+                          <div key={idx} className="text-xs bg-gray-50 p-2 rounded border border-gray-200">
+                            <p className="text-blue-600 font-mono font-semibold">{call.toolName}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -507,10 +700,20 @@ export default function ScreenPage() {
               <textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
                 placeholder="Ask screening questions (e.g., 'Find candidates with Java and AWS experience')"
                 className="w-full h-24 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 disabled={isLoading}
+                aria-describedby="screening-prompt-hint"
               />
+              <p id="screening-prompt-hint" className="text-xs text-gray-500">
+                Press Shift+Enter for a new line. Press Enter to screen candidates.
+              </p>
               <button
                 type="submit"
                 disabled={isLoading || !query.trim()}
