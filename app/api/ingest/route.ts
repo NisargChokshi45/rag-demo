@@ -7,6 +7,7 @@ import { parsePDF } from "@/lib/pdf";
 import { chunkText } from "@/lib/chunk";
 import { embedDocument } from "@/lib/embeddings";
 import { deleteCandidate, insertCandidate, insertChunks } from "@/lib/db";
+import { validateEnv, getMissingEnvMessage } from "@/lib/env";
 
 interface IngestRequest {
   storagePath: string;
@@ -22,6 +23,14 @@ export async function POST(request: NextRequest) {
     const { storagePath } = body;
 
     console.log(`[INGEST] Starting ingestion for: ${storagePath}`);
+
+    const envCheck = validateEnv("server");
+    if (!envCheck.valid) {
+      return NextResponse.json(
+        { error: getMissingEnvMessage(envCheck.missing) },
+        { status: 500 }
+      );
+    }
 
     if (!storagePath) {
       return NextResponse.json(

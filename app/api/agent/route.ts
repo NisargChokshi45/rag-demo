@@ -7,6 +7,7 @@ import { createAgentTools } from "@/lib/agent-tools";
 import { ScreeningReportSchema } from "@/lib/schema";
 import { getChatModel } from "@/lib/models";
 import { getJobById, createScreening } from "@/lib/db";
+import { validateEnv, getMissingEnvMessage } from "@/lib/env";
 
 interface AgentRequest {
   query: string;
@@ -24,9 +25,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.GROQ_API_KEY) {
+    const envCheck = validateEnv("server");
+    if (!envCheck.valid) {
       return NextResponse.json(
-        { error: "GROQ_API_KEY is missing" },
+        { error: getMissingEnvMessage(envCheck.missing) },
         { status: 500 }
       );
     }
