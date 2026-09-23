@@ -2,7 +2,7 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { parsePDF } from "@/lib/pdf";
 import { chunkText } from "@/lib/chunk";
 import { embedDocument } from "@/lib/embeddings";
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Download PDF from Supabase Storage
     console.log(`[INGEST] Downloading from Supabase Storage...`);
-    const client = createServerClient();
+    const client = createServiceClient();
     const { data, error: downloadError } = await client.storage
       .from("resumes")
       .download(storagePath);

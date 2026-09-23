@@ -12,6 +12,85 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ---
 
+## PLAN.md Implementation Checklist
+
+Derived directly from `PLAN.md`. Checked items are verified against current code (not against this document's own status labels below, which had drifted in places — see "Deviations" at the end of this section).
+
+### Build Order
+
+**1. Setup**
+- [x] Supabase project with `vector` extension enabled (`supabase/schema.sql`)
+- [x] `schema.sql` covers candidates, resume_chunks, jobs, screenings, screening_assessments
+- [ ] `resumes` Storage bucket — not verifiable from code (Supabase dashboard config)
+- [x] LangChain/LangGraph, `@langchain/groq`, `@supabase/supabase-js`, `unpdf`, `zod` installed (`package.json`)
+
+**2. Test data**
+- [x] Sample resume PDFs present in `resumes/` (e.g. `adelina_project_manager.pdf`, `anudeep_java_developer.pdf`, …)
+
+**3. Ingestion pipeline**
+- [x] Signed-upload flow (`app/api/upload-url/route.ts`, `app/upload/page.tsx`)
+- [x] `api/ingest`: parse → reject empty text → chunk → sequential embed with retry/backoff → insert
+- [x] Sequential embedding with exponential backoff (`app/api/ingest/route.ts:107-120`, 1s/2s/4s via `Math.pow(2, attempt) * 1000`)
+- [x] Batch delay between embedding calls (`app/api/ingest/route.ts:136-139`)
+- [x] Candidate rolled back (`deleteCandidate`) if chunk insertion fails (`app/api/ingest/route.ts:156`)
+- [x] `runtime = "nodejs"`, `maxDuration = 300` set on ingest route
+- [x] `002_gemini_embedding_2.sql` migration exists (`supabase/migrations/`)
+
+**4. Candidates page**
+- [x] Upload → candidates listed (`app/candidates/page.tsx`, `app/api/candidates/route.ts`)
+
+**5. Agent route**
+- [x] Three tools implemented: `list_all_candidates`, `search_chunks`, `get_full_resume` (`lib/agent-tools.ts`)
+- [x] LangGraph `createReactAgent` tool loop with recursion limit 10 (`app/api/agent/route.ts:68`)
+- [x] Final structured-output call via `withStructuredOutput(ScreeningReportSchema)` (`app/api/agent/route.ts:131`)
+- [x] `runtime = "nodejs"`, `maxDuration = 300` set on agent route
+
+**6. Screen page UI**
+- [x] Streamed tool-call trace and structured report cards (`app/screen/page.tsx`)
+- [ ] Job description in browser session storage — **deviation**, see below
+
+**7. End-to-end test**
+- [ ] Replayed the three notebook example queries against `/screen` — not verified this session
+
+**8. Deploy**
+- [ ] Pushed to GitHub / `vercel link` / env vars set in Vercel dashboard — not verifiable from code
+- [ ] Production smoke test of the three queries — not verified this session
+
+### Hard Technical Constraints
+
+- [x] 1. Uploads go client → Supabase Storage via signed URL, never raw POST to a Next.js route
+- [x] 2. Embedding dimension is 1536, validated on every call (`lib/embeddings.ts:37-41`)
+- [x] 3. Task-prompt formatting (`title: none | text: ...` / `task: search result | query: ...`) (`lib/embeddings.ts:5-9`)
+- [x] 4. Sequential embedding with retry/backoff, not `Promise.all` fan-out (`app/api/ingest/route.ts`)
+- [x] 5. `maxDuration` + `runtime = "nodejs"` set on both `ingest` and `agent` routes
+- [x] 6. PDF parsing uses `unpdf`, not `pdf-parse` (`lib/pdf.ts`)
+- [x] 7. `get_full_resume` capped at 8 distinct candidates per run (`lib/agent-tools.ts:146`)
+- [x] 8. Sample resume PDFs present in `resumes/`
+- [x] 9. Service-role key server-only (`lib/supabase/server.ts`), `.env`/`.env.local` gitignored (`.gitignore:20-22`)
+
+### Verification (replaces the old "Verification Checklist (Before Production)" section below)
+
+- [ ] Ingest sample resumes; confirm `resume_chunks` row count is in a reasonable ratio to resume count
+- [ ] Run the three notebook example queries against `/screen` and confirm correct behavior
+- [ ] `next build` passes locally with no type errors — not re-run this session against current working tree (auth and other files changed since the last known-good build)
+- [ ] Confirm Supabase service-role key never appears in client-side bundles
+- [ ] Re-run the three test queries against the deployed Vercel URL
+
+### Deviations from PLAN.md (intentional, not gaps)
+
+- **Jobs table + dropdown instead of session-storage JD.** PLAN.md explicitly said "no jobs table" and job description in `sessionStorage`. The implementation instead added a `jobs` table (`supabase/migrations/003_jobs.sql`) with `app/jobs/`, `GET`/`POST /api/jobs`, and a job-selection dropdown on `/screen`. No `sessionStorage` usage exists.
+- **Screening persistence added.** PLAN.md's MVP had no screening history; `screenings` + `screening_assessments` tables (`004_screenings.sql`) and `createScreening`/`getScreeningsByJob`/`getAssessmentsByCandidate` (`lib/db.ts`) were added beyond the MVP scope.
+- **Feature-flagged auth added.** PLAN.md said "no auth for MVP"; a complete Supabase Auth implementation exists (`lib/auth.ts`, `middleware.ts`, `app/login/`, `app/api/auth/`) but is disabled by default via `NEXT_PUBLIC_AUTH_ENABLED`.
+- **`app/api/debug` route exists**, not mentioned in PLAN.md's app structure.
+
+### Known Gaps (not in PLAN.md's cut-line, but real)
+
+- [ ] Job-scoped search: `search_chunks`/`list_all_candidates` don't accept or filter by `jobId` (0 matches in `lib/agent-tools.ts`) — candidate pool is global regardless of selected job
+- [ ] No `/api/jobs/[id]` route (no GET-one/PUT/DELETE for a single job)
+- [ ] No `/api/screenings` route despite persistence functions existing in `lib/db.ts`
+
+---
+
 ## Core Features (MVP — Phase 1)
 
 ### Resume Ingestion Pipeline
@@ -209,24 +288,55 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ---
 
-## Phase 2 Features (Planned)
+## Phase 2 Features (In Progress / Planned)
+
+### Authentication (Feature-Flagged, Disabled by Default)
+
+#### ✅ Supabase Auth Integration
+- **Status:** Implemented (Disabled by default)
+- **Description:** Complete authentication system using Supabase Auth with feature flags
+- **Files:** `lib/auth.ts`, `lib/supabase/server.ts`, `lib/supabase/middleware.ts`, `middleware.ts`
+- **Features:**
+  - ✅ Login/Logout routes (`/api/auth/login`, `/api/auth/logout`, `/api/auth/signup`)
+  - ✅ Login page with sign up toggle (`/login`)
+  - ✅ Session management via `@supabase/ssr`
+  - ✅ Middleware for session refresh
+  - ✅ Optional auth checks on API routes (controlled by `NEXT_PUBLIC_AUTH_ENABLED`)
+  - ✅ Auth hook for client components (`lib/hooks/useAuth.ts`)
+  - ✅ Auth helper functions (`lib/auth.ts`)
+
+**Enabling:**
+1. Set `NEXT_PUBLIC_AUTH_ENABLED=true` in `.env.local`
+2. Restart dev server
+3. Login page appears at `/login`
+
+**Documentation:** See `AUTH_SETUP.md` for complete setup guide
+
+#### 📋 User Data Isolation (Requires Auth)
+- **Status:** Planned
+- **Description:** Scope all queries to user's own data when `NEXT_PUBLIC_USER_DATA_ISOLATION=true`
+- **Requires:** `NEXT_PUBLIC_AUTH_ENABLED=true` + schema changes
+- **Schema changes needed:**
+  - Add `user_id UUID` to candidates, jobs, screenings tables
+  - Create RLS policies on each table
+- **Code changes needed:**
+  - Update `lib/db.ts` to filter by user_id
+  - Update agent tools to accept userId parameter
+  - Update RPC function `match_resume_chunks` to filter by user
 
 ### Job Management
 
-#### 📋 Job CRUD Operations
-- **Status:** Planned
+#### 🔄 Job CRUD Operations
+- **Status:** In Progress — Create/List implemented, Read-one/Update/Delete missing
 - **Description:** Full Create, Read, Update, Delete for job postings
-- **Required Files:**
+- **Implemented:**
   - `app/jobs/page.tsx` (list jobs)
+  - `app/api/jobs/route.ts` (`GET` all jobs, `POST` create)
+- **Still needed:**
   - `app/jobs/[id]/page.tsx` (view job details)
-  - `app/api/jobs/route.ts` (GET all jobs)
-  - `app/api/jobs/[id]/route.ts` (GET, PUT, DELETE)
-- **Schema:** id, title, description, experience, skills[], created_at
-- **Features:**
-  - Create new job posting
+  - `app/api/jobs/[id]/route.ts` (GET one, PUT, DELETE)
   - Edit job details
   - Delete job (soft delete recommended to preserve screenings)
-  - Display job details on screening page
 
 #### 📋 Job Selection Enforcement
 - **Status:** Planned
@@ -243,28 +353,15 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ### Screening Management & Persistence
 
-#### 📋 Screening History Database
-- **Status:** Planned
+#### 🔄 Screening History Database
+- **Status:** In Progress — Persistence implemented, no API route or export yet
 - **Description:** Persist screening queries and reports to database (not just localStorage)
-- **Required Files:**
-  - `supabase/migrations/XXX_screenings_table.sql` (new migration)
-  - `lib/db.ts` (new functions: saveScreening, getScreenings, deleteScreening)
-  - `app/api/screenings/route.ts` (GET, POST, DELETE)
-- **Schema:**
-  ```sql
-  CREATE TABLE screenings (
-    id UUID PRIMARY KEY,
-    job_id UUID REFERENCES jobs(id),
-    query TEXT NOT NULL,
-    report_json JSONB,
-    tool_calls_json JSONB,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
-  )
-  ```
-- **Features:**
-  - Save screening after report generation
-  - Retrieve screening history (with filters by job, date range)
+- **Implemented:**
+  - `supabase/migrations/004_screenings.sql` — `screenings` + `screening_assessments` tables
+  - `lib/db.ts`: `createScreening`, `getScreeningsByJob`, `getAssessmentsByCandidate`
+  - `app/api/agent/route.ts` calls `createScreening` after report generation
+- **Still needed:**
+  - `app/api/screenings/route.ts` (GET, DELETE) — no route currently exposes `getScreeningsByJob`
   - Delete screening
   - Export screening report as JSON/CSV
 - **Impact:** Resolves Issue #2 from review (history persistence); enables auditing
@@ -427,11 +524,11 @@ This document tracks all features for the LangChain-based resume screening RAG s
 - **Workaround:** Use job context in screening prompt (implemented); true filtering deferred
 - **Migration Path:** Phase 2 job enforcement feature will address this
 
-### ⚠️ No User Authentication
+### ⚠️ Auth Disabled by Default
 - **Status:** Known Limitation
-- **Reason:** MVP scope; focus on core RAG pipeline
-- **Impact:** Single shared candidate pool and jobs (no multi-tenancy)
-- **Migration Path:** Phase 4 auth feature will address this
+- **Reason:** MVP scope; auth is implemented (see Phase 2) but off by default via `NEXT_PUBLIC_AUTH_ENABLED`
+- **Impact:** Single shared candidate pool and jobs (no multi-tenancy) unless auth + `NEXT_PUBLIC_USER_DATA_ISOLATION` are both enabled
+- **Migration Path:** Enable the existing flags; see `AUTH_SETUP.md`. Per-user data isolation (RLS, user_id columns) is still Planned
 
 ### ⚠️ No Streaming Resume Download
 - **Status:** Known Limitation
@@ -446,30 +543,7 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ---
 
-## Verification Checklist (Before Production)
-
-### Testing
-- [ ] End-to-end ingest test with 5+ sample resumes
-- [ ] Chunk count validation (expect ~666 chunks per 25 resumes ratio)
-- [ ] Run three notebook example queries and validate results
-- [ ] Verify tool calls stream correctly to UI
-- [ ] Verify structured report generation
-- [ ] Test with different job contexts
-
-### Build & Deployment
-- [ ] `next build` passes with no TypeScript errors
-- [ ] Verify Supabase service-role key not in client bundles
-- [ ] Environment variables configured in Vercel dashboard
-- [ ] Deploy to Vercel and run smoke tests
-- [ ] Verify embeddings dimension matches schema (1536)
-
-### Security
-- [ ] GOOGLE_API_KEY and GROQ_API_KEY not logged
-- [ ] Signed URLs working for all resume uploads
-- [ ] RLS policies configured on Supabase (if multi-user)
-- [ ] No hardcoded secrets in git history
-
----
+*Verification checklist moved to "PLAN.md Implementation Checklist" near the top of this document.*
 
 ## Backlog (Long-term Ideas)
 

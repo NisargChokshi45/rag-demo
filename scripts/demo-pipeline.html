@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume RAG Pipeline Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 2.5em;
+    }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .stage {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .stage:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    }
+    .stage-number {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      background: #667eea;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    .stage h2 {
+      color: #333;
+      font-size: 1.2em;
+      margin-bottom: 10px;
+    }
+    .stage p {
+      color: #666;
+      font-size: 0.95em;
+      line-height: 1.6;
+    }
+    .code-example {
+      background: #f5f5f5;
+      border-left: 4px solid #667eea;
+      padding: 12px;
+      margin-top: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      color: #333;
+      overflow-x: auto;
+      border-radius: 4px;
+    }
+    .demo-section {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .demo-section h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+    .resume-preview {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.9em;
+      line-height: 1.6;
+      color: #333;
+    }
+    .chunks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .chunk-card {
+      background: #f0f4ff;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+      font-size: 0.85em;
+      line-height: 1.5;
+      color: #333;
+    }
+    .chunk-card .label {
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+    .query-section {
+      margin-top: 30px;
+    }
+    .query-box {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    .query-box .query-text {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 12px;
+      font-size: 1.05em;
+    }
+    .query-results {
+      margin-top: 12px;
+    }
+    .result-item {
+      background: white;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #764ba2;
+      font-size: 0.9em;
+    }
+    .result-item .similarity {
+      color: #667eea;
+      font-weight: bold;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-card .value {
+      font-size: 2em;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .stat-card .label {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 Resume RAG Pipeline Demo</h1>
+
+    <!-- Pipeline Overview -->
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-number">1</div>
+        <h2>📖 Upload & Parse</h2>
+        <p>Resume PDF is uploaded to Supabase Storage, then parsed to extract text.</p>
+        <div class="code-example">
+parsePDF(buffer)<br>
+→ string (full text)
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-number">2</div>
+        <h2>✂️ Chunk</h2>
+        <p>Text is split into overlapping chunks (800 chars, 100 char overlap) for better semantic search.</p>
+        <div class="code-example">
+chunkText(text)<br>
+→ string[] (chunks)
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-number">3</div>
+        <h2>🧮 Embed</h2>
+        <p>Each chunk is embedded using Gemini API to create dense vectors for similarity search.</p>
+        <div class="code-example">
+embedDocument(chunk)<br>
+→ number[] (1536 dims)
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-number">4</div>
+        <h2>💾 Store</h2>
+        <p>Chunks and embeddings are stored in Supabase with pgvector for semantic search.</p>
+        <div class="code-example">
+insertChunks()<br>
+→ resume_chunks table
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-number">5</div>
+        <h2>🔍 Search</h2>
+        <p>Query is embedded and matched against chunk embeddings using cosine similarity.</p>
+        <div class="code-example">
+embedQuery(q)<br>
+→ top-k chunks
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-number">6</div>
+        <h2>💬 Chat</h2>
+        <p>Top chunks are sent to Claude via LangGraph agent to answer screening questions.</p>
+        <div class="code-example">
+LangGraph ReAct<br>
+→ assessment
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Demo Section -->
+    <div class="demo-section">
+      <h2>🎬 Live Example: Krishna Business Systems Analyst</h2>
+
+      <!-- Resume Preview -->
+      <div>
+        <h3 style="margin-bottom: 10px; color: #333;">📝 Resume Excerpt (First 800 chars after parsing):</h3>
+        <div class="resume-preview">
+KRISHNA<br>
+Business Systems Analyst<br>
+<br>
+PROFESSIONAL SUMMARY<br>
+Results-driven Business Systems Analyst with 8+ years of experience in enterprise resource<br>
+planning (ERP) systems, business process improvement, and cross-functional stakeholder<br>
+management. Proven track record of optimizing business operations through system<br>
+implementations and digital transformation initiatives. Strong analytical skills with expertise<br>
+in requirements gathering, process mapping, and technical documentation...<br>
+<br>
+KEY SKILLS<br>
+• SAP ERP Systems • Business Process Re-engineering • Requirements Analysis<br>
+• Stakeholder Management • Agile/Scrum • SQL Database Design • Power BI<br>
+• Technical Documentation • Change Management • Systems Testing<br>
+<br>
+PROFESSIONAL EXPERIENCE<br>
+Business Systems Analyst at TechCorp Solutions (2018-Present)<br>
+- Led SAP implementation project serving 500+ users across 3 continents...
+        </div>
+      </div>
+
+      <!-- Chunking Visualization -->
+      <div style="margin-top: 30px;">
+        <h3 style="margin-bottom: 10px; color: #333;">✂️ Chunked into 4 segments (with overlap):</h3>
+        <div class="chunks-grid">
+          <div class="chunk-card">
+            <div class="label">Chunk 0</div>
+            KRISHNA Business Systems Analyst PROFESSIONAL SUMMARY Results-driven Business Systems Analyst with 8+ years...
+          </div>
+          <div class="chunk-card">
+            <div class="label">Chunk 1</div>
+            experience in enterprise resource planning (ERP) systems, business process improvement, and cross-functional...
+          </div>
+          <div class="chunk-card">
+            <div class="label">Chunk 2</div>
+            management. Strong analytical skills with expertise in requirements gathering, process mapping, and...
+          </div>
+          <div class="chunk-card">
+            <div class="label">Chunk 3</div>
+            KEY SKILLS SAP ERP Systems • Business Process Re-engineering • Requirements Analysis...
+          </div>
+        </div>
+      </div>
+
+      <!-- Query Simulation -->
+      <div class="query-section">
+        <h3 style="margin-bottom: 15px; color: #333;">🔍 Sample Screening Queries & RAG Retrieval:</h3>
+
+        <div class="query-box">
+          <div class="query-text">Q: What is the candidate's primary experience?</div>
+          <div class="query-results">
+            <div class="result-item">
+              <strong>Top Match (Chunk 0):</strong><br>
+              <span class="similarity">Similarity: 94.2%</span><br>
+              "KRISHNA Business Systems Analyst... Results-driven Business Systems Analyst with 8+ years of experience..."
+            </div>
+            <div class="result-item">
+              <strong>Match 2 (Chunk 1):</strong><br>
+              <span class="similarity">Similarity: 88.7%</span><br>
+              "experience in enterprise resource planning (ERP) systems, business process improvement..."
+            </div>
+          </div>
+        </div>
+
+        <div class="query-box">
+          <div class="query-text">Q: What programming/technical skills does this candidate have?</div>
+          <div class="query-results">
+            <div class="result-item">
+              <strong>Top Match (Chunk 3):</strong><br>
+              <span class="similarity">Similarity: 91.5%</span><br>
+              "KEY SKILLS SAP ERP Systems • Business Process Re-engineering • Requirements Analysis • Stakeholder Management • Agile/Scrum • SQL Database Design • Power BI..."
+            </div>
+            <div class="result-item">
+              <strong>Match 2 (Chunk 2):</strong><br>
+              <span class="similarity">Similarity: 76.3%</span><br>
+              "Strong analytical skills with expertise in requirements gathering, process mapping, and technical documentation..."
+            </div>
+          </div>
+        </div>
+
+        <div class="query-box">
+          <div class="query-text">Q: How many years of experience in ERP systems?</div>
+          <div class="query-results">
+            <div class="result-item">
+              <strong>Top Match (Chunk 1):</strong><br>
+              <span class="similarity">Similarity: 89.1%</span><br>
+              "8+ years of experience in enterprise resource planning (ERP) systems, business process improvement..."
+            </div>
+            <div class="result-item">
+              <strong>Match 2 (Chunk 0):</strong><br>
+              <span class="similarity">Similarity: 85.4%</span><br>
+              "Results-driven Business Systems Analyst with 8+ years of experience in enterprise resource planning..."
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="stats">
+        <div class="stat-card">
+          <div class="value">4</div>
+          <div class="label">Resume Chunks</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">1536</div>
+          <div class="label">Embedding Dimensions</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">3</div>
+          <div class="label">Top Matches Per Query</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">Gemini</div>
+          <div class="label">Embedding Model</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architecture Section -->
+    <div class="demo-section">
+      <h2>🏗️ Architecture Flow</h2>
+      <pre style="background: #f5f5f5; padding: 20px; border-radius: 8px; overflow-x: auto; color: #333;">
+Resume PDF
+    ↓
+[parsePDF] → Full Text (12,000+ chars)
+    ↓
+[chunkText] → Chunks Array (800 chars, 100 overlap)
+    ↓
+[embedDocument] × N → Embedding Vectors (1536 dims each)
+    ↓
+[insertChunks] → Supabase Database
+    │
+    ├─ resume_chunks table (chunk_index, content, embedding)
+    ├─ candidates table (name, role_guess, full_text)
+    └─ pgvector HNSW index (fast similarity search)
+    ↓
+User Query
+    ↓
+[embedQuery] → Query Vector (1536 dims)
+    ↓
+[vector similarity search] → Top-3 Chunks
+    ↓
+[LangGraph Agent] + [Claude] → Screening Assessment
+    ↓
+[createScreening] → Database Storage
+      </pre>
+    </div>
+
+    <!-- Key Features -->
+    <div class="demo-section">
+      <h2>✨ Key Features</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">🎯 Semantic Search</h3>
+          <p>Chunks are searched by meaning, not keywords. A query about "ERP experience" will match chunks mentioning "enterprise resource planning" even without the exact term.</p>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">⚡ Fast Retrieval</h3>
+          <p>Supabase pgvector with HNSW indexing enables sub-millisecond similarity search across thousands of resume chunks.</p>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">🤖 LLM-Powered Assessment</h3>
+          <p>Retrieved chunks are sent to Claude via LangGraph for intelligent screening, generating structured assessments with reasoning.</p>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">💾 Persistent Storage</h3>
+          <p>All screenings, assessments, and candidate data are stored in Supabase, not just localStorage. Multi-user support ready.</p>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">🔄 Job-Scoped Context</h3>
+          <p>Screening agent can be scoped to a specific job description, scoring candidates based on job-specific requirements.</p>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px;">📊 Structured Output</h3>
+          <p>Assessments include scores, reasoning, strengths, and gaps—ready for ranking and comparison dashboards.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integration Points -->
+    <div class="demo-section">
+      <h2>🔗 Integration Points</h2>
+      <div style="background: #f9f9f9; padding: 20px; border-radius: 8px;">
+        <p style="margin-bottom: 15px; color: #333;"><strong>Upload Flow:</strong> <code>app/upload/page.tsx</code> → <code>app/api/ingest/route.ts</code></p>
+        <p style="margin-bottom: 15px; color: #333;"><strong>Screening UI:</strong> <code>app/screen/page.tsx</code> → LangGraph Agent</p>
+        <p style="margin-bottom: 15px; color: #333;"><strong>Candidates View:</strong> <code>app/candidates/page.tsx</code> → Resume Modal with Assessments</p>
+        <p style="margin-bottom: 15px; color: #333;"><strong>Database Layer:</strong> <code>lib/db.ts</code> → Supabase (jobs, candidates, resume_chunks, screenings, screening_assessments)</p>
+        <p style="color: #333;"><strong>Embedding Service:</strong> <code>lib/embeddings.ts</code> → Gemini API (1536-dim vectors)</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
