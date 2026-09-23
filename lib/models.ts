@@ -9,7 +9,7 @@ export function getChatModel(temperature = 0) {
 
   return new ChatGroq({
     apiKey,
-    model: process.env.GROQ_CHAT_MODEL || 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_CHAT_MODEL,
     temperature,
   });
 }
