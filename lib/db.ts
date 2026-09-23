@@ -1,4 +1,4 @@
-import { createServiceClient } from "./supabase/server";
+import { createServiceClient } from './supabase/server';
 
 interface ChunkWithEmbedding {
   content: string;
@@ -24,9 +24,9 @@ export interface CreateJobInput {
 export async function createJob(input: CreateJobInput): Promise<Job> {
   const client = createServiceClient();
   const { data, error } = await client
-    .from("jobs")
+    .from('jobs')
     .insert(input)
-    .select("id, title, description, experience, skills, created_at")
+    .select('id, title, description, experience, skills, created_at')
     .single();
 
   if (error) throw error;
@@ -36,9 +36,9 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
 export async function listJobs(): Promise<Job[]> {
   const client = createServiceClient();
   const { data, error } = await client
-    .from("jobs")
-    .select("id, title, description, experience, skills, created_at")
-    .order("created_at", { ascending: false });
+    .from('jobs')
+    .select('id, title, description, experience, skills, created_at')
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data || []) as Job[];
@@ -47,9 +47,9 @@ export async function listJobs(): Promise<Job[]> {
 export async function getJobById(jobId: string): Promise<Job> {
   const client = createServiceClient();
   const { data, error } = await client
-    .from("jobs")
-    .select("id, title, description, experience, skills, created_at")
-    .eq("id", jobId)
+    .from('jobs')
+    .select('id, title, description, experience, skills, created_at')
+    .eq('id', jobId)
     .single();
 
   if (error) throw error;
@@ -66,7 +66,7 @@ export async function insertCandidate(
   const client = createServiceClient();
 
   const { data, error } = await client
-    .from("candidates")
+    .from('candidates')
     .insert([
       {
         name,
@@ -76,7 +76,7 @@ export async function insertCandidate(
         full_text: fullText,
       },
     ])
-    .select("id")
+    .select('id')
     .single();
 
   if (error) throw error;
@@ -96,14 +96,17 @@ export async function insertChunks(
     embedding: chunk.embedding,
   }));
 
-  const { error } = await client.from("resume_chunks").insert(chunksData);
+  const { error } = await client.from('resume_chunks').insert(chunksData);
 
   if (error) throw error;
 }
 
 export async function deleteCandidate(candidateId: string): Promise<void> {
   const client = createServiceClient();
-  const { error } = await client.from("candidates").delete().eq("id", candidateId);
+  const { error } = await client
+    .from('candidates')
+    .delete()
+    .eq('id', candidateId);
   if (error) throw error;
 }
 
@@ -114,7 +117,7 @@ export async function searchChunks(
   const client = createServiceClient();
 
   // Use RPC to call the match_resume_chunks function
-  const { data, error } = await client.rpc("match_resume_chunks", {
+  const { data, error } = await client.rpc('match_resume_chunks', {
     query_embedding: queryEmbedding,
     match_count: matchCount,
   });
@@ -127,9 +130,9 @@ export async function getFullResumeById(candidateId: string): Promise<string> {
   const client = createServiceClient();
 
   const { data, error } = await client
-    .from("candidates")
-    .select("full_text")
-    .eq("id", candidateId)
+    .from('candidates')
+    .select('full_text')
+    .eq('id', candidateId)
     .single();
 
   if (error) throw error;
@@ -140,15 +143,15 @@ export async function listCandidates(): Promise<any[]> {
   const client = createServiceClient();
 
   const { data: candidates, error: candidatesError } = await client
-    .from("candidates")
-    .select("id, name, role_guess, original_filename");
+    .from('candidates')
+    .select('id, name, role_guess, original_filename');
 
   if (candidatesError) throw candidatesError;
 
   // Get chunk counts for each candidate
   const { data: chunkCounts, error: chunkError } = await client
-    .from("resume_chunks")
-    .select("candidate_id");
+    .from('resume_chunks')
+    .select('candidate_id');
 
   if (chunkError) throw chunkError;
 
@@ -187,13 +190,13 @@ export async function createScreening(
 
   // Create screening record
   const { data: screening, error: screeningError } = await client
-    .from("screenings")
+    .from('screenings')
     .insert({
       job_id: jobId,
       query,
       summary,
     })
-    .select("id")
+    .select('id')
     .single();
 
   if (screeningError) throw screeningError;
@@ -210,7 +213,7 @@ export async function createScreening(
   }));
 
   const { error: assessmentError } = await client
-    .from("screening_assessments")
+    .from('screening_assessments')
     .insert(assessmentData);
 
   if (assessmentError) throw assessmentError;
@@ -222,7 +225,7 @@ export async function getScreeningsByJob(jobId: string): Promise<any[]> {
   const client = createServiceClient();
 
   const { data, error } = await client
-    .from("screenings")
+    .from('screenings')
     .select(
       `
       id,
@@ -238,8 +241,8 @@ export async function getScreeningsByJob(jobId: string): Promise<any[]> {
       )
     `
     )
-    .eq("job_id", jobId)
-    .order("created_at", { ascending: false });
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return data || [];
@@ -251,7 +254,7 @@ export async function getAssessmentsByCandidate(
   const client = createServiceClient();
 
   const { data, error } = await client
-    .from("screening_assessments")
+    .from('screening_assessments')
     .select(
       `
       id,
@@ -272,8 +275,8 @@ export async function getAssessmentsByCandidate(
       )
     `
     )
-    .eq("candidate_id", candidateId)
-    .order("created_at", { ascending: false });
+    .eq('candidate_id', candidateId)
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return data || [];

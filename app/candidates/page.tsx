@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface Candidate {
   id: string;
@@ -36,19 +36,22 @@ export default function CandidatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [resume, setResume] = useState<{ name: string; text: string } | null>(null);
-  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
+  const [resume, setResume] = useState<{ name: string; text: string } | null>(
+    null
+  );
+  const [selectedAssessment, setSelectedAssessment] =
+    useState<Assessment | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        const response = await fetch("/api/candidates");
-        if (!response.ok) throw new Error("Failed to fetch candidates");
+        const response = await fetch('/api/candidates');
+        if (!response.ok) throw new Error('Failed to fetch candidates');
         const data = await response.json();
         setCandidates(data.candidates || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setLoading(false);
       }
@@ -56,15 +59,17 @@ export default function CandidatesPage() {
 
     const fetchJobs = async () => {
       try {
-        const response = await fetch("/api/jobs");
+        const response = await fetch('/api/jobs');
         const data = await response.json();
         if (response.ok) {
           setJobs(data.jobs || []);
-          const jobId = new URLSearchParams(window.location.search).get("jobId");
-          setSelectedJobId(jobId || "");
+          const jobId = new URLSearchParams(window.location.search).get(
+            'jobId'
+          );
+          setSelectedJobId(jobId || '');
         }
       } catch (err) {
-        console.error("Failed to fetch jobs:", err);
+        console.error('Failed to fetch jobs:', err);
         setJobs([]);
       }
     };
@@ -79,11 +84,15 @@ export default function CandidatesPage() {
     try {
       const response = await fetch(`/api/candidates/${candidate.id}`);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to load resume");
+      if (!response.ok) throw new Error(data.error || 'Unable to load resume');
       setResume({ name: candidate.name, text: data.resume });
       setAssessments(data.assessments || []);
     } catch (resumeError) {
-      setError(resumeError instanceof Error ? resumeError.message : "Unable to load resume");
+      setError(
+        resumeError instanceof Error
+          ? resumeError.message
+          : 'Unable to load resume'
+      );
     }
   };
 
@@ -92,7 +101,11 @@ export default function CandidatesPage() {
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Candidates</h1>
-          <p className="text-gray-600">{selectedJob ? `Candidates for ${selectedJob.title}` : `${candidates.length} ${candidates.length === 1 ? "candidate" : "candidates"} ingested`}</p>
+          <p className="text-gray-600">
+            {selectedJob
+              ? `Candidates for ${selectedJob.title}`
+              : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} ingested`}
+          </p>
         </div>
         <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
           {candidates.length > 0 && (
@@ -122,7 +135,9 @@ export default function CandidatesPage() {
 
         {error && (
           <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
-            <p className="text-red-700 font-semibold mb-2">Error Loading Candidates</p>
+            <p className="text-red-700 font-semibold mb-2">
+              Error Loading Candidates
+            </p>
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
@@ -131,7 +146,10 @@ export default function CandidatesPage() {
           <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
             <p className="text-4xl mb-4">📋</p>
             <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
-            <Link href="/upload" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <Link
+              href="/upload"
+              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               Upload Resumes to Get Started
             </Link>
           </div>
@@ -140,17 +158,22 @@ export default function CandidatesPage() {
         {!loading && candidates.length > 0 && (
           <div className="grid gap-4">
             {candidates.map((candidate) => (
-              <div key={candidate.id} className={`p-6 rounded-lg shadow hover:shadow-lg transition ${
-                candidate.chunk_count === 0
-                  ? "bg-amber-50 border border-amber-200"
-                  : "bg-white"
-              }`}>
+              <div
+                key={candidate.id}
+                className={`p-6 rounded-lg shadow hover:shadow-lg transition ${
+                  candidate.chunk_count === 0
+                    ? 'bg-amber-50 border border-amber-200'
+                    : 'bg-white'
+                }`}
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900">
                       {candidate.name}
                     </h2>
-                    <p className="text-sm text-gray-600 mt-1">Applied role: {candidate.role_guess}</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Applied role: {candidate.role_guess}
+                    </p>
                     <p className="text-xs text-gray-500 mt-2">
                       {candidate.original_filename}
                     </p>
@@ -166,15 +189,144 @@ export default function CandidatesPage() {
                   )}
                 </div>
                 <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
-                  <button type="button" onClick={() => viewResume(candidate)} className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">View resume</button>
+                  <button
+                    type="button"
+                    onClick={() => viewResume(candidate)}
+                    className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                  >
+                    View resume
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {resume && <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">Resume: {resume.name}</h2><button type="button" onClick={() => setResume(null)} className="text-2xl text-gray-500" aria-label="Close">&times;</button></div><div className="space-y-6"><pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">{resume.text}</pre>{assessments.length > 0 && <div className="border-t pt-6"><h3 className="font-semibold text-gray-900 mb-4">Screening Assessments</h3><div className="space-y-4">{assessments.map((assessment) => (<div key={assessment.id} className="bg-gray-50 p-4 rounded-lg"><div className="flex items-start justify-between mb-3"><h4 className="font-medium text-gray-900">{assessment.screenings?.jobs?.title || "General Screening"}</h4><div className="text-right"><div className="text-2xl font-bold text-blue-600">{assessment.score}</div><div className="text-xs text-gray-500">/100</div></div></div><p className="text-sm text-gray-600 mb-3 italic">{assessment.screenings?.query}</p>{assessment.evidence.length > 0 && <div className="mb-3"><h5 className="text-xs font-semibold text-gray-700 mb-1">Evidence</h5><ul className="text-xs text-gray-700 space-y-1">{assessment.evidence.map((item) => <li key={item}>• {item}</li>)}</ul></div>}{assessment.unknowns.length > 0 && <div><h5 className="text-xs font-semibold text-gray-700 mb-1">Unknowns</h5><ul className="text-xs text-amber-700 space-y-1">{assessment.unknowns.map((item) => <li key={item}>? {item}</li>)}</ul></div>}</div>))}</div></div>}</div></div></div>}
-        {selectedAssessment && <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true"><div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">Screening report</h2><button type="button" onClick={() => setSelectedAssessment(null)} className="text-2xl text-gray-500" aria-label="Close">&times;</button></div><p className="mb-4 text-4xl font-bold text-blue-600">{selectedAssessment.score}<span className="text-base font-normal text-gray-500"> / 100</span></p><h3 className="mb-2 font-semibold text-gray-900">Evidence</h3><ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-gray-700">{selectedAssessment.evidence.map((item) => <li key={item}>{item}</li>)}</ul><h3 className="mb-2 font-semibold text-gray-900">Unknowns</h3><ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">{selectedAssessment.unknowns.length ? selectedAssessment.unknowns.map((item) => <li key={item}>{item}</li>) : <li>None recorded</li>}</ul></div></div>}
+        {resume && (
+          <div
+            className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Resume: {resume.name}</h2>
+                <button
+                  type="button"
+                  onClick={() => setResume(null)}
+                  className="text-2xl text-gray-500"
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="space-y-6">
+                <pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                  {resume.text}
+                </pre>
+                {assessments.length > 0 && (
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold text-gray-900 mb-4">
+                      Screening Assessments
+                    </h3>
+                    <div className="space-y-4">
+                      {assessments.map((assessment) => (
+                        <div
+                          key={assessment.id}
+                          className="bg-gray-50 p-4 rounded-lg"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <h4 className="font-medium text-gray-900">
+                              {assessment.screenings?.jobs?.title ||
+                                'General Screening'}
+                            </h4>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {assessment.score}
+                              </div>
+                              <div className="text-xs text-gray-500">/100</div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3 italic">
+                            {assessment.screenings?.query}
+                          </p>
+                          {assessment.evidence.length > 0 && (
+                            <div className="mb-3">
+                              <h5 className="text-xs font-semibold text-gray-700 mb-1">
+                                Evidence
+                              </h5>
+                              <ul className="text-xs text-gray-700 space-y-1">
+                                {assessment.evidence.map((item) => (
+                                  <li key={item}>• {item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {assessment.unknowns.length > 0 && (
+                            <div>
+                              <h5 className="text-xs font-semibold text-gray-700 mb-1">
+                                Unknowns
+                              </h5>
+                              <ul className="text-xs text-amber-700 space-y-1">
+                                {assessment.unknowns.map((item) => (
+                                  <li key={item}>? {item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {selectedAssessment && (
+          <div
+            className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Screening report</h2>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAssessment(null)}
+                  className="text-2xl text-gray-500"
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+              <p className="mb-4 text-4xl font-bold text-blue-600">
+                {selectedAssessment.score}
+                <span className="text-base font-normal text-gray-500">
+                  {' '}
+                  / 100
+                </span>
+              </p>
+              <h3 className="mb-2 font-semibold text-gray-900">Evidence</h3>
+              <ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                {selectedAssessment.evidence.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <h3 className="mb-2 font-semibold text-gray-900">Unknowns</h3>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
+                {selectedAssessment.unknowns.length ? (
+                  selectedAssessment.unknowns.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))
+                ) : (
+                  <li>None recorded</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

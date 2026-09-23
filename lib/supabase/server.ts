@@ -1,6 +1,6 @@
-import { createServerClient as createServerSSRClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { createServerClient as createServerSSRClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 interface CookieToSet {
   name: string;

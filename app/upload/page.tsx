@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface UploadProgress {
   filename: string;
-  status: "pending" | "uploading" | "ingesting" | "done" | "error";
+  status: 'pending' | 'uploading' | 'ingesting' | 'done' | 'error';
   progress?: number;
   error?: string;
 }
 
 export default function UploadPage() {
   const router = useRouter();
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescription, setJobDescription] = useState('');
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -21,10 +21,10 @@ export default function UploadPage() {
     if (!files.length) return;
 
     setIsUploading(true);
-    localStorage.setItem("screeningJobDescription", jobDescription);
+    localStorage.setItem('screeningJobDescription', jobDescription);
     const newProgress: UploadProgress[] = files.map((f) => ({
       filename: f.name,
-      status: "pending",
+      status: 'pending',
     }));
     setUploadProgress(newProgress);
 
@@ -35,45 +35,45 @@ export default function UploadPage() {
         // Update to uploading
         setUploadProgress((prev) =>
           prev.map((p, idx) =>
-            idx === i ? { ...p, status: "uploading", progress: 0 } : p
+            idx === i ? { ...p, status: 'uploading', progress: 0 } : p
           )
         );
 
         // Get signed upload URL
-        const urlResponse = await fetch("/api/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const urlResponse = await fetch('/api/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: file.name }),
         });
 
         if (!urlResponse.ok) {
-          throw new Error("Failed to get upload URL");
+          throw new Error('Failed to get upload URL');
         }
 
         const { signedUrl, path } = await urlResponse.json();
 
         // Upload to Supabase Storage using signed URL
         const uploadResponse = await fetch(signedUrl, {
-          method: "PUT",
+          method: 'PUT',
           body: file,
-          headers: { "Content-Type": "application/pdf" },
+          headers: { 'Content-Type': 'application/pdf' },
         });
 
         if (!uploadResponse.ok) {
-          throw new Error("Failed to upload file to storage");
+          throw new Error('Failed to upload file to storage');
         }
 
         // Update to ingesting
         setUploadProgress((prev) =>
           prev.map((p, idx) =>
-            idx === i ? { ...p, status: "ingesting", progress: 50 } : p
+            idx === i ? { ...p, status: 'ingesting', progress: 50 } : p
           )
         );
 
         // Trigger ingestion
-        const ingestResponse = await fetch("/api/ingest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const ingestResponse = await fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             storagePath: path,
             jobDescription,
@@ -82,7 +82,7 @@ export default function UploadPage() {
 
         if (!ingestResponse.ok) {
           const errorData = await ingestResponse.json();
-          throw new Error(errorData.error || "Ingestion failed");
+          throw new Error(errorData.error || 'Ingestion failed');
         }
 
         await ingestResponse.json();
@@ -93,7 +93,7 @@ export default function UploadPage() {
             idx === i
               ? {
                   ...p,
-                  status: "done",
+                  status: 'done',
                   progress: 100,
                 }
               : p
@@ -105,9 +105,9 @@ export default function UploadPage() {
             idx === i
               ? {
                   ...p,
-                  status: "error",
+                  status: 'error',
                   error:
-                    error instanceof Error ? error.message : "Unknown error",
+                    error instanceof Error ? error.message : 'Unknown error',
                 }
               : p
           )
@@ -119,10 +119,10 @@ export default function UploadPage() {
 
     // Redirect to candidates only if all files succeeded
     setUploadProgress((finalProgress) => {
-      const hasErrors = finalProgress.some((p) => p.status === "error");
+      const hasErrors = finalProgress.some((p) => p.status === 'error');
       if (!hasErrors) {
         setTimeout(() => {
-          router.push("/candidates");
+          router.push('/candidates');
         }, 2000);
       }
       return finalProgress;
@@ -133,8 +133,12 @@ export default function UploadPage() {
     <div className="min-h-[calc(100vh-80px)] bg-gray-50 p-4 md:p-8">
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Upload Resumes</h1>
-          <p className="text-gray-600">Add candidate resumes and job description to start screening</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            Upload Resumes
+          </h1>
+          <p className="text-gray-600">
+            Add candidate resumes and job description to start screening
+          </p>
         </div>
 
         <div className="bg-white p-6 md:p-8 rounded-lg shadow space-y-6">
@@ -156,11 +160,13 @@ export default function UploadPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Upload Resumes (PDF)
             </label>
-            <div className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
-              isUploading
-                ? "border-gray-300 bg-gray-50 cursor-not-allowed"
-                : "border-gray-300 hover:border-blue-400 cursor-pointer"
-            }`}>
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
+                isUploading
+                  ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                  : 'border-gray-300 hover:border-blue-400 cursor-pointer'
+              }`}
+            >
               <input
                 type="file"
                 multiple
@@ -174,13 +180,15 @@ export default function UploadPage() {
                 htmlFor="resume-input"
                 className={`block ${
                   isUploading
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-gray-600 hover:text-blue-600 cursor-pointer"
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-600 hover:text-blue-600 cursor-pointer'
                 }`}
               >
                 <div className="text-3xl mb-2">📄</div>
                 <p className="font-medium">Click to select PDF files</p>
-                <p className="text-sm text-gray-500">Select one or more resumes to upload</p>
+                <p className="text-sm text-gray-500">
+                  Select one or more resumes to upload
+                </p>
               </label>
             </div>
           </div>
@@ -191,27 +199,44 @@ export default function UploadPage() {
               <h3 className="font-medium text-gray-900">Upload Progress</h3>
               {uploadProgress.map((item, idx) => {
                 const statusConfig = {
-                  pending: { label: "Waiting", color: "bg-gray-100 text-gray-700" },
-                  uploading: { label: "Uploading", color: "bg-blue-100 text-blue-700" },
-                  ingesting: { label: "Processing", color: "bg-purple-100 text-purple-700" },
-                  done: { label: "Complete", color: "bg-green-100 text-green-700" },
-                  error: { label: "Failed", color: "bg-red-100 text-red-700" },
+                  pending: {
+                    label: 'Waiting',
+                    color: 'bg-gray-100 text-gray-700',
+                  },
+                  uploading: {
+                    label: 'Uploading',
+                    color: 'bg-blue-100 text-blue-700',
+                  },
+                  ingesting: {
+                    label: 'Processing',
+                    color: 'bg-purple-100 text-purple-700',
+                  },
+                  done: {
+                    label: 'Complete',
+                    color: 'bg-green-100 text-green-700',
+                  },
+                  error: { label: 'Failed', color: 'bg-red-100 text-red-700' },
                 };
                 const config = statusConfig[item.status];
                 return (
-                  <div key={idx} className="p-4 border border-gray-200 rounded-lg">
+                  <div
+                    key={idx}
+                    className="p-4 border border-gray-200 rounded-lg"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-900">
                         {item.filename}
                       </span>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}
+                      >
                         {config.label}
                       </span>
                     </div>
-                    {item.status === "error" && (
+                    {item.status === 'error' && (
                       <p className="text-sm text-red-600">{item.error}</p>
                     )}
-                    {item.progress !== undefined && item.status !== "error" && (
+                    {item.progress !== undefined && item.status !== 'error' && (
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all"

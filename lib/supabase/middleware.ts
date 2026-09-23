@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient as createServerSSRClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from 'next/server';
+import { createServerClient as createServerSSRClient } from '@supabase/ssr';
 
 interface CookieToSet {
   name: string;
@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === "true";
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
 
   if (!authEnabled) {
     return response;

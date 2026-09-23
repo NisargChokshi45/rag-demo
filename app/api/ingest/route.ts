@@ -1,13 +1,13 @@
 export const maxDuration = 300;
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { parsePDF } from "@/lib/pdf";
-import { chunkText } from "@/lib/chunk";
-import { embedDocument } from "@/lib/embeddings";
-import { deleteCandidate, insertCandidate, insertChunks } from "@/lib/db";
-import { validateEnv, getMissingEnvMessage } from "@/lib/env";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { parsePDF } from '@/lib/pdf';
+import { chunkText } from '@/lib/chunk';
+import { embedDocument } from '@/lib/embeddings';
+import { deleteCandidate, insertCandidate, insertChunks } from '@/lib/db';
+import { validateEnv, getMissingEnvMessage } from '@/lib/env';
 
 interface IngestRequest {
   storagePath: string;
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[INGEST] Starting ingestion for: ${storagePath}`);
 
-    const envCheck = validateEnv("server");
+    const envCheck = validateEnv('server');
     if (!envCheck.valid) {
       return NextResponse.json(
         { error: getMissingEnvMessage(envCheck.missing) },
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     if (!storagePath) {
       return NextResponse.json(
-        { error: "storagePath is required" },
+        { error: 'storagePath is required' },
         { status: 400 }
       );
     }
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     console.log(`[INGEST] Downloading from Supabase Storage...`);
     const client = createServiceClient();
     const { data, error: downloadError } = await client.storage
-      .from("resumes")
+      .from('resumes')
       .download(storagePath);
 
     if (downloadError) {
@@ -59,39 +59,38 @@ export async function POST(request: NextRequest) {
     // Parse PDF to text
     const fullText = (await parsePDF(buffer)).trim();
     if (!fullText) {
-      throw new Error("PDF did not contain extractable text");
+      throw new Error('PDF did not contain extractable text');
     }
 
     // Extract candidate name from filename (e.g., "123-john_doe.pdf" → "John Doe")
-    const filename = storagePath.split("/").pop() || "";
+    const filename = storagePath.split('/').pop() || '';
     const nameFromFile = filename
-      .replace(/^\d+-/, "")
-      .replace(/\.pdf$/, "")
-      .replace(/_/g, " ")
-      .split(" ")
+      .replace(/^\d+-/, '')
+      .replace(/\.pdf$/, '')
+      .replace(/_/g, ' ')
+      .split(' ')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+      .join(' ');
 
     // Simple role detection from content
-    let roleGuess = "Unknown";
+    let roleGuess = 'Unknown';
     const lowerText = fullText.toLowerCase();
-    if (lowerText.includes("java")) roleGuess = "Java Developer";
-    else if (lowerText.includes("python")) roleGuess = "Python Developer";
-    else if (lowerText.includes("project manager"))
-      roleGuess = "Project Manager";
-    else if (lowerText.includes("scrum master"))
-      roleGuess = "Scrum Master";
-    else if (lowerText.includes("business analyst"))
-      roleGuess = "Business Analyst";
-    else if (lowerText.includes("qa")) roleGuess = "QA Engineer";
-    else if (lowerText.includes("devops")) roleGuess = "DevOps Engineer";
-    else if (lowerText.includes("hadoop")) roleGuess = "Hadoop Developer";
-    else if (lowerText.includes("php")) roleGuess = "PHP Developer";
+    if (lowerText.includes('java')) roleGuess = 'Java Developer';
+    else if (lowerText.includes('python')) roleGuess = 'Python Developer';
+    else if (lowerText.includes('project manager'))
+      roleGuess = 'Project Manager';
+    else if (lowerText.includes('scrum master')) roleGuess = 'Scrum Master';
+    else if (lowerText.includes('business analyst'))
+      roleGuess = 'Business Analyst';
+    else if (lowerText.includes('qa')) roleGuess = 'QA Engineer';
+    else if (lowerText.includes('devops')) roleGuess = 'DevOps Engineer';
+    else if (lowerText.includes('hadoop')) roleGuess = 'Hadoop Developer';
+    else if (lowerText.includes('php')) roleGuess = 'PHP Developer';
 
     // Chunk text
     const textChunks = chunkText(fullText);
     if (textChunks.length === 0) {
-      throw new Error("PDF produced no text chunks");
+      throw new Error('PDF produced no text chunks');
     }
 
     // Embed chunks with retry logic and batching
@@ -106,13 +105,19 @@ export async function POST(request: NextRequest) {
 
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          console.log(`[INGEST] Embedding chunk ${i}/${textChunks.length} (attempt ${attempt + 1}/${MAX_RETRIES})`);
+          console.log(
+            `[INGEST] Embedding chunk ${i}/${textChunks.length} (attempt ${attempt + 1}/${MAX_RETRIES})`
+          );
           embedding = await embedDocument(chunk);
-          console.log(`[INGEST] ✓ Chunk ${i} embedded successfully (${embedding.length} dimensions)`);
+          console.log(
+            `[INGEST] ✓ Chunk ${i} embedded successfully (${embedding.length} dimensions)`
+          );
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
-          console.error(`[INGEST] ✗ Chunk ${i} embedding failed (attempt ${attempt + 1}): ${lastError.message}`);
+          console.error(
+            `[INGEST] ✗ Chunk ${i} embedding failed (attempt ${attempt + 1}): ${lastError.message}`
+          );
           if (attempt < MAX_RETRIES - 1) {
             // Exponential backoff: 1s, 2s, 4s
             const backoffMs = Math.pow(2, attempt) * 1000;
@@ -135,7 +140,9 @@ export async function POST(request: NextRequest) {
 
       // Add delay between batches to avoid rate limiting
       if ((i + 1) % 5 === 0) {
-        console.log(`[INGEST] Completed batch of 5 chunks, pausing for ${BATCH_DELAY}ms`);
+        console.log(
+          `[INGEST] Completed batch of 5 chunks, pausing for ${BATCH_DELAY}ms`
+        );
         await delay(BATCH_DELAY);
       }
     }
@@ -150,7 +157,9 @@ export async function POST(request: NextRequest) {
     );
 
     try {
-      console.log(`[INGEST] Inserting ${chunks.length} chunks into database...`);
+      console.log(
+        `[INGEST] Inserting ${chunks.length} chunks into database...`
+      );
       await insertChunks(candidateId, chunks);
     } catch (error) {
       await deleteCandidate(candidateId);
@@ -167,11 +176,8 @@ export async function POST(request: NextRequest) {
       textLength: fullText.length,
     });
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[INGEST] ✗ Ingestion failed: ${errorMsg}`);
-    return NextResponse.json(
-      { error: errorMsg },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

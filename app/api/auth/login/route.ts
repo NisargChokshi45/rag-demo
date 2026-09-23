@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { FEATURE_FLAGS } from "@/lib/config";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { FEATURE_FLAGS } from '@/lib/config';
 
 export async function POST(request: NextRequest) {
   if (!FEATURE_FLAGS.AUTH_ENABLED) {
     return NextResponse.json(
-      { error: "Authentication is disabled" },
+      { error: 'Authentication is disabled' },
       { status: 403 }
     );
   }
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
     // Set auth cookies
@@ -45,9 +42,9 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    console.error('Login error:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

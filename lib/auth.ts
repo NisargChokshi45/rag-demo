@@ -1,4 +1,4 @@
-import { createAuthenticatedServerClient } from "./supabase/server";
+import { createAuthenticatedServerClient } from './supabase/server';
 
 /**
  * Get current authenticated user
@@ -20,7 +20,7 @@ export async function getCurrentUser() {
  * Only enforces if AUTH_ENABLED is true
  */
 export async function validateAuth() {
-  const { FEATURE_FLAGS } = await import("./config");
+  const { FEATURE_FLAGS } = await import('./config');
 
   if (!FEATURE_FLAGS.AUTH_ENABLED) {
     return null; // Auth disabled, allow access
@@ -28,11 +28,8 @@ export async function validateAuth() {
 
   const user = await getCurrentUser();
   if (!user) {
-    const { NextResponse } = await import("next/server");
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    const { NextResponse } = await import('next/server');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   return null; // Auth valid, allow access
@@ -43,7 +40,7 @@ export async function validateAuth() {
  * Returns user ID if authenticated, null if auth disabled or not authenticated
  */
 export async function getUserId(): Promise<string | null> {
-  const { FEATURE_FLAGS } = await import("./config");
+  const { FEATURE_FLAGS } = await import('./config');
 
   if (!FEATURE_FLAGS.AUTH_ENABLED) {
     return null;

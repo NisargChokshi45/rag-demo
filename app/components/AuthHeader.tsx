@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/lib/hooks/useAuth";
-import { FEATURE_FLAGS } from "@/lib/config";
-import Link from "next/link";
+import { useAuth } from '@/lib/hooks/useAuth';
+import { FEATURE_FLAGS } from '@/lib/config';
+import Link from 'next/link';
 
 export function AuthHeader() {
   const { user, loading, signOut } = useAuth();

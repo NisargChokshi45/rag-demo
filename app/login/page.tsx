@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +38,13 @@ export default function LoginPage() {
         }
 
         setError(null);
-        alert("Signup successful! Please check your email to confirm your account.");
+        alert(
+          'Signup successful! Please check your email to confirm your account.'
+        );
         setIsSignUp(false);
-        setEmail("");
-        setPassword("");
-        setFullName("");
+        setEmail('');
+        setPassword('');
+        setFullName('');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -54,10 +56,10 @@ export default function LoginPage() {
           return;
         }
 
-        router.push("/upload");
+        router.push('/upload');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export default function LoginPage() {
           RAG Resume Screening
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          {isSignUp ? "Create your account" : "Sign in to your account"}
+          {isSignUp ? 'Create your account' : 'Sign in to your account'}
         </p>
 
         {error && (
@@ -128,14 +130,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
           >
-            {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600">
           {isSignUp ? (
             <>
-              Already have an account?{" "}
+              Already have an account?{' '}
               <button
                 onClick={() => setIsSignUp(false)}
                 className="text-blue-600 hover:text-blue-700 font-medium"
@@ -145,7 +147,7 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              Don't have an account?{" "}
+              Don't have an account?{' '}
               <button
                 onClick={() => setIsSignUp(true)}
                 className="text-blue-600 hover:text-blue-700 font-medium"

@@ -1,12 +1,8 @@
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
-import {
-  listCandidates,
-  searchChunks,
-  getFullResumeById,
-} from "./db";
-import { embedQuery } from "./embeddings";
-import { getChatModel } from "./models";
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { listCandidates, searchChunks, getFullResumeById } from './db';
+import { embedQuery } from './embeddings';
+import { getChatModel } from './models';
 
 interface ToolContext {
   fetchedCandidates: Set<string>;
@@ -30,16 +26,19 @@ export function createAgentTools(context: ToolContext) {
           });
         } catch (error) {
           return JSON.stringify({
-            error: error instanceof Error ? error.message : "Failed to list candidates",
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to list candidates',
             candidates: [],
             totalCount: 0,
           });
         }
       },
       {
-        name: "list_all_candidates",
+        name: 'list_all_candidates',
         description:
-          "List all ingested candidates with their names and guessed roles. Use this to explore the full candidate pool, especially for broad requirements where vector search alone might miss candidates. Helps ensure coverage of the entire applicant pool.",
+          'List all ingested candidates with their names and guessed roles. Use this to explore the full candidate pool, especially for broad requirements where vector search alone might miss candidates. Helps ensure coverage of the entire applicant pool.',
         schema: z.object({}),
       }
     ),
@@ -53,7 +52,7 @@ export function createAgentTools(context: ToolContext) {
           if (chunks.length === 0) {
             return JSON.stringify({
               results: [],
-              message: "No relevant resume chunks found for this query",
+              message: 'No relevant resume chunks found for this query',
             });
           }
 
@@ -76,11 +75,13 @@ export function createAgentTools(context: ToolContext) {
 
           const model = getChatModel(0);
           const candidates = await listCandidates();
-          const candidateNames = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
+          const candidateNames = new Map(
+            candidates.map((candidate) => [candidate.id, candidate.name])
+          );
           const rerankedCandidates = [];
 
           for (const [candidateId, data] of Object.entries(chunksByCandidate)) {
-            const chunkSummary = data.chunks.slice(0, 3).join("\n---\n");
+            const chunkSummary = data.chunks.slice(0, 3).join('\n---\n');
             const rerankerPrompt = `Given the search query: "${query}"
 
 Here are chunks from a resume:
@@ -92,7 +93,8 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
             const score = Number.parseInt(String(response.content), 10) || 0;
             rerankedCandidates.push({
               candidateId,
-              candidateName: candidateNames.get(candidateId) || "Unknown candidate",
+              candidateName:
+                candidateNames.get(candidateId) || 'Unknown candidate',
               score,
               chunks: data.chunks.slice(0, 3),
             });
@@ -112,19 +114,26 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
           });
         } catch (error) {
           return JSON.stringify({
-            error: error instanceof Error ? error.message : "Unknown error during search",
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Unknown error during search',
             results: [],
           });
         }
       },
       {
-        name: "search_chunks",
+        name: 'search_chunks',
         description:
-          "Search resume chunks using vector similarity and LLM reranking. Returns most relevant candidates with matching resume sections. " +
-          "Use this to find candidates matching specific skills, experience, or requirements. " +
-          "After identifying relevant candidates, use get_full_resume to retrieve their complete resume text.",
+          'Search resume chunks using vector similarity and LLM reranking. Returns most relevant candidates with matching resume sections. ' +
+          'Use this to find candidates matching specific skills, experience, or requirements. ' +
+          'After identifying relevant candidates, use get_full_resume to retrieve their complete resume text.',
         schema: z.object({
-          query: z.string().describe("The search query describing the desired candidate qualifications"),
+          query: z
+            .string()
+            .describe(
+              'The search query describing the desired candidate qualifications'
+            ),
         }),
       }
     ),
@@ -134,7 +143,7 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
         try {
           if (!candidateId) {
             return JSON.stringify({
-              error: "candidateId is required",
+              error: 'candidateId is required',
             });
           }
 
@@ -145,7 +154,8 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
 
           if (context.fetchedCandidates.size >= 8) {
             return JSON.stringify({
-              error: "Maximum candidate fetch limit reached (8). Cannot fetch more full resumes. Try searching for more specific qualifications.",
+              error:
+                'Maximum candidate fetch limit reached (8). Cannot fetch more full resumes. Try searching for more specific qualifications.',
             });
           }
 
@@ -158,17 +168,22 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
           });
         } catch (error) {
           return JSON.stringify({
-            error: error instanceof Error ? error.message : "Failed to retrieve resume",
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to retrieve resume',
             candidateId,
           });
         }
       },
       {
-        name: "get_full_resume",
+        name: 'get_full_resume',
         description:
-          "Retrieve the complete resume text for a specific candidate by ID. Use this after search_chunks identifies relevant candidates to examine their full background. Limited to 8 fetches per screening to manage token usage.",
+          'Retrieve the complete resume text for a specific candidate by ID. Use this after search_chunks identifies relevant candidates to examine their full background. Limited to 8 fetches per screening to manage token usage.',
         schema: z.object({
-          candidateId: z.string().describe("The unique candidate ID from search results"),
+          candidateId: z
+            .string()
+            .describe('The unique candidate ID from search results'),
         }),
       }
     ),

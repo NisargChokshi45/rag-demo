@@ -9,13 +9,17 @@
  * 4. Simulate chat queries over the embedded content
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { parsePDF } from "@/lib/pdf";
-import { chunkText } from "@/lib/chunk";
-import { embedDocument, embedQuery, EMBEDDING_DIMENSIONS } from "@/lib/embeddings";
+import * as fs from 'fs';
+import * as path from 'path';
+import { parsePDF } from '@/lib/pdf';
+import { chunkText } from '@/lib/chunk';
+import {
+  embedDocument,
+  embedQuery,
+  EMBEDDING_DIMENSIONS,
+} from '@/lib/embeddings';
 
-const RESUMES_DIR = path.join(process.cwd(), "resumes");
+const RESUMES_DIR = path.join(process.cwd(), 'resumes');
 
 // Simulate vector similarity (cosine)
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -41,12 +45,14 @@ interface ChunkRecord {
 }
 
 async function runDemo() {
-  console.log("📄 Resume RAG Pipeline Demo\n");
+  console.log('📄 Resume RAG Pipeline Demo\n');
 
   // Pick first resume (krishna_business_systems_analyst.pdf)
-  const resumeFile = fs.readdirSync(RESUMES_DIR).find((f) => f.endsWith(".pdf"));
+  const resumeFile = fs
+    .readdirSync(RESUMES_DIR)
+    .find((f) => f.endsWith('.pdf'));
   if (!resumeFile) {
-    console.error("❌ No PDF files found in resumes folder");
+    console.error('❌ No PDF files found in resumes folder');
     process.exit(1);
   }
 
@@ -61,11 +67,11 @@ async function runDemo() {
 
   // Extract candidate name
   const nameFromFile = resumeFile
-    .replace(/\.pdf$/, "")
-    .replace(/_/g, " ")
-    .split(" ")
+    .replace(/\.pdf$/, '')
+    .replace(/_/g, ' ')
+    .split(' ')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+    .join(' ');
   console.log(`👤 Candidate: ${nameFromFile}\n`);
 
   // Chunk text
@@ -88,7 +94,9 @@ async function runDemo() {
         embedding,
         index: i,
       });
-      console.log(`   ✓ Chunk ${i + 1} embedded (${embedding.length} dimensions)`);
+      console.log(
+        `   ✓ Chunk ${i + 1} embedded (${embedding.length} dimensions)`
+      );
     } catch (error) {
       console.error(`   ✗ Failed to embed chunk ${i + 1}:`, error);
       process.exit(1);
@@ -101,7 +109,7 @@ async function runDemo() {
 
   const queries = [
     "What is the candidate's primary experience?",
-    "What programming languages does this candidate know?",
+    'What programming languages does this candidate know?',
     "List the candidate's key skills",
   ];
 
@@ -116,9 +124,7 @@ async function runDemo() {
       score: cosineSimilarity(queryEmbedding, chunk.embedding),
     }));
 
-    const topChunks = scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+    const topChunks = scored.sort((a, b) => b.score - a.score).slice(0, 3);
 
     console.log(`📚 Top 3 relevant chunks (will be sent to Groq/Llama):`);
     topChunks.forEach((chunk, i) => {

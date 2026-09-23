@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,13 +8,13 @@ export async function POST(request: NextRequest) {
 
     if (!filename) {
       return NextResponse.json(
-        { error: "Filename is required" },
+        { error: 'Filename is required' },
         { status: 400 }
       );
     }
 
     const client = createServiceClient();
-    const bucket = "resumes";
+    const bucket = 'resumes';
 
     // Generate a unique path: timestamp/filename
     const path = `${Date.now()}-${filename}`;
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

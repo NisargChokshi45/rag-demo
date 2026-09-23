@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { FEATURE_FLAGS } from "@/lib/config";
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { FEATURE_FLAGS } from '@/lib/config';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
@@ -30,7 +30,7 @@ export function useAuth() {
           setUser(user);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : 'Unknown error');
         setUser(null);
       } finally {
         setLoading(false);
@@ -45,9 +45,9 @@ export function useAuth() {
       const supabase = createClient();
       await supabase.auth.signOut();
       setUser(null);
-      window.location.href = "/login";
+      window.location.href = '/login';
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Logout failed");
+      setError(err instanceof Error ? err.message : 'Logout failed');
     }
   };
 

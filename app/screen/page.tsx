@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 interface Job {
   id: string;
@@ -12,7 +12,7 @@ interface Job {
 }
 
 interface ToolCall {
-  type: "tool-call";
+  type: 'tool-call';
   toolName: string;
   toolInput: Record<string, unknown>;
 }
@@ -21,7 +21,7 @@ interface Citation {
   candidateId: string;
   candidateName: string;
   content: string;
-  tool: "search_chunks" | "get_full_resume";
+  tool: 'search_chunks' | 'get_full_resume';
 }
 
 interface ReportData {
@@ -40,7 +40,7 @@ interface ReportData {
 }
 
 interface ReportMessage {
-  type: "report";
+  type: 'report';
   report: ReportData;
 }
 
@@ -54,9 +54,9 @@ interface ScreeningHistory {
 type StreamMessage = ToolCall | ReportMessage;
 
 export default function ScreenPage() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState('');
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,22 +66,28 @@ export default function ScreenPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("screeningHistory");
+    const saved = localStorage.getItem('screeningHistory');
     if (saved) {
       setHistory(JSON.parse(saved));
     }
-    fetch("/api/jobs")
+    fetch('/api/jobs')
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Unable to load jobs");
+        if (!response.ok) throw new Error(data.error || 'Unable to load jobs');
         setJobs(data.jobs);
-        setSelectedJobId(new URLSearchParams(window.location.search).get("jobId") || "");
+        setSelectedJobId(
+          new URLSearchParams(window.location.search).get('jobId') || ''
+        );
       })
-      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load jobs"));
+      .catch((loadError) =>
+        setError(
+          loadError instanceof Error ? loadError.message : 'Unable to load jobs'
+        )
+      );
   }, []);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -97,7 +103,7 @@ export default function ScreenPage() {
     };
     const updated = [newEntry, ...history];
     setHistory(updated);
-    localStorage.setItem("screeningHistory", JSON.stringify(updated));
+    localStorage.setItem('screeningHistory', JSON.stringify(updated));
   };
 
   const loadFromHistory = (item: ScreeningHistory) => {
@@ -109,7 +115,7 @@ export default function ScreenPage() {
 
   const clearHistory = () => {
     setHistory([]);
-    localStorage.removeItem("screeningHistory");
+    localStorage.removeItem('screeningHistory');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,24 +128,24 @@ export default function ScreenPage() {
     setReport(null);
 
     try {
-      const response = await fetch("/api/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, jobId: selectedJobId || undefined }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Screening failed");
+        throw new Error(errorData.error || 'Screening failed');
       }
 
       if (!response.body) {
-        throw new Error("No response body");
+        throw new Error('No response body');
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buffer = '';
       let reportData: ReportData | null = null;
 
       while (true) {
@@ -147,7 +153,7 @@ export default function ScreenPage() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split('\n');
 
         buffer = lines[lines.length - 1];
 
@@ -158,14 +164,14 @@ export default function ScreenPage() {
           try {
             const message: StreamMessage = JSON.parse(line);
 
-            if (message.type === "tool-call") {
+            if (message.type === 'tool-call') {
               setToolCalls((prev) => [...prev, message]);
-            } else if (message.type === "report") {
+            } else if (message.type === 'report') {
               reportData = message.report;
               setReport(message.report);
             }
           } catch (parseError) {
-            console.error("Failed to parse message:", line, parseError);
+            console.error('Failed to parse message:', line, parseError);
           }
         }
       }
@@ -174,7 +180,7 @@ export default function ScreenPage() {
         saveToHistory(query, reportData);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
@@ -185,13 +191,15 @@ export default function ScreenPage() {
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? "w-64" : "w-0"
+          sidebarOpen ? 'w-64' : 'w-0'
         } bg-white border-r border-gray-200 transition-all duration-200 overflow-hidden flex flex-col`}
       >
         <div className="p-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900 mb-2">Screening History</h2>
+          <h2 className="font-semibold text-gray-900 mb-2">
+            Screening History
+          </h2>
           <button
-            onClick={() => setQuery("")}
+            onClick={() => setQuery('')}
             className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
           >
             New Query
@@ -212,7 +220,7 @@ export default function ScreenPage() {
                   className="w-full text-left p-3 hover:bg-gray-50 transition group"
                 >
                   <p className="text-xs text-gray-500 mb-1">
-                    {new Date(item.timestamp).toLocaleDateString()} at{" "}
+                    {new Date(item.timestamp).toLocaleDateString()} at{' '}
                     {new Date(item.timestamp).toLocaleTimeString()}
                   </p>
                   <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
@@ -248,12 +256,14 @@ export default function ScreenPage() {
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="absolute top-24 left-2 z-10 p-2 hover:bg-gray-100 rounded transition md:hidden"
         >
-          {sidebarOpen ? "←" : "→"}
+          {sidebarOpen ? '←' : '→'}
         </button>
 
         {/* Header */}
         <div className="border-b border-gray-200 bg-white p-6 md:p-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Screen Candidates</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            Screen Candidates
+          </h1>
           <p className="text-gray-600">
             Ask screening questions and get AI-powered candidate assessments
           </p>
@@ -328,7 +338,9 @@ export default function ScreenPage() {
                           key={i}
                           className="text-sm text-indigo-800 flex gap-2"
                         >
-                          <span className="text-indigo-600 flex-shrink-0">•</span>
+                          <span className="text-indigo-600 flex-shrink-0">
+                            •
+                          </span>
                           <span>{item}</span>
                         </li>
                       ))}
@@ -403,28 +415,36 @@ export default function ScreenPage() {
                         )}
 
                         {/* Citations */}
-                        {assessment.citations && assessment.citations.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-gray-100">
-                            <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                              <span>📌</span> Citations from Resume
-                            </h5>
-                            <div className="space-y-2">
-                              {assessment.citations.map((citation, i) => (
-                                <div
-                                  key={i}
-                                  className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
-                                >
-                                  <p className="text-xs text-gray-500 mb-1">
-                                    Source: <span className="font-mono text-blue-600">{citation.tool}</span>
-                                  </p>
-                                  <p className="text-sm text-gray-700 italic">
-                                    "{citation.content.substring(0, 150)}{citation.content.length > 150 ? "..." : ""}"
-                                  </p>
-                                </div>
-                              ))}
+                        {assessment.citations &&
+                          assessment.citations.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                <span>📌</span> Citations from Resume
+                              </h5>
+                              <div className="space-y-2">
+                                {assessment.citations.map((citation, i) => (
+                                  <div
+                                    key={i}
+                                    className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
+                                  >
+                                    <p className="text-xs text-gray-500 mb-1">
+                                      Source:{' '}
+                                      <span className="font-mono text-blue-600">
+                                        {citation.tool}
+                                      </span>
+                                    </p>
+                                    <p className="text-sm text-gray-700 italic">
+                                      "{citation.content.substring(0, 150)}
+                                      {citation.content.length > 150
+                                        ? '...'
+                                        : ''}
+                                      "
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     ))}
                   </div>
@@ -456,7 +476,12 @@ export default function ScreenPage() {
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <label htmlFor="job" className="text-sm font-medium text-gray-700">Screen for job</label>
+                <label
+                  htmlFor="job"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Screen for job
+                </label>
                 <select
                   id="job"
                   value={selectedJobId}
@@ -465,9 +490,18 @@ export default function ScreenPage() {
                   disabled={isLoading}
                 >
                   <option value="">General screening criteria</option>
-                  {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} - {job.skills.join(", ")}</option>)}
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title} - {job.skills.join(', ')}
+                    </option>
+                  ))}
                 </select>
-                <Link href="/jobs" className="text-sm font-medium text-blue-600 hover:text-blue-700">Create a job</Link>
+                <Link
+                  href="/jobs"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Create a job
+                </Link>
               </div>
               <textarea
                 value={query}
@@ -481,7 +515,7 @@ export default function ScreenPage() {
                 disabled={isLoading || !query.trim()}
                 className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium transition"
               >
-                {isLoading ? "Screening..." : "Screen Candidates"}
+                {isLoading ? 'Screening...' : 'Screen Candidates'}
               </button>
             </form>
           </div>

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getFullResumeById, getAssessmentsByCandidate } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import { getFullResumeById, getAssessmentsByCandidate } from '@/lib/db';
 
 export async function GET(
   _request: NextRequest,
@@ -12,7 +12,9 @@ export async function GET(
     return NextResponse.json({ resume, assessments });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load resume" },
+      {
+        error: error instanceof Error ? error.message : 'Unable to load resume',
+      },
       { status: 500 }
     );
   }

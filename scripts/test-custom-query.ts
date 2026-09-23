@@ -9,11 +9,11 @@
  * 4. Show how Claude extracts the answer from chunks
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { parsePDF } from "@/lib/pdf";
-import { chunkText } from "@/lib/chunk";
-import { embedDocument, embedQuery } from "@/lib/embeddings";
+import * as fs from 'fs';
+import * as path from 'path';
+import { parsePDF } from '@/lib/pdf';
+import { chunkText } from '@/lib/chunk';
+import { embedDocument, embedQuery } from '@/lib/embeddings';
 
 // Simulate cosine similarity
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -31,21 +31,25 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 }
 
 async function testCustomQuery() {
-  const CUSTOM_QUERY = "How many years of experience does the candidate have?";
+  const CUSTOM_QUERY = 'How many years of experience does the candidate have?';
 
-  console.log("═══════════════════════════════════════════════════════════════");
-  console.log("   Testing Custom Query with RAG Pipeline");
-  console.log("═══════════════════════════════════════════════════════════════\n");
+  console.log(
+    '═══════════════════════════════════════════════════════════════'
+  );
+  console.log('   Testing Custom Query with RAG Pipeline');
+  console.log(
+    '═══════════════════════════════════════════════════════════════\n'
+  );
 
   console.log(`📋 Query: "${CUSTOM_QUERY}"\n`);
 
   // Step 1: Load and parse resume
-  console.log("Step 1️⃣  : Load & Parse Resume");
-  const resumeDir = path.join(process.cwd(), "resumes");
-  const resumeFile = fs.readdirSync(resumeDir).find((f) => f.endsWith(".pdf"));
+  console.log('Step 1️⃣  : Load & Parse Resume');
+  const resumeDir = path.join(process.cwd(), 'resumes');
+  const resumeFile = fs.readdirSync(resumeDir).find((f) => f.endsWith('.pdf'));
 
   if (!resumeFile) {
-    console.error("❌ No PDF found in resumes folder");
+    console.error('❌ No PDF found in resumes folder');
     process.exit(1);
   }
 
@@ -54,28 +58,30 @@ async function testCustomQuery() {
   const fullText = await parsePDF(Buffer.from(buffer));
 
   const candidateName = resumeFile
-    .replace(/\.pdf$/, "")
-    .replace(/_/g, " ")
-    .split(" ")
+    .replace(/\.pdf$/, '')
+    .replace(/_/g, ' ')
+    .split(' ')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+    .join(' ');
 
   console.log(`   ✓ Loaded: ${candidateName}`);
   console.log(`   ✓ Text length: ${fullText.length} characters\n`);
 
   // Step 2: Chunk text
-  console.log("Step 2️⃣  : Chunk Text");
+  console.log('Step 2️⃣  : Chunk Text');
   const chunks = chunkText(fullText);
-  console.log(`   ✓ Created ${chunks.length} chunks (800 chars, 100 overlap)\n`);
+  console.log(
+    `   ✓ Created ${chunks.length} chunks (800 chars, 100 overlap)\n`
+  );
 
   // Step 3: Embed query
-  console.log("Step 3️⃣  : Embed Query");
+  console.log('Step 3️⃣  : Embed Query');
   console.log(`   Embedding: "${CUSTOM_QUERY}"`);
   const queryEmbedding = await embedQuery(CUSTOM_QUERY);
   console.log(`   ✓ Query embedded to ${queryEmbedding.length} dimensions\n`);
 
   // Step 4: Search & score chunks
-  console.log("Step 4️⃣  : Vector Similarity Search");
+  console.log('Step 4️⃣  : Vector Similarity Search');
   console.log(`   Scoring all ${chunks.length} chunks against query...\n`);
 
   const scoredChunks = [];
@@ -100,7 +106,7 @@ async function testCustomQuery() {
   console.log(`   ✓ Scoring complete\n`);
 
   // Step 5: Show top results
-  console.log("Step 5️⃣  : Top Matching Resume Sections");
+  console.log('Step 5️⃣  : Top Matching Resume Sections');
   console.log(`   (Sorted by vector similarity to query)\n`);
 
   const topChunks = scoredChunks.slice(0, 5);
@@ -113,10 +119,10 @@ async function testCustomQuery() {
   });
 
   // Step 6: Simulate Claude's interpretation
-  console.log("Step 6️⃣  : Claude Processes Top Chunks\n");
+  console.log('Step 6️⃣  : Claude Processes Top Chunks\n');
 
-  console.log("   Claude reads the top 3 matching chunks and extracts:");
-  console.log("   ---");
+  console.log('   Claude reads the top 3 matching chunks and extracts:');
+  console.log('   ---');
 
   const analysisChunks = topChunks.slice(0, 3);
   for (let i = 0; i < analysisChunks.length; i++) {
@@ -127,11 +133,13 @@ async function testCustomQuery() {
 
     if (expMatch) {
       console.log(`   ✓ From chunk ${chunk.index}: Found "${expMatch[0]}"`);
-      console.log(`     Context: "...${chunk.content.substring(Math.max(0, chunk.content.indexOf(expMatch[0]) - 30), chunk.content.indexOf(expMatch[0]) + 80)}..."`);
+      console.log(
+        `     Context: "...${chunk.content.substring(Math.max(0, chunk.content.indexOf(expMatch[0]) - 30), chunk.content.indexOf(expMatch[0]) + 80)}..."`
+      );
     }
   }
 
-  console.log("   ---\n");
+  console.log('   ---\n');
 
   // Step 7: Final answer
   console.log("Step 7️⃣  : Claude's Answer");
@@ -146,20 +154,28 @@ async function testCustomQuery() {
   });
 
   if (allMatches.size > 0) {
-    const answer = Array.from(allMatches).join(", ");
+    const answer = Array.from(allMatches).join(', ');
     console.log(`   Answer: "${answer}" of experience\n`);
-    console.log(`   Confidence: HIGH (found in ${analysisChunks.length} top chunks)\n`);
+    console.log(
+      `   Confidence: HIGH (found in ${analysisChunks.length} top chunks)\n`
+    );
   } else {
     console.log(
       `   Answer: Could not determine exact years from top chunks.\n`
     );
-    console.log(`   Recommendation: Fetch full resume for complete analysis.\n`);
+    console.log(
+      `   Recommendation: Fetch full resume for complete analysis.\n`
+    );
   }
 
   // Summary
-  console.log("═══════════════════════════════════════════════════════════════");
-  console.log("   Pipeline Flow Summary");
-  console.log("═══════════════════════════════════════════════════════════════\n");
+  console.log(
+    '═══════════════════════════════════════════════════════════════'
+  );
+  console.log('   Pipeline Flow Summary');
+  console.log(
+    '═══════════════════════════════════════════════════════════════\n'
+  );
 
   console.log(`🔍 Query: "${CUSTOM_QUERY}"`);
   console.log(`📄 Candidate: ${candidateName}`);
@@ -169,7 +185,9 @@ async function testCustomQuery() {
   console.log(`   - Embedding dimensions: ${queryEmbedding.length}`);
   console.log(`\n🎯 Top 3 Relevant Chunks:`);
   topChunks.slice(0, 3).forEach((chunk, i) => {
-    console.log(`   ${i + 1}. Chunk ${chunk.index} (${(chunk.similarity * 100).toFixed(1)}% match)`);
+    console.log(
+      `   ${i + 1}. Chunk ${chunk.index} (${(chunk.similarity * 100).toFixed(1)}% match)`
+    );
   });
 
   console.log(`\n✅ How it works:`);
