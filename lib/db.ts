@@ -1,4 +1,4 @@
-import { createServerClient } from "./supabase/server";
+import { createServiceClient } from "./supabase/server";
 
 interface ChunkWithEmbedding {
   content: string;
@@ -22,7 +22,7 @@ export interface CreateJobInput {
 }
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
-  const client = createServerClient();
+  const client = createServiceClient();
   const { data, error } = await client
     .from("jobs")
     .insert(input)
@@ -34,7 +34,7 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
 }
 
 export async function listJobs(): Promise<Job[]> {
-  const client = createServerClient();
+  const client = createServiceClient();
   const { data, error } = await client
     .from("jobs")
     .select("id, title, description, experience, skills, created_at")
@@ -45,7 +45,7 @@ export async function listJobs(): Promise<Job[]> {
 }
 
 export async function getJobById(jobId: string): Promise<Job> {
-  const client = createServerClient();
+  const client = createServiceClient();
   const { data, error } = await client
     .from("jobs")
     .select("id, title, description, experience, skills, created_at")
@@ -63,7 +63,7 @@ export async function insertCandidate(
   originalFilename: string,
   fullText: string
 ): Promise<string> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const { data, error } = await client
     .from("candidates")
@@ -87,7 +87,7 @@ export async function insertChunks(
   candidateId: string,
   chunks: ChunkWithEmbedding[]
 ): Promise<void> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const chunksData = chunks.map((chunk, index) => ({
     candidate_id: candidateId,
@@ -102,7 +102,7 @@ export async function insertChunks(
 }
 
 export async function deleteCandidate(candidateId: string): Promise<void> {
-  const client = createServerClient();
+  const client = createServiceClient();
   const { error } = await client.from("candidates").delete().eq("id", candidateId);
   if (error) throw error;
 }
@@ -111,7 +111,7 @@ export async function searchChunks(
   queryEmbedding: number[],
   matchCount: number
 ): Promise<any[]> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   // Use RPC to call the match_resume_chunks function
   const { data, error } = await client.rpc("match_resume_chunks", {
@@ -124,7 +124,7 @@ export async function searchChunks(
 }
 
 export async function getFullResumeById(candidateId: string): Promise<string> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const { data, error } = await client
     .from("candidates")
@@ -137,7 +137,7 @@ export async function getFullResumeById(candidateId: string): Promise<string> {
 }
 
 export async function listCandidates(): Promise<any[]> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const { data: candidates, error: candidatesError } = await client
     .from("candidates")
@@ -183,7 +183,7 @@ export async function createScreening(
   summary: string,
   assessments: ScreeningAssessment[]
 ): Promise<string> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   // Create screening record
   const { data: screening, error: screeningError } = await client
@@ -219,7 +219,7 @@ export async function createScreening(
 }
 
 export async function getScreeningsByJob(jobId: string): Promise<any[]> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const { data, error } = await client
     .from("screenings")
@@ -248,7 +248,7 @@ export async function getScreeningsByJob(jobId: string): Promise<any[]> {
 export async function getAssessmentsByCandidate(
   candidateId: string
 ): Promise<any[]> {
-  const client = createServerClient();
+  const client = createServiceClient();
 
   const { data, error } = await client
     .from("screening_assessments")

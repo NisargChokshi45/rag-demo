@@ -17,6 +17,13 @@ interface ToolCall {
   toolInput: Record<string, unknown>;
 }
 
+interface Citation {
+  candidateId: string;
+  candidateName: string;
+  content: string;
+  tool: "search_chunks" | "get_full_resume";
+}
+
 interface ReportData {
   query: string;
   assessments: Array<{
@@ -25,8 +32,11 @@ interface ReportData {
     score: number;
     evidence: string[];
     unknowns: string[];
+    citations?: Citation[];
   }>;
   summary: string;
+  reasoning?: string;
+  context?: string[];
 }
 
 interface ReportMessage {
@@ -288,11 +298,45 @@ export default function ScreenPage() {
             {/* Final Report */}
             {report && (
               <div className="space-y-6">
+                {/* Summary Section */}
                 <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
                   <h3 className="font-semibold text-green-900 mb-2">Summary</h3>
                   <p className="text-green-800">{report.summary}</p>
                 </div>
 
+                {/* Reasoning & Thinking Process */}
+                {report.reasoning && (
+                  <div className="bg-purple-50 border border-purple-200 p-6 rounded-lg">
+                    <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                      <span>🧠</span> Thinking Process
+                    </h3>
+                    <p className="text-purple-800 text-sm leading-relaxed">
+                      {report.reasoning}
+                    </p>
+                  </div>
+                )}
+
+                {/* Context Used */}
+                {report.context && report.context.length > 0 && (
+                  <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg">
+                    <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+                      <span>📋</span> Context Used
+                    </h3>
+                    <ul className="space-y-2">
+                      {report.context.map((item, i) => (
+                        <li
+                          key={i}
+                          className="text-sm text-indigo-800 flex gap-2"
+                        >
+                          <span className="text-indigo-600 flex-shrink-0">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Candidate Assessments */}
                 <div>
                   <h3 className="font-semibold text-lg mb-4">
                     Candidate Assessments
@@ -303,6 +347,7 @@ export default function ScreenPage() {
                         key={idx}
                         className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
                       >
+                        {/* Header with Score */}
                         <div className="flex items-start justify-between mb-4">
                           <div>
                             <h4 className="font-semibold text-lg">
@@ -317,10 +362,11 @@ export default function ScreenPage() {
                           </div>
                         </div>
 
+                        {/* Evidence */}
                         {assessment.evidence.length > 0 && (
                           <div className="mb-4">
                             <h5 className="text-sm font-medium text-gray-700 mb-2">
-                              Evidence
+                              ✓ Evidence
                             </h5>
                             <ul className="space-y-1">
                               {assessment.evidence.map((item, i) => (
@@ -336,10 +382,11 @@ export default function ScreenPage() {
                           </div>
                         )}
 
+                        {/* Unknowns */}
                         {assessment.unknowns.length > 0 && (
-                          <div>
+                          <div className="mb-4">
                             <h5 className="text-sm font-medium text-gray-700 mb-2">
-                              Unknowns
+                              ? Unknowns
                             </h5>
                             <ul className="space-y-1">
                               {assessment.unknowns.map((item, i) => (
@@ -352,6 +399,30 @@ export default function ScreenPage() {
                                 </li>
                               ))}
                             </ul>
+                          </div>
+                        )}
+
+                        {/* Citations */}
+                        {assessment.citations && assessment.citations.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                              <span>📌</span> Citations from Resume
+                            </h5>
+                            <div className="space-y-2">
+                              {assessment.citations.map((citation, i) => (
+                                <div
+                                  key={i}
+                                  className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
+                                >
+                                  <p className="text-xs text-gray-500 mb-1">
+                                    Source: <span className="font-mono text-blue-600">{citation.tool}</span>
+                                  </p>
+                                  <p className="text-sm text-gray-700 italic">
+                                    "{citation.content.substring(0, 150)}{citation.content.length > 150 ? "..." : ""}"
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>

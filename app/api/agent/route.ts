@@ -98,23 +98,34 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Build context for the final report
+          // Build enhanced context for the final report with full tool results
           const contextForReport = toolCalls
-            .map(
-              (call) =>
-                `Tool: ${call.toolName}\nInput: ${JSON.stringify(call.toolInput)}\nResult: ${JSON.stringify(call.result)}`
-            )
-            .join("\n\n");
+            .map((call, idx) => {
+              const resultStr = typeof call.result === 'string' ? call.result : JSON.stringify(call.result, null, 2);
+              return `[${idx + 1}] Tool: ${call.toolName}\nInput: ${JSON.stringify(call.toolInput)}\nResult:\n${resultStr}`;
+            })
+            .join("\n\n---\n\n");
 
-          const reportPrompt = `Based on the search results and candidate information below, provide a screening report.
+          const reportPrompt = `Based on the search results and candidate information below, provide a comprehensive screening report.
 
 Query: ${query}
 ${jobContext ? `Job Criteria:\n${jobContext}` : ""}
 
-Tool Calls and Results:
+Tool Calls and Results (these contain resume chunks and candidate information):
 ${contextForReport}
 
-Provide assessments for the candidates mentioned in the results. For each candidate, include their ID, name, a relevance score (0-100), evidence from the resume, and any unknowns.`;
+For each candidate assessment, include:
+1. ID, name, and relevance score (0-100)
+2. Evidence from the resume (key qualifications that match the query)
+3. Unknowns or gaps in the resume
+4. Citations: Include 1-3 relevant resume excerpts from the tool results (each 80-150 chars) that directly support the assessment. Include the tool name that provided each citation (search_chunks or get_full_resume).
+
+Additionally, provide:
+- A summary of the screening explaining how candidates were evaluated
+- Key reasoning steps that guided the assessment (e.g., "Used vector search to find candidates with matching skills, then reranked by relevance")
+- Context items used (such as job criteria, search strategies, number of candidates evaluated, tools employed)
+
+Format citations as actual text snippets from the resume content shown in the tool results above.`;
 
           // Generate final structured report
           const structuredOutput = getChatModel(0.3).withStructuredOutput(ScreeningReportSchema);
