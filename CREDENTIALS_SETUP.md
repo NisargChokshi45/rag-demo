@@ -4,12 +4,14 @@ This document walks you through obtaining and configuring all required credentia
 
 ## Required Credentials
 
-You need four environment variables:
+You need six environment variables:
 
 1. **NEXT_PUBLIC_SUPABASE_URL** — Supabase project URL (public)
 2. **NEXT_PUBLIC_SUPABASE_ANON_KEY** — Supabase anonymous key (public)
 3. **SUPABASE_SERVICE_ROLE_KEY** — Supabase service-role key (secret, server-only)
-4. **GOOGLE_API_KEY** — Google Gemini API key (secret)
+4. **GOOGLE_API_KEY** — Gemini Embedding 2 API key (secret)
+5. **GROQ_API_KEY** — Groq chat/agent API key (secret)
+6. **GROQ_CHAT_MODEL** — optional Groq model override
 
 ## Step 1: Set Up Supabase Project
 
@@ -87,15 +89,16 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 GOOGLE_API_KEY=AIzaSy1234567890abcdefghijk...
 ```
 
+The app uses `gemini-embedding-2` at 1536 dimensions for resume and query vectors. The `/api/debug` endpoint checks the returned dimension.
+
 **Verify the key works** (optional, but recommended):
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GOOGLE_API_KEY" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=YOUR_GOOGLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "contents": [{
-      "parts": [{"text": "Say hello"}]
-    }]
+    "content": {"parts": [{"text": "title: none | text: test embedding"}]},
+  "outputDimensionality": 1536
   }'
 ```
 
@@ -112,7 +115,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Google API Configuration
+# Gemini Embeddings
 GOOGLE_API_KEY=AIzaSy1234567890abcdefghijk...
+
+# Groq Chat and Agent
+GROQ_API_KEY=gsk_1234567890abcdefghijk...
+GROQ_CHAT_MODEL=llama-3.3-70b-versatile
 ```
 
 **Important**:
@@ -148,6 +156,7 @@ Expected response:
 - **Cannot find module 'NEXT_PUBLIC_SUPABASE_URL'**: Check `.env.local` syntax (no spaces around `=`)
 - **401/403 Supabase error**: Check Supabase URL and keys are correct
 - **401/403 Google error**: Check `GOOGLE_API_KEY` is correct and not revoked
+- **401/403 Groq error**: Check `GROQ_API_KEY` is correct and not revoked
 
 ## Troubleshooting
 

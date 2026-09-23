@@ -1,3 +1,8 @@
+**In Vercel Dashboard**:
+   - `GOOGLE_API_KEY` (production only, Gemini Embedding 2)
+   - `GROQ_API_KEY` (production only, chat/agent)
+   - `GROQ_CHAT_MODEL` (optional, defaults to `llama-3.3-70b-versatile`)
+- **Google API (Gemini Embedding 2)**:
 # Phase 8: Deployment Guide
 
 **Status**: Ready to deploy after Phase 7 (E2E testing) passes locally.
@@ -55,7 +60,9 @@ Then follow the prompts to link the project.
    - `NEXT_PUBLIC_SUPABASE_URL` (public)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
    - `SUPABASE_SERVICE_ROLE_KEY` (production only)
-   - `GOOGLE_API_KEY` (production only)
+   - `GOOGLE_API_KEY` (production only, Gemini Embedding 2)
+   - `GROQ_API_KEY` (production only, chat/agent)
+   - `GROQ_CHAT_MODEL` (optional, defaults to `llama-3.3-70b-versatile`)
 
 **Verification**:
 - [ ] Public vars (NEXT_PUBLIC_*) are visible in the dashboard
@@ -154,6 +161,9 @@ If you want a custom domain:
 - Free tier: 15 requests per minute, 1,500 requests per day (generous for low-traffic testing)
 - Your app: ~10 embed calls per ingest + ~5 generate calls per query
 - Expected cost: $0 for testing; scale if > 1 query per minute sustained
+
+**Groq**:
+- Used for normal chat, tool calling, reranking, and structured reports.
 
 ## Monitoring & Maintenance
 

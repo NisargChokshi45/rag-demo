@@ -17,17 +17,17 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router, TypeScript)
-- **Models**: Google Gemini 2.5 Flash (generation, tool-calling), Gemini Embedding 001 (vector DB)
+- **Models**: Gemini Embedding 2 via `GOOGLE_API_KEY` (1536-dim vectors), Groq via `GROQ_API_KEY` (chat, tool calling, reranking, and reports)
 - **Database**: Supabase (Postgres + pgvector for embeddings)
 - **Storage**: Supabase Storage (raw PDFs)
-- **AI SDK**: Vercel AI SDK (`@ai-sdk/google`, streaming, tool-use)
+- **Agent framework**: LangChain + LangGraph
 - **PDF Parsing**: unpdf (robust for serverless)
 - **Validation**: Zod (structured schema)
 - **Package Manager**: pnpm
 
 ## Project Status
 
-✅ **Phases 1–6 Complete** (code-ready, builds pass clean)
+🛠️ **Phases 1–6 Implemented** (runtime E2E validation remains)
 - Phase 1: Next.js + pnpm setup
 - Phase 2: Test data (25 sample resumes)
 - Phase 3: Ingestion pipeline (PDF → chunks → embeddings → DB)
@@ -117,13 +117,15 @@ TASKS.md                      Task checklist (Phases 0–8)
 
 ## Key Design Decisions
 
-### 1. **Tool-Calling Agent, Not LangGraph**
-- Simpler, more transparent: Vercel AI SDK's `streamText` + `tools`
+### 1. **LangGraph Tool-Calling Agent**
+- Transparent LangGraph `createReactAgent` loop with a recursion limit of 10
+| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as `vector(1536)` |
+| Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
 - Traces streamed live to UI (every tool call visible)
 - Cap: 10 steps per query (Vercel's 300s timeout is sufficient)
 
 ### 2. **LLM Reranking Inside `search_chunks` Tool**
-- After vector search retrieves 20 chunks, Gemini ranks top 5 by relevance
+- After vector search retrieves 15 chunks, Groq ranks top 5 by relevance
 - Fixes precision without separate UI logic
 - Cost: ~1 extra generate call per query
 
@@ -148,9 +150,9 @@ TASKS.md                      Task checklist (Phases 0–8)
 | Constraint | Workaround |
 |---|---|
 | Vercel 4.5MB body limit | Signed upload URLs → Supabase Storage |
-| Gemini embedding dims (3072) | Truncate to 768 via `outputDimensionality` (check first embed call) |
+| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as `vector(1536)` |
 | Free-tier rate limits | Batch embed calls with backoff, not `Promise.all` |
-| Google API free tier (15 req/min) | Sufficient for testing; upgrade if needed |
+| Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
 | Supabase free tier (500 MB DB) | 25 resumes = ~625 KB; 8+ resume fetches = ~200 KB; all OK |
 
 ## Security

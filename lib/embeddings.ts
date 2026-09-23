@@ -1,45 +1,53 @@
-import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
+export const EMBEDDING_DIMENSIONS = 1536;
 
-let embedder: HuggingFaceTransformersEmbeddings | null = null;
+const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
 
-async function getEmbedder(): Promise<HuggingFaceTransformersEmbeddings> {
-  if (!embedder) {
-    embedder = new HuggingFaceTransformersEmbeddings({
-      model: process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2",
-    });
-  }
-  return embedder;
+function formatEmbeddingInput(text: string, kind: "document" | "query") {
+  return kind === "document"
+    ? `title: none | text: ${text}`
+    : `task: search result | query: ${text}`;
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 60000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Embedding request timeout after ${timeoutMs}ms`)), timeoutMs)
-    ),
-  ]);
+async function embed(text: string, kind: "document" | "query"): Promise<number[]> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error("GOOGLE_API_KEY is missing");
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: { parts: [{ text: formatEmbeddingInput(text, kind) }] },
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Gemini embedding failed (${response.status}): ${details}`);
+  }
+
+  const payload = (await response.json()) as {
+    embedding?: { values?: number[] };
+  };
+  const values = payload.embedding?.values;
+  if (!values || values.length !== EMBEDDING_DIMENSIONS) {
+    throw new Error(
+      `Gemini returned ${values?.length || 0} dimensions; expected ${EMBEDDING_DIMENSIONS}`
+    );
+  }
+
+  return values;
 }
 
-export async function embedDocument(text: string): Promise<number[]> {
-  try {
-    const embedder = await getEmbedder();
-    const embedding = await withTimeout(embedder.embedQuery(text), 60000);
-    return embedding;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error("[EMBEDDINGS] Failed to embed:", err.message);
-    throw err;
-  }
+export function embedDocument(text: string): Promise<number[]> {
+  return embed(text, "document");
 }
 
-export async function embedQuery(text: string): Promise<number[]> {
-  try {
-    const embedder = await getEmbedder();
-    const embedding = await withTimeout(embedder.embedQuery(text), 60000);
-    return embedding;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error("[EMBEDDINGS] Failed to embed:", err.message);
-    throw err;
-  }
+export function embedQuery(text: string): Promise<number[]> {
+  return embed(text, "query");
 }

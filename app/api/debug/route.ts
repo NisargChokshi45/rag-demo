@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedDocument } from "@/lib/embeddings";
+import { EMBEDDING_DIMENSIONS, embedDocument } from "@/lib/embeddings";
 
 export async function GET(_request: NextRequest) {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY;
 
   const response: any = {
-    hasGoogleGenerativeAiKey: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    hasGoogleApiKey: !!process.env.GOOGLE_API_KEY,
-    apiKeyUsed: process.env.GOOGLE_GENERATIVE_AI_API_KEY ? "GOOGLE_GENERATIVE_AI_API_KEY" : (process.env.GOOGLE_API_KEY ? "GOOGLE_API_KEY" : "NONE"),
-    maskedKey: apiKey ? apiKey.substring(0, 20) + "..." : null,
-    sdk: "LangChain",
+    hasGoogleApiKey: !!apiKey,
+    hasGroqApiKey: !!process.env.GROQ_API_KEY,
+    embeddingModel: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
+    expectedEmbeddingLength: EMBEDDING_DIMENSIONS,
     connectionTest: null as any,
   };
 
   if (!apiKey) {
     return NextResponse.json({
       ...response,
-      connectionTest: { status: "FAILED", error: "No API key found in GOOGLE_GENERATIVE_AI_API_KEY or GOOGLE_API_KEY" },
+      connectionTest: { status: "FAILED", error: "GOOGLE_API_KEY is missing" },
     });
   }
 
@@ -25,7 +24,7 @@ export async function GET(_request: NextRequest) {
     response.connectionTest = {
       status: "SUCCESS",
       embeddingLength: testResult.length,
-      message: "Google Generative AI embeddings via LangChain working correctly",
+      message: "Gemini Embedding 2 is working correctly",
     };
   } catch (error) {
     response.connectionTest = {

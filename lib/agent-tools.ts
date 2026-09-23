@@ -6,26 +6,10 @@ import {
   getFullResumeById,
 } from "./db";
 import { embedQuery } from "./embeddings";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { getChatModel } from "./models";
 
 interface ToolContext {
   fetchedCandidates: Set<string>;
-}
-
-function getGoogleModel() {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
-
-  if (!apiKey) {
-    throw new Error(
-      "Google API key is missing. Set GOOGLE_GENERATIVE_AI_API_KEY or GOOGLE_API_KEY in .env.local"
-    );
-  }
-
-  return new ChatGoogleGenerativeAI({
-    apiKey,
-    model: "gemini-2.5-flash",
-    temperature: 0,
-  });
 }
 
 export function createAgentTools(context: ToolContext) {
@@ -72,28 +56,29 @@ export function createAgentTools(context: ToolContext) {
           }
         );
 
-        const model = getGoogleModel();
-        const rerankedCandidates = await Promise.all(
-          Object.entries(chunksByCandidate).map(
-            async ([candidateId, data]) => {
-              const chunkSummary = data.chunks.slice(0, 3).join("\n---\n");
-              const rerankerPrompt = `Given the search query: "${query}"
+        const model = getChatModel(0);
+        const candidates = await listCandidates();
+        const candidateNames = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
+        const rerankedCandidates = [];
+
+        for (const [candidateId, data] of Object.entries(chunksByCandidate)) {
+          const chunkSummary = data.chunks.slice(0, 3).join("\n---\n");
+          const rerankerPrompt = `Given the search query: "${query}"
 
 Here are chunks from a resume:
 ${chunkSummary}
 
 Rate how relevant this candidate is to the query on a scale of 0-10. Return only the number.`;
 
-              const response = await model.invoke(rerankerPrompt);
-              const score = parseInt(response.content as string) || 0;
-              return {
-                candidateId,
-                score,
-                chunks: data.chunks.slice(0, 3),
-              };
-            }
-          )
-        );
+          const response = await model.invoke(rerankerPrompt);
+          const score = Number.parseInt(String(response.content), 10) || 0;
+          rerankedCandidates.push({
+            candidateId,
+            candidateName: candidateNames.get(candidateId) || "Unknown candidate",
+            score,
+            chunks: data.chunks.slice(0, 3),
+          });
+        }
 
         const topCandidates = rerankedCandidates
           .sort((a, b) => b.score - a.score)
@@ -102,6 +87,7 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
         return JSON.stringify({
           results: topCandidates.map((c) => ({
             candidateId: c.candidateId,
+            candidateName: c.candidateName,
             relevanceScore: c.score,
             topChunks: c.chunks,
           })),
@@ -120,6 +106,11 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
 
     tool(
       async ({ candidateId }: { candidateId: string }) => {
+        if (context.fetchedCandidates.has(candidateId)) {
+          const fullText = await getFullResumeById(candidateId);
+          return JSON.stringify({ candidateId, fullResume: fullText });
+        }
+
         if (context.fetchedCandidates.size >= 8) {
           return JSON.stringify({
             error: "Maximum candidate fetch limit reached (8). Cannot fetch more full resumes.",

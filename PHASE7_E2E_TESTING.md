@@ -8,6 +8,7 @@
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY`
   - `GOOGLE_API_KEY`
+   - `GROQ_API_KEY`
 - Supabase project with `schema.sql` executed (tables: `candidates`, `resume_chunks`, RPC function `match_resume_chunks`)
 - Supabase Storage bucket named `resumes` created
 
@@ -197,7 +198,7 @@ After running all three queries:
 - Verify embeddings are being stored (query `SELECT COUNT(*) FROM resume_chunks` in Supabase SQL editor)
 
 ### **Agent queries hang or return errors**
-- Check `.env.local` has valid `GOOGLE_API_KEY`
+- Check `.env.local` has valid `GOOGLE_API_KEY` and `GROQ_API_KEY`
 - Verify API key is for Gemini (not older models)
 - Check Google API quota (free tier allows ~10k calls/min; 25 resumes × 3 queries × multiple chunks = hundreds of calls total)
 - Review `/api/agent` network response for error details

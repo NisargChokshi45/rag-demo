@@ -4,7 +4,8 @@
 
 See **CREDENTIALS_SETUP.md** for complete guide to obtain:
 - [ ] Supabase project URL and API keys (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY)
-- [ ] Google API key (GOOGLE_API_KEY)
+- [ ] Google API key for Gemini Embedding 2 (GOOGLE_API_KEY)
+- [ ] Groq API key for chat and agent generation (GROQ_API_KEY)
 - [ ] Create `.env.local` file with all four variables
 - [ ] Verify credentials work by running `curl http://localhost:3000/api/candidates`
 
@@ -48,7 +49,7 @@ See **CREDENTIALS_SETUP.md** for complete guide to obtain:
 - [x] Implement `lib/schema.ts` — Zod ScreeningReport and CandidateAssessment schemas (already present)
 - [x] Implement `lib/agent-tools.ts` — tool definitions (list_all_candidates, search_chunks, get_full_resume) with fetch-cap closure
 - [x] Implement `app/upload/page.tsx` — JD textarea + resume picker, drives signed-upload flow (already implemented)
-- [x] Implement `api/agent/route.ts` — tool-calling loop (streamText) + final generateObject call (set maxDuration, runtime=nodejs)
+- [x] Implement `api/agent/route.ts` — LangGraph tool-calling loop + final structured report (set maxDuration, runtime=nodejs)
 - ⏳ Test with curl/script: verify tool calls and structured final report — **BLOCKED: awaiting Supabase credentials and Google AI key**
 
 ## 6. Screen Page UI (≈1 hr) ✓ COMPLETE

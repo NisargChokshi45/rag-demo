@@ -36,6 +36,7 @@ type StreamMessage = ToolCall | ReportMessage;
 
 export default function ScreenPage() {
   const [query, setQuery] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +50,7 @@ export default function ScreenPage() {
     if (saved) {
       setHistory(JSON.parse(saved));
     }
+    setJobDescription(localStorage.getItem("screeningJobDescription") || "");
   }, []);
 
   const scrollToBottom = () => {
@@ -96,7 +98,7 @@ export default function ScreenPage() {
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, jobDescription }),
       });
 
       if (!response.ok) {
@@ -365,6 +367,16 @@ export default function ScreenPage() {
         <div className="border-t border-gray-200 bg-white p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
+              <textarea
+                value={jobDescription}
+                onChange={(e) => {
+                  setJobDescription(e.target.value);
+                  localStorage.setItem("screeningJobDescription", e.target.value);
+                }}
+                placeholder="Optional job description or screening criteria"
+                className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                disabled={isLoading}
+              />
               <textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

@@ -6,11 +6,10 @@ import { createServerClient } from "@/lib/supabase/server";
 import { parsePDF } from "@/lib/pdf";
 import { chunkText } from "@/lib/chunk";
 import { embedDocument } from "@/lib/embeddings";
-import { insertCandidate, insertChunks } from "@/lib/db";
+import { deleteCandidate, insertCandidate, insertChunks } from "@/lib/db";
 
 interface IngestRequest {
   storagePath: string;
-  jobDescription?: string;
 }
 
 async function delay(ms: number) {
@@ -49,7 +48,10 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(pdfBuffer);
 
     // Parse PDF to text
-    const fullText = await parsePDF(buffer);
+    const fullText = (await parsePDF(buffer)).trim();
+    if (!fullText) {
+      throw new Error("PDF did not contain extractable text");
+    }
 
     // Extract candidate name from filename (e.g., "123-john_doe.pdf" → "John Doe")
     const filename = storagePath.split("/").pop() || "";
@@ -77,17 +79,11 @@ export async function POST(request: NextRequest) {
     else if (lowerText.includes("hadoop")) roleGuess = "Hadoop Developer";
     else if (lowerText.includes("php")) roleGuess = "PHP Developer";
 
-    // Insert candidate
-    const candidateId = await insertCandidate(
-      nameFromFile,
-      roleGuess,
-      storagePath,
-      filename,
-      fullText
-    );
-
     // Chunk text
     const textChunks = chunkText(fullText);
+    if (textChunks.length === 0) {
+      throw new Error("PDF produced no text chunks");
+    }
 
     // Embed chunks with retry logic and batching
     const MAX_RETRIES = 3;
@@ -135,9 +131,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert chunks
-    console.log(`[INGEST] Inserting ${chunks.length} chunks into database...`);
-    await insertChunks(candidateId, chunks);
+    // Insert only after parsing and embedding have completed successfully.
+    const candidateId = await insertCandidate(
+      nameFromFile,
+      roleGuess,
+      storagePath,
+      filename,
+      fullText
+    );
+
+    try {
+      console.log(`[INGEST] Inserting ${chunks.length} chunks into database...`);
+      await insertChunks(candidateId, chunks);
+    } catch (error) {
+      await deleteCandidate(candidateId);
+      throw error;
+    }
 
     console.log(`[INGEST] ✓ Ingestion complete for ${nameFromFile}`);
     return NextResponse.json({

@@ -1,3 +1,4 @@
+The never-written "agentic" ending is what this project needs to actually build, natively in TypeScript, using a LangGraph tool-calling agent loop.
 # Agentic Resume-Screening RAG — TypeScript MVP (1-day build)
 
 ## Context
@@ -24,19 +25,33 @@ Goal: ship a working MVP today — a Next.js app (React + Node, one Vercel proje
 
 - **Scope**: general tool — recruiter uploads resumes + JD at runtime (not the fixed 25-resume demo set).
 - **Framework**: Next.js (App Router), one Vercel project, React frontend + Node route handlers.
-- **Models**: Google Gemini for everything (free tier) via the Vercel AI SDK's `@ai-sdk/google` — `gemini-2.5-flash` for generation/tool-calling, `gemini-embedding-001` for embeddings. Code stays provider-agnostic (swap via env var), Google is just today's default.
+- **Models**: Gemini Embedding 2 via `GOOGLE_API_KEY` for document/query embeddings, and Groq via `GROQ_API_KEY` for chat, reranking, tool calling, and structured report generation.
 - **Storage**: Supabase — Postgres + pgvector for chunk embeddings, Supabase Storage for raw PDFs. Neither is provisioned yet; provisioning is step 1.
 - **Auth**: none for the MVP.
 - **UI**: multi-page — Upload, Candidates, Screen (chat).
-- **Agent depth**: tool-calling loop (not a hand-rolled adaptive/corrective state machine). Tools: `list_all_candidates`, `search_chunks` (vector search + internal LLM rerank), `get_full_resume`. Final answer is a separate structured (`generateObject`) call over the accumulated tool-call history — no `submit_report` tool, to keep the loop and the live trace UI simple.
+- **Agent depth**: LangGraph `createReactAgent` tool-calling loop with a server-side recursion limit of 10. Tools: `list_all_candidates`, `search_chunks` (vector search + Groq rerank), `get_full_resume`. Final answer is a separate LangChain structured-output call over the accumulated tool-call history — no `submit_report` tool, to keep the loop and the live trace UI simple.
+2. **Embedding vector dimension**: Gemini Embedding 2 defaults to 3072 dimensions and supports 768, 1536, and 3072 output dimensions. Use **1536** because it is within Supabase pgvector's standard `vector` limit while preserving strong retrieval quality. The embedding wrapper checks the returned length on every call and fails before writing a mismatched vector.
+3. **Embedding task prompts**: Gemini Embedding 2 does not use the older `taskType` parameter. `embedDocument` formats `title: none | text: ...`; `embedQuery` formats `task: search result | query: ...`. Both use the same `gemini-embedding-2` model and `GOOGLE_API_KEY`.
+4. **Free tier**: embed chunks sequentially with retry/backoff, and rerank candidates sequentially through Groq to avoid request bursts.
+9. **Secrets**: Supabase **service role key**, `GOOGLE_API_KEY`, and `GROQ_API_KEY` are server-only. `.env.local` must be gitignored. The job description is kept in browser session storage for the MVP because there is deliberately no jobs table; it is sent with each screening request and is not used during resume ingestion.
+  embedding vector(1536),
+  screen/page.tsx        chat UI — job description, question box, live tool trace, report cards
+  api/ingest/route.ts       POST {storagePath} -> parse/chunk/embed/insert (nodejs, maxDuration set)
+  api/agent/route.ts        POST -> LangGraph tool loop + final structured report
+  embeddings.ts        embedDocument() / embedQuery() wrapping Gemini Embedding 2 with task prompts
+  models.ts            Groq chat-model factory for agent, reranker, and report generation
+LangChain and LangGraph own the agent, tools, chat model, and structured output. The splitter remains hand-rolled rather than pulling in `@langchain/textsplitters` for one function. No Vercel AI SDK dependency is used.
+1. **Setup (≈45 min)**: create Supabase project, enable `vector` extension, run `schema.sql`, create a `resumes` Storage bucket; create Google and Groq API keys; install LangChain/LangGraph, `@langchain/groq`, `@supabase/supabase-js`, `unpdf`, and `zod`.
+3. **Ingestion pipeline (≈2 hr)**: signed-upload flow, `api/ingest` (parse → reject empty text → chunk → sequential Gemini embed with retry/backoff → insert candidate + chunks). The route inserts nothing until all embeddings succeed and deletes the candidate if chunk insertion fails. Verify 1536-dimensional vectors and row counts in Supabase.
+5. **Agent route (≈2 hr)**: implement the three LangChain tools, the LangGraph tool loop with a recursion limit of 10, then the final structured-output call against `ScreeningReport`. Test with `curl`/a script before wiring the UI.
 - **Candidate pool**: single global pool, no `jobs`/sessions table. Deliberate MVP cut — flag to user if they want per-job isolation later.
 - **Tool visibility**: the Screen page streams a live trace of tool calls (search/rerank/fetch), not just the final report — this is the notebook's central lesson (make retrieval failures visible) carried into the product.
 
 ## Hard technical constraints (verified, not assumed)
 
 1. **Vercel request body cap is 4.5MB.** A batch of resume PDFs will blow past this in one POST. Uploads must go **client → Supabase Storage directly via a signed URL**, then a server route ingests by storage path. Never POST raw PDF bytes to a Next.js API route.
-2. **Embedding vector dimension**: `gemini-embedding-001` defaults to 3072-dim; it supports `outputDimensionality` truncation (recommended: 768/1536/3072) via `providerOptions.google` in `@ai-sdk/google`. **Known open issue**: `outputDimensionality` has been reported not to take effect in some `@ai-sdk/google` versions (vercel/ai#8033) — verify the actual returned vector length on the first real embed call before writing the `vector(N)` column type. If truncation doesn't work, just declare the column as `vector(3072)` and move on; it still works, just bigger.
-3. **Task-type asymmetry**: Gemini embeddings support `taskType: RETRIEVAL_DOCUMENT` (for indexing chunks) vs `RETRIEVAL_QUERY` (for the search query) — unlike OpenAI's symmetric embeddings in the notebook. Use the right one in `lib/embeddings.ts` (`embedDocument` vs `embedQuery`) or retrieval quality degrades silently.
+2. **Embedding vector dimension**: Gemini Embedding 2 defaults to 3072 dimensions and supports 768, 1536, and 3072 output dimensions. Use **1536** because it is within Supabase pgvector's standard `vector` limit. The wrapper validates the returned length before writing a vector.
+3. **Embedding task prompts**: Gemini Embedding 2 does not use the older `taskType` parameter. `embedDocument` formats `title: none | text: ...`; `embedQuery` formats `task: search result | query: ...`.
 4. **Free tier**: embedding TPM is generous (~10M/min per current docs), but batch embed calls (multiple chunk texts per request) and do them **sequentially with retry/backoff**, not `Promise.all` fan-out — a burst of 600+ parallel calls will trip per-minute limits regardless of the TPM headroom.
 5. **`maxDuration`**: set explicitly on the `ingest` and `agent` route handlers (`export const maxDuration = ...`). Vercel Fluid Compute gives 300s by default even on Hobby — enough if the agent loop's step count is capped (see below). Both routes must run on `runtime = 'nodejs'` (not edge) — PDF parsing and the Supabase service-role client need Node APIs.
 6. **PDF parsing**: use `unpdf`, not `pdf-parse` — `pdf-parse` has known import-time file-read issues under Next.js/serverless bundlers.
@@ -64,7 +79,7 @@ create table resume_chunks (
   candidate_id uuid references candidates(id) on delete cascade,
   chunk_index int not null,
   content text not null,
-  embedding vector(768), -- adjust to actual dim per constraint #2 above
+  embedding vector(1536),
   created_at timestamptz default now()
 );
 
@@ -79,35 +94,34 @@ A Postgres function (`match_resume_chunks(query_embedding, match_count)`) or a p
 app/
   upload/page.tsx        JD textarea + multi-file resume picker, drives signed-upload flow
   candidates/page.tsx    lists ingested candidates (name, role guess, chunk count)
-  screen/page.tsx        chat UI (useChat) — question box, live tool trace, report cards
+  screen/page.tsx        chat UI — job description, question box, live tool trace, report cards
   api/upload-url/route.ts   POST -> Supabase Storage signed upload URL(s)
-  api/ingest/route.ts       POST {storagePaths[]} -> parse/chunk/embed/insert (nodejs, maxDuration set)
+  api/ingest/route.ts       POST {storagePath} -> parse/chunk/embed/insert (nodejs, maxDuration set)
   api/candidates/route.ts   GET -> list candidates
-  api/agent/route.ts        POST -> tool loop (streamText) + final generateObject report
+  api/agent/route.ts        POST -> LangGraph tool loop + final structured report
 lib/
   supabase/client.ts   browser client (anon key)
   supabase/server.ts   server client (service role key) — server-only
   pdf.ts               unpdf wrapper
   chunk.ts             hand-rolled splitter, chunkSize=800/overlap=100 (ported constants from the notebook)
-  embeddings.ts        embedDocument() / embedQuery() wrapping google.textEmbedding with taskType
+  embeddings.ts        embedDocument() / embedQuery() wrapping Gemini Embedding 2 with task prompts
+  models.ts            Groq chat-model factory for agent, reranker, and report generation
   db.ts                insertCandidate, insertChunks, searchChunks, getFullResumeById, listCandidates
   agent-tools.ts        list_all_candidates / search_chunks / get_full_resume tool() defs, with fetch-cap closure
   schema.ts             Zod ScreeningReport / CandidateAssessment (ported from notebook Part 5)
 supabase/schema.sql      the DDL above
 ```
 
-No LangChain/LangGraph dependency — the AI SDK's `tools` + `stopWhen` covers the agent loop, and the splitter is small enough to hand-roll rather than pull in `@langchain/textsplitters` for one function.
-
 ## Build order (time-boxed, ~1 day)
 
-1. **Setup (≈45 min)**: create Supabase project, enable `vector` extension, run `schema.sql`, create a `resumes` Storage bucket; create a Google AI Studio API key; `npx create-next-app` (TS, App Router); `git init` + `.gitignore` (incl. `.env.local`); install `ai`, `@ai-sdk/google`, `@supabase/supabase-js`, `unpdf`, `zod`.
+1. **Setup (≈45 min)**: create Supabase project, enable `vector` extension, run `schema.sql`, create a `resumes` Storage bucket; create Google and Groq API keys; install LangChain/LangGraph, `@langchain/groq`, `@supabase/supabase-js`, `unpdf`, and `zod`.
 2. **Test data (≈15 min)**: pull a handful of sample resume PDFs (notebook-cited dataset or your own) into a local scratch folder for manual upload testing.
-3. **Ingestion pipeline (≈2 hr)**: signed-upload flow, `api/ingest` (parse → chunk → batch-embed with `RETRIEVAL_DOCUMENT` taskType → insert candidate + chunks). Verify actual embedding vector length against constraint #2 before finalizing the column type. Test by ingesting the sample PDFs and checking row counts in Supabase.
+3. **Ingestion pipeline (≈2 hr)**: signed-upload flow, `api/ingest` (parse → reject empty text → chunk → sequential Gemini embed with retry/backoff → insert candidate + chunks). The route inserts nothing until all embeddings succeed and deletes the candidate if chunk insertion fails. Existing databases must run `supabase/migrations/002_gemini_embedding_2.sql` and re-ingest because embedding spaces are not compatible.
 4. **Candidates page (≈30 min)** — checkpoint: upload → see candidates listed.
-5. **Agent route (≈2 hr)**: implement the three tools, the `generateText` tool loop with `stopWhen`/step cap, then the final `generateObject` call against `ScreeningReport`. Test with `curl`/a script before wiring the UI.
-6. **Screen page UI (≈1 hr)**: `useChat`, render streamed tool-call parts as a live trace, render the final structured report as candidate cards (score / evidence / unknowns).
+5. **Agent route (≈2 hr)**: implement the three LangChain tools, the LangGraph tool loop with a recursion limit of 10, then the final structured-output call against `ScreeningReport`.
+6. **Screen page UI (≈1 hr)**: render streamed tool-call parts as a live trace, render the final structured report as candidate cards (score / evidence / unknowns), and preserve the JD in browser session storage for each request.
 7. **End-to-end test (≈30 min)**: replay the notebook's three example questions (direct Java/AWS match; Mahesh years-of-experience + healthcare client; PM/Scrum-master shortlist) and confirm the agent, unlike the notebook's naive pipeline, achieves real coverage on the shortlist question via `list_all_candidates`.
-8. **Deploy (≈30 min)**: push to GitHub, `vercel link`, set env vars (Google API key, Supabase URL/anon/service-role keys) in the Vercel dashboard, deploy, re-run the three test questions against the production URL.
+8. **Deploy (≈30 min)**: push to GitHub, `vercel link`, set `GOOGLE_API_KEY`, `GROQ_API_KEY`, `GROQ_CHAT_MODEL`, and Supabase keys in the Vercel dashboard, deploy, re-run the three test questions against the production URL.
 
 **Cut-line if time runs short**, in this order: (1) simplify the live tool-call trace to a bare "Searching... / Retrieved N chunks" status line instead of a full structured trace, (2) collapse Candidates + Screen into one page, (3) drop the LLM rerank step inside `search_chunks` and use plain top-k vector search (documented as a known limitation, matching the notebook's own Part 3 problem).
 

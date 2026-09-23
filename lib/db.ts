@@ -50,6 +50,12 @@ export async function insertChunks(
   if (error) throw error;
 }
 
+export async function deleteCandidate(candidateId: string): Promise<void> {
+  const client = createServerClient();
+  const { error } = await client.from("candidates").delete().eq("id", candidateId);
+  if (error) throw error;
+}
+
 export async function searchChunks(
   queryEmbedding: number[],
   matchCount: number

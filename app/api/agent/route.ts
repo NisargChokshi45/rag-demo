@@ -2,10 +2,10 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createAgentTools } from "@/lib/agent-tools";
 import { ScreeningReportSchema } from "@/lib/schema";
+import { getChatModel } from "@/lib/models";
 
 interface AgentRequest {
   query: string;
@@ -23,10 +23,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GROQ_API_KEY) {
       return NextResponse.json(
-        { error: "Google API key is missing" },
+        { error: "GROQ_API_KEY is missing" },
         { status: 500 }
       );
     }
@@ -39,11 +38,7 @@ export async function POST(request: NextRequest) {
         ? `You are a resume screening assistant. The job description is:\n\n${jobDescription}\n\nYour job is to screen candidates and provide assessments. Use the available tools to search for candidates and retrieve their full resumes when needed.`
         : "You are a resume screening assistant. Your job is to screen candidates based on the provided criteria. Use the available tools to search for candidates and retrieve their full resumes when needed.";
 
-    const model = new ChatGoogleGenerativeAI({
-      apiKey,
-      model: "gemini-2.5-flash",
-      temperature: 0.7,
-    });
+    const model = getChatModel(0.2);
 
     const agent = createReactAgent({
       llm: model,
@@ -64,6 +59,7 @@ export async function POST(request: NextRequest) {
           const input = { messages: [{ type: "human", content: query }] };
           const stream = await agent.streamEvents(input, {
             version: "v2",
+            recursionLimit: 10,
           });
 
           for await (const event of stream) {
@@ -115,13 +111,7 @@ ${contextForReport}
 Provide assessments for the candidates mentioned in the results. For each candidate, include their ID, name, a relevance score (0-100), evidence from the resume, and any unknowns.`;
 
           // Generate final structured report
-          const reportModel = new ChatGoogleGenerativeAI({
-            apiKey,
-            model: "gemini-2.5-flash",
-            temperature: 0.3,
-          });
-
-          const structuredOutput = reportModel.withStructuredOutput(ScreeningReportSchema);
+          const structuredOutput = getChatModel(0.3).withStructuredOutput(ScreeningReportSchema);
           const report = await structuredOutput.invoke(reportPrompt);
 
           const reportMessage = {

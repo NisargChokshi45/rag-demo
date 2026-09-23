@@ -21,6 +21,7 @@ export default function UploadPage() {
     if (!files.length) return;
 
     setIsUploading(true);
+    localStorage.setItem("screeningJobDescription", jobDescription);
     const newProgress: UploadProgress[] = files.map((f) => ({
       filename: f.name,
       status: "pending",

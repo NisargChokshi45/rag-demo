@@ -18,7 +18,7 @@ create table if not exists resume_chunks (
   candidate_id uuid references candidates(id) on delete cascade,
   chunk_index int not null,
   content text not null,
-  embedding vector(768), -- Adjust to actual dimension if needed (see PLAN.md constraint #2)
+  embedding vector(1536),
   created_at timestamptz default now()
 );
 
