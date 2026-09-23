@@ -12,7 +12,34 @@ SUPABASE_SERVICE_ROLE_KEY=...
 GOOGLE_API_KEY=...
 ```
 
-✅ Supabase: `schema.sql` run, `resumes` Storage bucket created
+✅ Supabase: production project credentials configured and `resumes` Storage bucket created
+
+## Set Up the Database
+
+Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and log in:
+
+```bash
+supabase login
+pnpm db:setup
+```
+
+`pnpm db:setup` supports either of these production connection methods:
+
+```bash
+# Recommended when you have the database connection string.
+export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'
+
+# Or let the script link the project through the Supabase CLI.
+export SUPABASE_PROJECT_REF=YOUR_PROJECT_REF
+export SUPABASE_DB_PASSWORD=YOUR_DATABASE_PASSWORD
+```
+
+`pnpm db:setup` applies all migrations and seeds the three default jobs:
+`Java Developer`, `MERN stack developer`, and `Project Manager`.
+
+To remove application data from the production project while leaving migration
+history intact, run `pnpm db:cleanup`; run `pnpm db:seed` afterward to restore
+the default jobs. The scripts never start or target local Supabase.
 
 ## Start Dev Server
 

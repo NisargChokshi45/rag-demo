@@ -55,19 +55,26 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 4. Set to **Public** (so signed URLs work)
 5. Click **Create bucket**
 
-### Run Schema Migration
+### Run Database Migrations and Seed
 
-1. In Supabase dashboard, click **SQL Editor** (left sidebar)
-2. Click **New query**
-3. Copy the entire contents of `/home/bacancy/Desktop/Work/rag-demo/supabase/schema.sql`
-4. Paste it into the SQL editor
-5. Click **Run**
-6. You should see "Success" with no errors
+Install the [Supabase CLI](https://supabase.com/docs/guides/cli), run
+`supabase login`, and configure either a direct database URL or a project
+reference before running the production setup script:
 
-**Verification**:
-- Go to **Table Editor** and confirm you see:
-  - `candidates` table
-  - `resume_chunks` table
+```bash
+# Option 1: direct database connection string
+export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'
+
+# Option 2: project reference; the script links the project automatically
+export SUPABASE_PROJECT_REF=YOUR_PROJECT_REF
+export SUPABASE_DB_PASSWORD=YOUR_DATABASE_PASSWORD
+
+pnpm db:setup
+```
+
+The command applies the migrations and seeds `Java Developer`, `MERN stack
+developer`, and `Project Manager`. Verify the `jobs`, `candidates`, and
+`resume_chunks` tables in Supabase Table Editor.
 
 ## Step 2: Get Google API Key
 

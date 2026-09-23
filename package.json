@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:setup": "bash scripts/supabase-remote.sh setup",
+    "db:cleanup": "bash scripts/supabase-remote.sh cleanup",
+    "db:seed": "bash scripts/supabase-remote.sh seed"
   },
   "dependencies": {
     "@langchain/community": "^1.1.29",

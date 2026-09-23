@@ -11,7 +11,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link
             href="/jobs"
             className="p-8 bg-white border-2 border-orange-200 rounded-lg hover:shadow-xl hover:border-orange-400 transition duration-200 group"

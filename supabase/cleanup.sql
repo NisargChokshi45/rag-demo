@@ -1,0 +1,1 @@
+truncate table jobs, candidates, resume_chunks cascade;
