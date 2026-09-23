@@ -65,6 +65,7 @@ export default function ScreenPage() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load jobs");
         setJobs(data.jobs);
+        setSelectedJobId(new URLSearchParams(window.location.search).get("jobId") || "");
       })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load jobs"));
   }, []);

@@ -21,6 +21,7 @@ export default function JobsPage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -57,6 +58,7 @@ export default function JobsPage() {
       setDescription("");
       setExperience("");
       setSkills([]);
+      setIsModalOpen(false);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to create job");
     } finally {
@@ -70,14 +72,20 @@ export default function JobsPage() {
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-600">Hiring workspace</p>
-            <h1 className="text-4xl font-bold text-slate-900">Create a job</h1>
-            <p className="mt-2 text-slate-600">Save the criteria your screening agent should use for each role.</p>
+            <h1 className="text-4xl font-bold text-slate-900">Jobs</h1>
+            <p className="mt-2 text-slate-600">Manage roles and move directly to their candidates or screening workspace.</p>
           </div>
-          <Link href="/screen" className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Screen candidates</Link>
+          <button type="button" onClick={() => setIsModalOpen(true)} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Add Job</button>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <section>
+          <h2 className="mb-4 text-xl font-semibold text-slate-900">Jobs on the platform</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {jobs.length === 0 ? <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 md:col-span-2">No jobs yet. Add the first role to start screening.</div> : jobs.map((job) => <article key={job.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-4"><h3 className="font-semibold text-slate-900">{job.title}</h3><span className="text-xs text-slate-500">{new Date(job.created_at).toLocaleDateString()}</span></div><p className="mt-2 text-sm text-slate-600">{job.description}</p><p className="mt-3 text-sm font-medium text-slate-700">{job.experience}</p><div className="mt-3 flex flex-wrap gap-2">{job.skills.map((skill) => <span key={skill} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{skill}</span>)}</div><div className="mt-5 flex gap-3 border-t border-slate-100 pt-4"><Link href={`/candidates?jobId=${job.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-700">View candidates</Link><Link href={`/screen?jobId=${job.id}`} className="text-sm font-medium text-slate-700 hover:text-slate-900">Screen this job</Link></div></article>)}
+          </div>
+        </section>
+
+        {isModalOpen && <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="add-job-title"><div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl"><div className="mb-5 flex items-center justify-between"><h2 id="add-job-title" className="text-xl font-semibold text-slate-900">Add Job</h2><button type="button" onClick={() => setIsModalOpen(false)} className="text-2xl leading-none text-slate-500 hover:text-slate-900" aria-label="Close">&times;</button></div><form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="title" className="mb-2 block text-sm font-medium text-slate-700">Job title</label>
               <input id="title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Senior Backend Engineer" className="w-full rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" required />
@@ -102,15 +110,7 @@ export default function JobsPage() {
             </div>
             {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <button type="submit" disabled={isSaving} className="w-full rounded bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-slate-400">{isSaving ? "Saving job..." : "Create job"}</button>
-          </form>
-
-          <section>
-            <h2 className="mb-4 text-xl font-semibold text-slate-900">Saved jobs</h2>
-            <div className="space-y-3">
-              {jobs.length === 0 ? <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">No jobs yet.</div> : jobs.map((job) => <article key={job.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-4"><h3 className="font-semibold text-slate-900">{job.title}</h3><span className="text-xs text-slate-500">{new Date(job.created_at).toLocaleDateString()}</span></div><p className="mt-2 text-sm text-slate-600">{job.description}</p><p className="mt-3 text-sm font-medium text-slate-700">{job.experience}</p><div className="mt-3 flex flex-wrap gap-2">{job.skills.map((skill) => <span key={skill} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{skill}</span>)}</div></article>)}
-            </div>
-          </section>
-        </div>
+          </form></div></div>}
       </div>
     </div>
   );

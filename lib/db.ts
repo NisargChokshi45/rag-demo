@@ -162,3 +162,119 @@ export async function listCandidates(): Promise<any[]> {
     chunk_count: countMap[candidate.id] || 0,
   }));
 }
+
+export interface ScreeningAssessment {
+  candidateId: string;
+  candidateName: string;
+  score: number;
+  evidence: string[];
+  unknowns: string[];
+}
+
+export interface ScreeningReport {
+  query: string;
+  summary: string;
+  assessments: ScreeningAssessment[];
+}
+
+export async function createScreening(
+  jobId: string,
+  query: string,
+  summary: string,
+  assessments: ScreeningAssessment[]
+): Promise<string> {
+  const client = createServerClient();
+
+  // Create screening record
+  const { data: screening, error: screeningError } = await client
+    .from("screenings")
+    .insert({
+      job_id: jobId,
+      query,
+      summary,
+    })
+    .select("id")
+    .single();
+
+  if (screeningError) throw screeningError;
+
+  const screeningId = screening.id;
+
+  // Create assessment records
+  const assessmentData = assessments.map((assessment) => ({
+    screening_id: screeningId,
+    candidate_id: assessment.candidateId,
+    score: assessment.score,
+    evidence: assessment.evidence,
+    unknowns: assessment.unknowns,
+  }));
+
+  const { error: assessmentError } = await client
+    .from("screening_assessments")
+    .insert(assessmentData);
+
+  if (assessmentError) throw assessmentError;
+
+  return screeningId;
+}
+
+export async function getScreeningsByJob(jobId: string): Promise<any[]> {
+  const client = createServerClient();
+
+  const { data, error } = await client
+    .from("screenings")
+    .select(
+      `
+      id,
+      job_id,
+      query,
+      summary,
+      created_at,
+      screening_assessments (
+        candidate_id,
+        score,
+        evidence,
+        unknowns
+      )
+    `
+    )
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAssessmentsByCandidate(
+  candidateId: string
+): Promise<any[]> {
+  const client = createServerClient();
+
+  const { data, error } = await client
+    .from("screening_assessments")
+    .select(
+      `
+      id,
+      candidate_id,
+      score,
+      evidence,
+      unknowns,
+      screenings (
+        id,
+        job_id,
+        query,
+        summary,
+        created_at,
+        jobs (
+          id,
+          title
+        )
+      )
+    `
+    )
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}

@@ -6,7 +6,7 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createAgentTools } from "@/lib/agent-tools";
 import { ScreeningReportSchema } from "@/lib/schema";
 import { getChatModel } from "@/lib/models";
-import { getJobById } from "@/lib/db";
+import { getJobById, createScreening } from "@/lib/db";
 
 interface AgentRequest {
   query: string;
@@ -117,6 +117,16 @@ Provide assessments for the candidates mentioned in the results. For each candid
           // Generate final structured report
           const structuredOutput = getChatModel(0.3).withStructuredOutput(ScreeningReportSchema);
           const report = await structuredOutput.invoke(reportPrompt);
+
+          // Persist screening to database if job exists
+          if (jobId) {
+            try {
+              await createScreening(jobId, query, report.summary, report.assessments);
+            } catch (persistError) {
+              console.error("Failed to persist screening:", persistError);
+              // Continue despite persistence error
+            }
+          }
 
           const reportMessage = {
             type: "report",
