@@ -43,9 +43,11 @@ export default function CandidatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [resume, setResume] = useState<{ name: string; text: string } | null>(
-    null
-  );
+  const [resume, setResume] = useState<{
+    name: string;
+    text: string;
+    pdfUrl: string;
+  } | null>(null);
   const [selectedAssessment, setSelectedAssessment] =
     useState<Assessment | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -99,107 +101,106 @@ export default function CandidatesPage() {
     }));
     setUploadProgress(newProgress);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    const uploadResults = await Promise.all(
+      files.map(async (file, i) => {
+        try {
+          // Update to uploading
+          setUploadProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'uploading', progress: 0 } : p
+            )
+          );
 
-      try {
-        // Update to uploading
-        setUploadProgress((prev) =>
-          prev.map((p, idx) =>
-            idx === i ? { ...p, status: 'uploading', progress: 0 } : p
-          )
-        );
+          // Get signed upload URL
+          const urlResponse = await fetch('/api/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name }),
+          });
 
-        // Get signed upload URL
-        const urlResponse = await fetch('/api/upload-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name }),
-        });
+          if (!urlResponse.ok) {
+            throw new Error('Failed to get upload URL');
+          }
 
-        if (!urlResponse.ok) {
-          throw new Error('Failed to get upload URL');
+          const { signedUrl, path } = await urlResponse.json();
+
+          // Upload to Supabase Storage using signed URL
+          const uploadResponse = await fetch(signedUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': 'application/pdf' },
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload file to storage');
+          }
+
+          // Update to ingesting
+          setUploadProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'ingesting', progress: 50 } : p
+            )
+          );
+
+          // Trigger ingestion
+          const ingestResponse = await fetch('/api/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storagePath: path,
+              jobDescription: '',
+            }),
+          });
+
+          if (!ingestResponse.ok) {
+            const errorData = await ingestResponse.json();
+            throw new Error(errorData.error || 'Ingestion failed');
+          }
+
+          await ingestResponse.json();
+
+          // Mark as done
+          setUploadProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i
+                ? {
+                    ...p,
+                    status: 'done',
+                    progress: 100,
+                  }
+                : p
+            )
+          );
+          return true;
+        } catch (error) {
+          setUploadProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i
+                ? {
+                    ...p,
+                    status: 'error',
+                    error:
+                      error instanceof Error ? error.message : 'Unknown error',
+                  }
+                : p
+            )
+          );
+          return false;
         }
-
-        const { signedUrl, path } = await urlResponse.json();
-
-        // Upload to Supabase Storage using signed URL
-        const uploadResponse = await fetch(signedUrl, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': 'application/pdf' },
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file to storage');
-        }
-
-        // Update to ingesting
-        setUploadProgress((prev) =>
-          prev.map((p, idx) =>
-            idx === i ? { ...p, status: 'ingesting', progress: 50 } : p
-          )
-        );
-
-        // Trigger ingestion
-        const ingestResponse = await fetch('/api/ingest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            storagePath: path,
-            jobDescription: '',
-          }),
-        });
-
-        if (!ingestResponse.ok) {
-          const errorData = await ingestResponse.json();
-          throw new Error(errorData.error || 'Ingestion failed');
-        }
-
-        await ingestResponse.json();
-
-        // Mark as done
-        setUploadProgress((prev) =>
-          prev.map((p, idx) =>
-            idx === i
-              ? {
-                  ...p,
-                  status: 'done',
-                  progress: 100,
-                }
-              : p
-          )
-        );
-      } catch (error) {
-        setUploadProgress((prev) =>
-          prev.map((p, idx) =>
-            idx === i
-              ? {
-                  ...p,
-                  status: 'error',
-                  error:
-                    error instanceof Error ? error.message : 'Unknown error',
-                }
-              : p
-          )
-        );
-      }
-    }
+      })
+    );
 
     setIsUploading(false);
 
     // Refresh candidates list after upload
-    setUploadProgress((finalProgress) => {
-      const hasErrors = finalProgress.some((p) => p.status === 'error');
-      if (!hasErrors) {
-        setTimeout(() => {
-          fetchCandidates();
-          setShowUploadModal(false);
-          setUploadProgress([]);
-        }, 2000);
-      }
-      return finalProgress;
-    });
+    const hasErrors = uploadResults.some((result) => !result);
+    if (!hasErrors) {
+      setTimeout(() => {
+        fetchCandidates();
+        setShowUploadModal(false);
+        setUploadProgress([]);
+      }, 2000);
+    }
   };
 
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
@@ -209,7 +210,11 @@ export default function CandidatesPage() {
       const response = await fetch(`/api/candidates/${candidate.id}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load resume');
-      setResume({ name: candidate.name, text: data.resume });
+      setResume({
+        name: candidate.name,
+        text: data.resume,
+        pdfUrl: data.pdfUrl,
+      });
       setAssessments(data.assessments || []);
     } catch (resumeError) {
       setError(
@@ -470,6 +475,11 @@ export default function CandidatesPage() {
                 </button>
               </div>
               <div className="space-y-6">
+                <iframe
+                  src={resume.pdfUrl}
+                  title={`Resume PDF: ${resume.name}`}
+                  className="h-[70vh] min-h-[500px] w-full rounded border border-gray-200"
+                />
                 <pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
                   {resume.text}
                 </pre>
