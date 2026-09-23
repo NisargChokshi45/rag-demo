@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
 
     const [candidates, roles] = await Promise.all([
       listCandidates({
+        jobId: searchParams.get('jobId') || undefined,
         search: searchParams.get('search') || undefined,
         role: searchParams.get('role') || undefined,
         status: status as 'all' | 'indexed' | 'not-indexed',

@@ -70,7 +70,10 @@ export async function saveScreening(
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.error || 'Failed to save screening' };
+      return {
+        success: false,
+        error: data.error || 'Failed to save screening',
+      };
     }
 
     return { success: true, screeningId: data.screeningId };

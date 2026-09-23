@@ -54,10 +54,7 @@ export async function GET(
       userId &&
       screening.user_id !== userId
     ) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     if (error || !screening) {
@@ -105,10 +102,7 @@ export async function DELETE(
 
     // If auth is enabled, verify ownership
     if (FEATURE_FLAGS.AUTH_ENABLED && userId && screening.user_id !== userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     // Delete the screening (cascades to assessments and citations)

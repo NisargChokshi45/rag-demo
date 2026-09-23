@@ -94,7 +94,8 @@ export async function POST(_request: NextRequest) {
         message:
           'Run "supabase db push --remote" from your terminal to apply pending migrations',
         guidance: {
-          step1: 'Ensure you have supabase CLI installed: npm install -g supabase',
+          step1:
+            'Ensure you have supabase CLI installed: npm install -g supabase',
           step2: 'Authenticate: supabase login',
           step3: 'Link your project: supabase link',
           step4: 'Apply migrations: supabase db push --remote',

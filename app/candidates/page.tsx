@@ -56,6 +56,8 @@ export default function CandidatesPage() {
       status: statusFilter,
       sort: sortBy,
     });
+    const jobId = new URLSearchParams(window.location.search).get('jobId');
+    if (jobId) params.set('jobId', jobId);
     if (debouncedSearchQuery.trim())
       params.set('search', debouncedSearchQuery.trim());
     if (roleFilter !== 'all') params.set('role', roleFilter);
@@ -434,24 +436,6 @@ export default function CandidatesPage() {
           </div>
         )}
 
-        {!loading &&
-          hasLoadedCandidates &&
-          candidates.length === 0 &&
-          !debouncedSearchQuery.trim() &&
-          roleFilter === 'all' &&
-          statusFilter === 'all' && (
-            <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
-              <p className="text-4xl mb-4">📋</p>
-              <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Upload Resumes to Get Started
-              </button>
-            </div>
-          )}
-
         {!loading && hasLoadedCandidates && (
           <>
             <section
@@ -538,8 +522,15 @@ export default function CandidatesPage() {
             </section>
 
             {candidates.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-                No candidates match the current filters.
+              <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
+                <p className="text-4xl mb-4">📋</p>
+                <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Upload Resumes to Get Started
+                </button>
               </div>
             ) : (
               <div

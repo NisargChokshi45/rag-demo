@@ -59,16 +59,38 @@ export async function POST(request: NextRequest) {
     const response = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
+          // Stream progress update
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'progress',
+                message: 'Starting analysis...',
+              }) + '\n'
+            )
+          );
+
           const input = { messages: [{ type: 'human', content: query }] };
           const stream = await agent.streamEvents(input, {
             version: 'v2',
             recursionLimit: 10,
           });
 
+          let toolCount = 0;
           for await (const event of stream) {
             if (event.event === 'on_tool_start') {
+              toolCount++;
               const toolName = event.name;
               const toolInput = event.data?.input || {};
+
+              // Send progress update
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({
+                    type: 'progress',
+                    message: `Searching for candidates (${toolCount})...`,
+                  }) + '\n'
+                )
+              );
 
               const toolMessage = {
                 type: 'tool-call',
@@ -94,6 +116,16 @@ export async function POST(request: NextRequest) {
               }
             }
           }
+
+          // Progress: generating report
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'progress',
+                message: 'Generating report...',
+              }) + '\n'
+            )
+          );
 
           // Build enhanced context for the final report with full tool results
           const contextForReport = toolCalls
@@ -127,25 +159,30 @@ Additionally, provide:
 
 Format citations as actual text snippets from the resume content shown in the tool results above.`;
 
-          // Generate final structured report
+          // Generate final structured report with timeout
           const structuredOutput = getChatModel(0.3).withStructuredOutput(
             ScreeningReportSchema
           );
-          const report = await structuredOutput.invoke(reportPrompt);
+          const report = (await Promise.race([
+            structuredOutput.invoke(reportPrompt),
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error('Report generation timeout')),
+                55000
+              )
+            ),
+          ])) as Awaited<ReturnType<typeof structuredOutput.invoke>>;
 
-          // Persist screening to database if job exists
+          // Persist screening to database if job exists (don't block response)
           if (jobId) {
-            try {
-              await createScreening(
-                jobId,
-                query,
-                report.summary,
-                report.assessments
-              );
-            } catch (persistError) {
+            createScreening(
+              jobId,
+              query,
+              report.summary,
+              report.assessments
+            ).catch((persistError) => {
               console.error('Failed to persist screening:', persistError);
-              // Continue despite persistence error
-            }
+            });
           }
 
           const reportMessage = {

@@ -51,7 +51,12 @@ interface ScreeningHistory {
   report: ReportData | null;
 }
 
-type StreamMessage = ToolCall | ReportMessage;
+interface ProgressMessage {
+  type: 'progress';
+  message: string;
+}
+
+type StreamMessage = ToolCall | ReportMessage | ProgressMessage;
 
 export default function ScreenPage() {
   const [query, setQuery] = useState('');
@@ -66,6 +71,7 @@ export default function ScreenPage() {
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [showToolTrace, setShowToolTrace] = useState(false);
+  const [progress, setProgress] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load screening history from Supabase (or localStorage as fallback)
@@ -92,7 +98,10 @@ export default function ScreenPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load history from Supabase, using localStorage:', err);
+      console.error(
+        'Failed to load history from Supabase, using localStorage:',
+        err
+      );
       const saved = localStorage.getItem('screeningHistory');
       if (saved) {
         setHistory(JSON.parse(saved));
@@ -166,7 +175,9 @@ export default function ScreenPage() {
         const updated = [newEntry, ...history];
         setHistory(updated);
         localStorage.setItem('screeningHistory', JSON.stringify(updated));
-        console.warn('Failed to save to Supabase, saved to localStorage instead');
+        console.warn(
+          'Failed to save to Supabase, saved to localStorage instead'
+        );
       }
     } catch (err) {
       console.error('Error saving to history:', err);
@@ -200,14 +211,16 @@ export default function ScreenPage() {
           summary: screening.summary,
           reasoning: screening.reasoning,
           context: screening.context,
-          assessments: screening.screening_assessments.map((assessment: any) => ({
-            candidateId: assessment.candidate_id,
-            candidateName: '', // Will be fetched from candidates if needed
-            score: assessment.score,
-            evidence: assessment.evidence,
-            unknowns: assessment.unknowns,
-            citations: assessment.screening_citations,
-          })),
+          assessments: screening.screening_assessments.map(
+            (assessment: any) => ({
+              candidateId: assessment.candidate_id,
+              candidateName: '', // Will be fetched from candidates if needed
+              score: assessment.score,
+              evidence: assessment.evidence,
+              unknowns: assessment.unknowns,
+              citations: assessment.screening_citations,
+            })
+          ),
         };
         setReport(report);
       } else {
@@ -263,6 +276,7 @@ export default function ScreenPage() {
     setError(null);
     setToolCalls([]);
     setReport(null);
+    setProgress('Starting analysis...');
 
     try {
       const response = await fetch('/api/agent', {
@@ -306,6 +320,8 @@ export default function ScreenPage() {
             } else if (message.type === 'report') {
               reportData = message.report;
               setReport(message.report);
+            } else if (message.type === 'progress') {
+              setProgress(message.message);
             }
           } catch (parseError) {
             console.error('Failed to parse message:', line, parseError);
@@ -352,9 +368,7 @@ export default function ScreenPage() {
 
         <div className="flex-1 overflow-y-auto">
           {isLoadingHistory ? (
-            <div className="p-4 text-sm text-gray-500">
-              Loading history...
-            </div>
+            <div className="p-4 text-sm text-gray-500">Loading history...</div>
           ) : history.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               No screening history yet. Start with a new query.
@@ -457,7 +471,9 @@ export default function ScreenPage() {
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 font-medium mb-3"
                 >
                   <span>{showToolTrace ? '▼' : '▶'}</span>
-                  <span>🔧 View Agent Reasoning ({toolCalls.length} tool calls)</span>
+                  <span>
+                    🔧 View Agent Reasoning ({toolCalls.length} tool calls)
+                  </span>
                 </button>
                 {showToolTrace && (
                   <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
@@ -633,11 +649,20 @@ export default function ScreenPage() {
             {isLoading && !report && (
               <div className="flex items-center gap-3 py-8">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  <div
+                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0s' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.2s' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.4s' }}
+                  ></div>
                 </div>
-                <p className="text-gray-600">Analyzing candidates...</p>
+                <p className="text-gray-600">{progress || 'Processing...'}</p>
               </div>
             )}
 
@@ -694,7 +719,8 @@ export default function ScreenPage() {
                 aria-describedby="screening-prompt-hint"
               />
               <p id="screening-prompt-hint" className="text-xs text-gray-500">
-                Press Shift+Enter for a new line. Press Enter to screen candidates.
+                Press Shift+Enter for a new line. Press Enter to screen
+                candidates.
               </p>
               <button
                 type="submit"

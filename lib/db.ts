@@ -218,6 +218,7 @@ export async function getFullResumeById(candidateId: string): Promise<string> {
 export interface ListCandidatesOptions {
   search?: string;
   role?: string;
+  jobId?: string;
   status?: 'all' | 'indexed' | 'not-indexed';
   sort?: 'name' | 'role' | 'indexed';
 }
@@ -227,9 +228,32 @@ export async function listCandidates(
 ): Promise<any[]> {
   const client = createServiceClient();
 
+  let candidateIdsForJob: string[] | undefined;
+  if (options.jobId) {
+    const { data: assessments, error: assessmentError } = await client
+      .from('screening_assessments')
+      .select('candidate_id, screenings!inner(job_id)')
+      .eq('screenings.job_id', options.jobId);
+
+    if (assessmentError) throw assessmentError;
+
+    candidateIdsForJob = Array.from(
+      new Set(
+        (assessments || [])
+          .map((assessment) => assessment.candidate_id)
+          .filter((candidateId): candidateId is string => Boolean(candidateId))
+      )
+    );
+  }
+
   let candidateQuery = client
     .from('candidates')
     .select('id, name, role_guess, original_filename');
+
+  if (candidateIdsForJob) {
+    if (candidateIdsForJob.length === 0) return [];
+    candidateQuery = candidateQuery.in('id', candidateIdsForJob);
+  }
 
   if (options.search?.trim()) {
     const search = options.search.trim().replace(/[%(),]/g, ' ');
