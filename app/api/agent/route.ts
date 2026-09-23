@@ -6,15 +6,16 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createAgentTools } from "@/lib/agent-tools";
 import { ScreeningReportSchema } from "@/lib/schema";
 import { getChatModel } from "@/lib/models";
+import { getJobById } from "@/lib/db";
 
 interface AgentRequest {
   query: string;
-  jobDescription?: string;
+  jobId?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, jobDescription }: AgentRequest = await request.json();
+    const { query, jobId }: AgentRequest = await request.json();
 
     if (!query) {
       return NextResponse.json(
@@ -32,11 +33,14 @@ export async function POST(request: NextRequest) {
 
     const toolContext = { fetchedCandidates: new Set<string>() };
     const tools = createAgentTools(toolContext);
+    const job = jobId ? await getJobById(jobId) : null;
+    const jobContext = job
+      ? `Job title: ${job.title}\nDescription: ${job.description}\nExperience: ${job.experience}\nRequired skills: ${job.skills.join(", ")}`
+      : "";
 
-    const systemPrompt =
-      jobDescription
-        ? `You are a resume screening assistant. The job description is:\n\n${jobDescription}\n\nYour job is to screen candidates and provide assessments. Use the available tools to search for candidates and retrieve their full resumes when needed.`
-        : "You are a resume screening assistant. Your job is to screen candidates based on the provided criteria. Use the available tools to search for candidates and retrieve their full resumes when needed.";
+    const systemPrompt = jobContext
+      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nUse the available tools to search for candidates and retrieve their full resumes when needed.`
+      : "You are a resume screening assistant. Your job is to screen candidates based on the provided criteria. Use the available tools to search for candidates and retrieve their full resumes when needed.";
 
     const model = getChatModel(0.2);
 
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
           const reportPrompt = `Based on the search results and candidate information below, provide a screening report.
 
 Query: ${query}
-${jobDescription ? `Job Description: ${jobDescription}` : ""}
+${jobContext ? `Job Criteria:\n${jobContext}` : ""}
 
 Tool Calls and Results:
 ${contextForReport}

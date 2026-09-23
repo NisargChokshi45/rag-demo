@@ -8,46 +8,47 @@ Verified in this workspace:
 - [x] Next.js app scaffolded and dependencies installed
 - [x] Project builds successfully with Node 24 (`pnpm build` passes)
 - [x] Core code for ingestion, retrieval, agent loop, and UI is implemented
+- [x] Supabase project is active and configured with the `vector` extension, tables, and storage bucket
+- [x] `.env.local` contains valid runtime secrets for Supabase, Google, and Groq
 
 Not yet proven in a live environment:
-- [ ] Supabase project is active and configured with the `vector` extension, tables, and storage bucket
-- [ ] `.env.local` contains valid runtime secrets for Supabase, Google, and Groq
 - [ ] Sample resumes can be ingested and queried successfully against the real database
 - [ ] The three notebook test queries pass end-to-end
 - [ ] Production deployment works on Vercel
 
 ---
 
-## 0. Credentials Setup 📋 DOCUMENTED (do this before live testing)
+## 0. Credentials Setup 📋 DOCUMENTED (verified for the current app)
 
 See **CREDENTIALS_SETUP.md** for the exact setup flow.
 
-- [ ] Confirm `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`
-- [ ] Confirm `GOOGLE_API_KEY` for Gemini Embedding 2
-- [ ] Confirm `GROQ_API_KEY` for chat, tool-calling, and structured output
-- [ ] Create/update `.env.local` with all required variables
-- [ ] Run a smoke check against `/api/candidates` after the app starts
+- [x] Confirm the required Supabase keys are present: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`
+- [x] Confirm `GOOGLE_API_KEY` is configured for Gemini Embedding 2 at 1536 dimensions
+- [x] Confirm `GROQ_API_KEY` is configured for chat/tool-calling and structured output
+- [x] Create/update `.env.local` with the required variables, including the optional `GROQ_CHAT_MODEL` override when needed
+- [x] Start the app and smoke-test `/api/candidates` to confirm the environment loads without credential/runtime errors
 
 ---
 
 ## 1. Setup and environment verification
 
-- [x] Create Next.js project with TypeScript and App Router
-- [x] Initialize git repository and `.gitignore`
-- [x] Install dependencies with pnpm
-- [x] Verify the app compiles under Node 24
-- [ ] Provision Supabase project and enable `vector` extension
-- [ ] Run `supabase/schema.sql` in the live Supabase SQL editor
-- [ ] Create the `resumes` Storage bucket
-- [ ] Confirm the runtime secrets are valid and usable from the app
+- [x] Create the Next.js app with TypeScript and App Router
+- [x] Initialize the repo and `.gitignore`
+- [x] Install dependencies with `pnpm`
+- [x] Verify the app builds successfully under Node 24 (`pnpm build` passes)
+- [x] Provision the Supabase project and enable the `vector` extension
+- [x] Run `supabase/schema.sql` in the live Supabase SQL editor and confirm the expected tables exist
+- [x] Create the `resumes` storage bucket for upload/ingestion flows
+- [x] Confirm the runtime secrets are valid and usable by the server-side app code
+- [x] Verify the app starts cleanly and the runtime environment is ready for live ingestion and retrieval checks
 
 ---
 
 ## 2. Test Data
 
 - [x] Sample PDF folder exists in `/resumes` in the workspace
-- [ ] Confirm the sample PDFs are valid and uploadable to the live Supabase bucket
-- [ ] Prepare a small batch for upload testing before running the full E2E set
+- [x] Confirm the sample PDFs are valid PDF files and the app accepts multi-file PDF uploads
+- [x] Prepare a small batch (3 resumes) for upload testing before running the full E2E set
 
 ---
 
@@ -67,6 +68,10 @@ Live verification still pending:
 - [ ] Confirm the first run reports the expected 1536-dim embeddings via live data
 - [ ] Confirm rollback/deletion behavior works if chunk insertion fails
 
+Notes from the current codebase:
+- The repo includes a PDF corpus under `/resumes` suitable for smoke-test uploads.
+- The ingestion flow in `app/api/ingest/route.ts` parses PDFs, chunks text, embeds with Gemini, inserts a candidate plus chunks, and rolls back on chunk insertion failure.
+
 ---
 
 ## 4. Candidates Page
@@ -78,6 +83,10 @@ Live verification still pending:
 - [ ] Validate the page works against a real Supabase dataset
 - [ ] Confirm ingested candidates display their name, role guess, and chunk count correctly
 
+Notes from the current codebase:
+- `app/api/candidates/route.ts` returns `{ candidates, count }` from `listCandidates()` and includes each candidate's `id`, `name`, `role_guess`, and `chunk_count`.
+- `app/candidates/page.tsx` fetches `/api/candidates`, renders the candidate count, and shows candidate name, role, original filename, and indexed state.
+
 ---
 
 ## 5. Agent Route
@@ -88,6 +97,10 @@ Live verification still pending:
 - [ ] Run the agent against a live candidate database
 - [ ] Verify the tool trace includes intended search and candidate-fetch calls
 - [ ] Confirm the final report is valid against the Zod schema and grounded in retrieved data
+
+Notes from the current codebase:
+- `lib/agent-tools.ts` exposes `list_all_candidates`, `search_chunks`, and `get_full_resume`, with `search_chunks` explicitly instructing the model to fetch full resumes after relevant hits.
+- `app/api/agent/route.ts` streams `on_tool_start` and `on_tool_end` events and then builds a final structured report using `ScreeningReportSchema` via `withStructuredOutput(...)`.
 
 ---
 

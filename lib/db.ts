@@ -5,6 +5,57 @@ interface ChunkWithEmbedding {
   embedding: number[];
 }
 
+export interface Job {
+  id: string;
+  title: string;
+  description: string;
+  experience: string;
+  skills: string[];
+  created_at: string;
+}
+
+export interface CreateJobInput {
+  title: string;
+  description: string;
+  experience: string;
+  skills: string[];
+}
+
+export async function createJob(input: CreateJobInput): Promise<Job> {
+  const client = createServerClient();
+  const { data, error } = await client
+    .from("jobs")
+    .insert(input)
+    .select("id, title, description, experience, skills, created_at")
+    .single();
+
+  if (error) throw error;
+  return data as Job;
+}
+
+export async function listJobs(): Promise<Job[]> {
+  const client = createServerClient();
+  const { data, error } = await client
+    .from("jobs")
+    .select("id, title, description, experience, skills, created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as Job[];
+}
+
+export async function getJobById(jobId: string): Promise<Job> {
+  const client = createServerClient();
+  const { data, error } = await client
+    .from("jobs")
+    .select("id, title, description, experience, skills, created_at")
+    .eq("id", jobId)
+    .single();
+
+  if (error) throw error;
+  return data as Job;
+}
+
 export async function insertCandidate(
   name: string,
   roleGuess: string,

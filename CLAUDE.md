@@ -1,0 +1,1 @@
+Use "nvm use 24".

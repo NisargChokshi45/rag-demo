@@ -1,6 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+
+interface Job {
+  id: string;
+  title: string;
+  description: string;
+  experience: string;
+  skills: string[];
+}
 
 interface ToolCall {
   type: "tool-call";
@@ -36,7 +45,8 @@ type StreamMessage = ToolCall | ReportMessage;
 
 export default function ScreenPage() {
   const [query, setQuery] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState("");
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +60,13 @@ export default function ScreenPage() {
     if (saved) {
       setHistory(JSON.parse(saved));
     }
-    setJobDescription(localStorage.getItem("screeningJobDescription") || "");
+    fetch("/api/jobs")
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load jobs");
+        setJobs(data.jobs);
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load jobs"));
   }, []);
 
   const scrollToBottom = () => {
@@ -98,7 +114,7 @@ export default function ScreenPage() {
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, jobDescription }),
+        body: JSON.stringify({ query, jobId: selectedJobId || undefined }),
       });
 
       if (!response.ok) {
@@ -367,16 +383,20 @@ export default function ScreenPage() {
         <div className="border-t border-gray-200 bg-white p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <textarea
-                value={jobDescription}
-                onChange={(e) => {
-                  setJobDescription(e.target.value);
-                  localStorage.setItem("screeningJobDescription", e.target.value);
-                }}
-                placeholder="Optional job description or screening criteria"
-                className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                disabled={isLoading}
-              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label htmlFor="job" className="text-sm font-medium text-gray-700">Screen for job</label>
+                <select
+                  id="job"
+                  value={selectedJobId}
+                  onChange={(e) => setSelectedJobId(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
+                >
+                  <option value="">General screening criteria</option>
+                  {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} - {job.skills.join(", ")}</option>)}
+                </select>
+                <Link href="/jobs" className="text-sm font-medium text-blue-600 hover:text-blue-700">Create a job</Link>
+              </div>
               <textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
