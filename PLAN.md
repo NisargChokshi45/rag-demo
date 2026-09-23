@@ -11,15 +11,15 @@ Goal: ship a working MVP today — a Next.js app (React + Node, one Vercel proje
 
 ### Notebook → TypeScript mapping
 
-| Notebook part | What it proved | TS equivalent |
-|---|---|---|
-| Part 1 — Load resumes | PDF → text | `lib/pdf.ts` (`unpdf`), run during ingestion |
-| Part 2 — Basic RAG | Chunk (800/100) + embed + vector search | `lib/chunk.ts` + `lib/embeddings.ts` + Supabase pgvector |
-| Part 3 — Where it breaks | Fragmentation / coverage / hallucination are real | Motivates the tool design below, not ported directly |
-| Part 4 — Small-to-big | Search chunks, answer with full resume | `get_full_resume` tool |
-| Part 5 — Structured output | Zod-equivalent schema with `unknowns` field | `lib/schema.ts` (`ScreeningReport`) |
-| Part 6 — Reranking | Over-fetch + LLM rerank fixes precision | folded into `search_chunks` tool |
-| Parts 7–9 (never written) | Adaptive / corrective / LangGraph agent | Subsumed by the tool-calling agent loop (see below) — not ported, because there's nothing to port |
+| Notebook part              | What it proved                                    | TS equivalent                                                                                     |
+| -------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Part 1 — Load resumes      | PDF → text                                        | `lib/pdf.ts` (`unpdf`), run during ingestion                                                      |
+| Part 2 — Basic RAG         | Chunk (800/100) + embed + vector search           | `lib/chunk.ts` + `lib/embeddings.ts` + Supabase pgvector                                          |
+| Part 3 — Where it breaks   | Fragmentation / coverage / hallucination are real | Motivates the tool design below, not ported directly                                              |
+| Part 4 — Small-to-big      | Search chunks, answer with full resume            | `get_full_resume` tool                                                                            |
+| Part 5 — Structured output | Zod-equivalent schema with `unknowns` field       | `lib/schema.ts` (`ScreeningReport`)                                                               |
+| Part 6 — Reranking         | Over-fetch + LLM rerank fixes precision           | folded into `search_chunks` tool                                                                  |
+| Parts 7–9 (never written)  | Adaptive / corrective / LangGraph agent           | Subsumed by the tool-calling agent loop (see below) — not ported, because there's nothing to port |
 
 ## Locked-in decisions (from requirements interview)
 
