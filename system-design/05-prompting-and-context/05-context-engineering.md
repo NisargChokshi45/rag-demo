@@ -28,7 +28,7 @@ For datasets under 100,000 documents, it is often more accurate and faster to pu
 
 In 2026, two frontier models offer **controllable internal reasoning** before generating a response:
 
-### Claude 3.7 Sonnet — Extended Thinking
+### Claude 3.7 Sonnet - Extended Thinking
 
 ```python
 response = client.messages.create(
@@ -54,9 +54,9 @@ for block in response.content:
 **Key parameters:**
 - `budget_tokens`: 1,024 → 100,000. Higher = better accuracy, higher cost.
 - Thinking tokens billed at standard rates. A 10K thinking budget = +$0.15 per request.
-- Streaming works — thinking blocks stream before text.
+- Streaming works - thinking blocks stream before text.
 
-### o3 (OpenAI) — Reasoning Effort
+### o3 (OpenAI) - Reasoning Effort
 
 ```python
 response = client.chat.completions.create(
@@ -64,7 +64,7 @@ response = client.chat.completions.create(
     reasoning_effort="medium",  # "low" | "medium" | "high"
     messages=[{"role": "user", "content": "Prove P=NP or disprove it."}]
 )
-# Reasoning tokens are invisible — o3 never exposes its internal chain
+# Reasoning tokens are invisible - o3 never exposes its internal chain
 ```
 
 **Effort levels vs cost (approx.):**
@@ -79,10 +79,10 @@ response = client.chat.completions.create(
 | Condition | Recommendation |
 |-----------|----------------|
 | Complex multi-step code refactoring | ✅ Enable (budget: 8K-20K) |
-| Simple Q&A / extraction | ❌ Disable — adds cost & latency |
+| Simple Q&A / extraction | ❌ Disable - adds cost & latency |
 | STEM / math problems | ✅ Enable (o3-mini medium) |
-| High-volume chatbot | ❌ Disable — use standard mode |
-| Security-critical decision | ✅ Enable — extra reasoning catches edge cases |
+| High-volume chatbot | ❌ Disable - use standard mode |
+| Security-critical decision | ✅ Enable - extra reasoning catches edge cases |
 
 **Production pattern**: Use a complexity classifier to gate Extended Thinking. If query complexity score < 0.5, skip thinking mode entirely (saves 60-80% on reasoning-heavy workloads).
 
@@ -158,7 +158,7 @@ The primary solution is **Context Caching**. By caching the heavy document on th
 
 ## References
 - Liu et al. "Lost in the Middle" (2023/2024 update)
-- Anthropic. "Extended Thinking: Technical Guide" (2025) — https://docs.anthropic.com/
+- Anthropic. "Extended Thinking: Technical Guide" (2025) - https://docs.anthropic.com/
 - OpenAI. "o3 and o3-mini System Card" (2025)
 - Google. "Gemini 2.0 Flash: Technical Report" (2024)
 

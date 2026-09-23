@@ -1,4 +1,4 @@
-# Quick Start — 5 Minutes to Screening
+# Quick Start - 5 Minutes to Screening
 
 Once credentials are configured, follow this 5-minute guide to see the app in action.
 
@@ -161,4 +161,4 @@ See **PHASE7_E2E_TESTING.md** for detailed troubleshooting.
 
 ---
 
-**Ready?** Upload 5 resumes and run a query — should take 2 minutes total. 🚀
+**Ready?** Upload 5 resumes and run a query - should take 2 minutes total. 🚀

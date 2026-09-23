@@ -1,6 +1,6 @@
 # 🎓 Recommended AI Courses & Learning Paths
 
-A curated list of **reliable, trusted, and up-to-date** online courses for AI engineers, ML practitioners, and product teams. Every course here is verified as of **March 2026** — no fluff, no outdated MOOCs.
+A curated list of **reliable, trusted, and up-to-date** online courses for AI engineers, ML practitioners, and product teams. Every course here is verified as of **March 2026** - no fluff, no outdated MOOCs.
 
 ---
 
@@ -40,7 +40,7 @@ A curated list of **reliable, trusted, and up-to-date** online courses for AI en
 | **[Building and Evaluating Advanced RAG](https://www.deeplearning.ai/short-courses/building-evaluating-advanced-rag/)** | DeepLearning.AI + LlamaIndex | Free | Covers sentence-window retrieval, auto-merging, RAG evaluation with TruLens. |
 | **[Vector Databases: from Embeddings to Applications](https://www.deeplearning.ai/short-courses/vector-databases-embeddings-applications/)** | DeepLearning.AI + Weaviate | Free | Practical walkthrough of embeddings, vector stores, and hybrid search. |
 | **[Building RAG Agents with LLMs](https://courses.nvidia.com/courses/course-v1:DLI+S-FX-15+V1/)** | NVIDIA Deep Learning Institute | Free | Enterprise-grade RAG with NVIDIA NIM. Covers chunking, reranking, evaluation. |
-| **[LlamaIndex — Documentation: Learning](https://docs.llamaindex.ai/en/stable/understanding/)** | LlamaIndex | Free | Official LlamaIndex learning path — best for deep RAG pipeline mastery. |
+| **[LlamaIndex - Documentation: Learning](https://docs.llamaindex.ai/en/stable/understanding/)** | LlamaIndex | Free | Official LlamaIndex learning path - best for deep RAG pipeline mastery. |
 | **[RAG Fundamentals (Haystack)](https://haystack.deepset.ai/tutorials)** | deepset / Haystack | Free | Hands-on tutorials for pipeline-based RAG using the Haystack framework. |
 
 ---
@@ -131,8 +131,8 @@ A curated list of **reliable, trusted, and up-to-date** online courses for AI en
 
 | Course | Provider | Cost | Why It's Trusted |
 |--------|----------|------|-----------------|
-| **[Claude Code — Official Docs](https://docs.anthropic.com/en/home)** | Anthropic | Free | The definitive starting point for Claude Code. Covers CLAUDE.md, SDK, and permissions. |
-| **[Building Code Agents (Hugging Face)](https://huggingface.co/learn/agents-course/unit1/introduction)** | Hugging Face | Free | HuggingFace's official agents course — includes a unit on building code-execution agents. |
+| **[Claude Code - Official Docs](https://docs.anthropic.com/en/home)** | Anthropic | Free | The definitive starting point for Claude Code. Covers CLAUDE.md, SDK, and permissions. |
+| **[Building Code Agents (Hugging Face)](https://huggingface.co/learn/agents-course/unit1/introduction)** | Hugging Face | Free | HuggingFace's official agents course - includes a unit on building code-execution agents. |
 | **[Introduction to OpenHands](https://github.com/All-Hands-AI/OpenHands/blob/main/docs/getting-started.md)** | All-Hands AI | Free | Official getting-started guide for OpenHands autonomous coding agent. |
 
 > 📖 Also see this repo's guides: [Claude Code Guide](09-frameworks-and-tools/09-claude-code.md) and [OpenCoder Landscape](09-frameworks-and-tools/10-opencoderguide.md)
@@ -165,7 +165,7 @@ These require no Python experience:
 | **[Matt Wolfe](https://www.youtube.com/@mreflow)** | AI news, product demos | Best for staying current on AI news and tools |
 | **[Hamel Husain (blog)](https://hamel.dev/)** | Evals, production AI, LLMs | Real production insights from the author of the evals maven course |
 | **[Simon Willison (blog)](https://simonwillison.net/)** | LLM news, tools, coding | The most trustworthy daily AI news source |
-| **[The Latent Space podcast](https://www.latent.space/)** | Technical AI interviews | Best technical AI podcast — deep dives with researchers |
+| **[The Latent Space podcast](https://www.latent.space/)** | Technical AI interviews | Best technical AI podcast - deep dives with researchers |
 | **[Lex Fridman Podcast](https://lexfridman.com/podcast/)** | Broad AI/ML interviews | Long-form interviews with leading AI researchers |
 
 ---
@@ -175,18 +175,18 @@ These require no Python experience:
 ### 🛤️ Path: "I'm new to AI and want to build things fast"
 
 ```
-Week 1: Prompt Engineering for Developers (DeepLearning.AI) — free, 2 hrs
-Week 2: Building Systems with ChatGPT API (DeepLearning.AI) — free, 2 hrs
-Week 3: Building and Evaluating Advanced RAG (DeepLearning.AI) — free, 2 hrs
-Week 4: AI Agents in LangGraph (DeepLearning.AI) — free, 4 hrs
+Week 1: Prompt Engineering for Developers (DeepLearning.AI) - free, 2 hrs
+Week 2: Building Systems with ChatGPT API (DeepLearning.AI) - free, 2 hrs
+Week 3: Building and Evaluating Advanced RAG (DeepLearning.AI) - free, 2 hrs
+Week 4: AI Agents in LangGraph (DeepLearning.AI) - free, 4 hrs
 Month 2: Pick a real project, use this guide as reference
 ```
 
 ### 🛤️ Path: "I want to understand LLMs deeply"
 
 ```
-Week 1-3: Neural Networks: Zero to Hero (Karpathy) — free, 12+ hrs
-Week 4-6: CS324 Stanford LLMs — free, 30+ hrs
+Week 1-3: Neural Networks: Zero to Hero (Karpathy) - free, 12+ hrs
+Week 4-6: CS324 Stanford LLMs - free, 30+ hrs
 Month 2: Generative AI with LLMs (Coursera DeepLearning.AI)
 Month 3: CS294 LLM Agents (Berkeley)
 ```
@@ -194,27 +194,27 @@ Month 3: CS294 LLM Agents (Berkeley)
 ### 🛤️ Path: "I want to build production-ready AI evaluation"
 
 ```
-Week 1: Evaluating and Debugging Generative AI (DeepLearning.AI + W&B) — free
-Week 2: This repo's evals guides (Phoenix/Langfuse) — free  ← start here
+Week 1: Evaluating and Debugging Generative AI (DeepLearning.AI + W&B) - free
+Week 2: This repo's evals guides (Phoenix/Langfuse) - free  ← start here
 Week 3-4: Quality and Safety for LLM Applications (DeepLearning.AI)
-Month 2: Evals for AI (Maven, Hamel + Shreya) — paid, worth it
+Month 2: Evals for AI (Maven, Hamel + Shreya) - paid, worth it
 ```
 
 ### 🛤️ Path: "I'm a PM learning to contribute to AI product quality"
 
 ```
-Week 1: AI for Everyone (Coursera) — free
-Week 2: Prompt Engineering for Everyone (learnprompting.org) — free
-Week 3: AI Evals guide in this repo — free (especially Chapters 1-3 on error analysis)
-Month 2: Evals for AI (Maven) — paid, has PM track
+Week 1: AI for Everyone (Coursera) - free
+Week 2: Prompt Engineering for Everyone (learnprompting.org) - free
+Week 3: AI Evals guide in this repo - free (especially Chapters 1-3 on error analysis)
+Month 2: Evals for AI (Maven) - paid, has PM track
 ```
 
 ### 🛤️ Path: "I want to deploy coding agents in my team"
 
 ```
-Day 1: Claude Code docs (anthropic.com) — free
+Day 1: Claude Code docs (anthropic.com) - free
 Week 1: This repo's Claude Code Guide + OpenCoder Landscape Guide
-Week 2: Building Code Agents (Hugging Face) — free
+Week 2: Building Code Agents (Hugging Face) - free
 Month 1: Run Claude Code on a real project in CI
 ```
 
@@ -224,11 +224,11 @@ Month 1: Run Claude Code on a real project in CI
 
 AI moves fast. Beyond courses, these habits keep you current:
 
-1. **Follow Simon Willison's blog** — daily, trustworthy AI news summaries
-2. **Read Anthropic + OpenAI release notes** — primary sources beat second-hand summaries
-3. **Watch the Latent Space podcast** — best technical depth
-4. **Contribute to open source** — OpenHands, LlamaIndex, DSPy — real learning happens in PRs
-5. **Star this repo** — we update it as the landscape changes ⭐
+1. **Follow Simon Willison's blog** - daily, trustworthy AI news summaries
+2. **Read Anthropic + OpenAI release notes** - primary sources beat second-hand summaries
+3. **Watch the Latent Space podcast** - best technical depth
+4. **Contribute to open source** - OpenHands, LlamaIndex, DSPy - real learning happens in PRs
+5. **Star this repo** - we update it as the landscape changes ⭐
 
 ---
 

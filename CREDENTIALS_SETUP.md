@@ -6,12 +6,12 @@ This document walks you through obtaining and configuring all required credentia
 
 You need six environment variables:
 
-1. **NEXT_PUBLIC_SUPABASE_URL** — Supabase project URL (public)
-2. **NEXT_PUBLIC_SUPABASE_ANON_KEY** — Supabase anonymous key (public)
-3. **SUPABASE_SERVICE_ROLE_KEY** — Supabase service-role key (secret, server-only)
-4. **GOOGLE_API_KEY** — Gemini Embedding 2 API key (secret)
-5. **GROQ_API_KEY** — Groq chat/agent API key (secret)
-6. **GROQ_CHAT_MODEL** — optional Groq model override
+1. **NEXT_PUBLIC_SUPABASE_URL** - Supabase project URL (public)
+2. **NEXT_PUBLIC_SUPABASE_ANON_KEY** - Supabase anonymous key (public)
+3. **SUPABASE_SERVICE_ROLE_KEY** - Supabase service-role key (secret, server-only)
+4. **GOOGLE_API_KEY** - Gemini Embedding 2 API key (secret)
+5. **GROQ_API_KEY** - Groq chat/agent API key (secret)
+6. **GROQ_CHAT_MODEL** - optional Groq model override
 
 ## Step 1: Set Up Supabase Project
 
@@ -157,7 +157,7 @@ Expected response:
 }
 ```
 
-(Empty array is fine — no resumes uploaded yet)
+(Empty array is fine - no resumes uploaded yet)
 
 **If you get errors**:
 - **Cannot find module 'NEXT_PUBLIC_SUPABASE_URL'**: Check `.env.local` syntax (no spaces around `=`)

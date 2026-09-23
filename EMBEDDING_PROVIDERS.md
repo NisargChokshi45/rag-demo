@@ -26,9 +26,9 @@ GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key_here
 |----------|----------|---------|-------------|
 | `EMBEDDING_PROVIDER` | No | `groq` | Which provider to use: `groq` or `google` |
 | `EMBEDDING_MODEL` | No | Provider-specific | Model identifier for the chosen provider |
-| `GROQ_API_KEY` | Only if provider=groq | — | API key for Groq API |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Only if provider=google | — | API key for Google Generative AI |
-| `GOOGLE_API_KEY` | Only if provider=google | — | Fallback for Google API key |
+| `GROQ_API_KEY` | Only if provider=groq | - | API key for Groq API |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Only if provider=google | - | API key for Google Generative AI |
+| `GOOGLE_API_KEY` | Only if provider=google | - | Fallback for Google API key |
 
 ## Supported Models
 

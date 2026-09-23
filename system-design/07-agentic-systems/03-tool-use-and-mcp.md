@@ -88,7 +88,7 @@ Instead of waiting for the full JSON to generate, the system starts "prefetching
 The MCP 2.0 specification (ratified March 2026) introduced two major changes:
 
 ### 1. Streamable HTTP Transport
-Previous MCP used `stdio` or basic HTTP with SSE. MCP 2.0 adds **Streamable HTTP** — a single long-lived HTTP connection that handles bidirectional streaming:
+Previous MCP used `stdio` or basic HTTP with SSE. MCP 2.0 adds **Streamable HTTP** - a single long-lived HTTP connection that handles bidirectional streaming:
 
 ```
 [MCP Client] ←── Streamable HTTP POST /mcp ──→ [MCP Server]
@@ -116,7 +116,7 @@ This enables enterprise MCP servers with fine-grained access control per tenant.
 
 ## Computer-Use Tools (Anthropic)
 
-Claude 3.5+ introduced native **computer-use** tools — the model can directly control a desktop or web browser. These are available via the Anthropic API:
+Claude 3.5+ introduced native **computer-use** tools - the model can directly control a desktop or web browser. These are available via the Anthropic API:
 
 | Tool | Capability | Notes |
 |------|------------|-------|
@@ -153,7 +153,7 @@ response = client.beta.messages.create(
 
 ## Context7: Live Documentation MCP
 
-One of the most practical MCP servers in 2026 is **Context7** — it resolves the "stale training data" problem for coding agents:
+One of the most practical MCP servers in 2026 is **Context7** - it resolves the "stale training data" problem for coding agents:
 
 ```
 # Without Context7:

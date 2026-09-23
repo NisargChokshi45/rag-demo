@@ -6,32 +6,32 @@
 
 #### Core Auth Infrastructure
 - **Feature flag system** (`lib/config.ts`)
-  - `NEXT_PUBLIC_AUTH_ENABLED` — Master toggle
-  - `NEXT_PUBLIC_USER_DATA_ISOLATION` — Data filtering toggle
+  - `NEXT_PUBLIC_AUTH_ENABLED` - Master toggle
+  - `NEXT_PUBLIC_USER_DATA_ISOLATION` - Data filtering toggle
 
 - **Supabase clients** (`lib/supabase/server.ts`)
-  - `createServiceClient()` — Admin client with service role key
-  - `createAuthenticatedServerClient()` — User-scoped client with session
+  - `createServiceClient()` - Admin client with service role key
+  - `createAuthenticatedServerClient()` - User-scoped client with session
 
 - **Auth utilities** (`lib/auth.ts`)
-  - `getCurrentUser()` — Get authenticated user
-  - `validateAuth()` — Middleware for API routes
-  - `getUserId()` — Get user ID for database queries
+  - `getCurrentUser()` - Get authenticated user
+  - `validateAuth()` - Middleware for API routes
+  - `getUserId()` - Get user ID for database queries
 
 - **Session management** (`lib/supabase/middleware.ts`)
   - Middleware to refresh user sessions
   - Integrated with Next.js middleware
 
 - **Client-side hooks** (`lib/hooks/useAuth.ts`)
-  - `useAuth()` — Custom hook for auth state in client components
+  - `useAuth()` - Custom hook for auth state in client components
   - Handles user, loading, error states
   - Sign out function
 
 #### Auth Routes
 - **Login/Signup/Logout** (`/app/api/auth/`)
-  - `POST /api/auth/login` — Sign in with email/password
-  - `POST /api/auth/signup` — Register new account
-  - `POST /api/auth/logout` — Sign out
+  - `POST /api/auth/login` - Sign in with email/password
+  - `POST /api/auth/signup` - Register new account
+  - `POST /api/auth/logout` - Sign out
 
 #### UI Components
 - **Login page** (`/app/login/page.tsx`)
@@ -50,12 +50,12 @@
 - Added `@supabase/ssr@^0.1.0` for server-side auth handling
 
 #### Optional API Protection
-- `POST /api/ingest` — Added optional auth check (feature-flagged)
+- `POST /api/ingest` - Added optional auth check (feature-flagged)
 - Pattern ready to apply to other routes: `POST /api/upload-url`, `POST /api/agent`, `GET /api/candidates`, etc.
 
 #### Documentation
-- `AUTH_SETUP.md` — Complete setup and configuration guide
-- `AUTH_IMPLEMENTATION.md` — This file
+- `AUTH_SETUP.md` - Complete setup and configuration guide
+- `AUTH_IMPLEMENTATION.md` - This file
 
 ---
 
@@ -121,9 +121,9 @@ NEXT_PUBLIC_USER_DATA_ISOLATION=true
 
 To enable per-user data filtering:
 
-1. **Database schema** — Add `user_id` columns to tables (SQL above)
+1. **Database schema** - Add `user_id` columns to tables (SQL above)
 
-2. **Update `lib/db.ts`** — Add userId parameter to functions:
+2. **Update `lib/db.ts`** - Add userId parameter to functions:
    ```typescript
    export async function insertCandidate(
      userId: string,
@@ -145,7 +145,7 @@ To enable per-user data filtering:
    }
    ```
 
-3. **Update API routes** — Pass userId to db functions:
+3. **Update API routes** - Pass userId to db functions:
    ```typescript
    export async function POST(request: NextRequest) {
      const userId = await getUserId();
@@ -153,14 +153,14 @@ To enable per-user data filtering:
    }
    ```
 
-4. **Update agent tools** (`lib/agent-tools.ts`) — Pass userId to search:
+4. **Update agent tools** (`lib/agent-tools.ts`) - Pass userId to search:
    ```typescript
    export function createAgentTools(context: ToolContext, userId?: string) {
      // In search_chunks and list_all_candidates, filter by userId
    }
    ```
 
-5. **Update RPC function** — Add user filtering to `match_resume_chunks`
+5. **Update RPC function** - Add user filtering to `match_resume_chunks`
 
 ### Phase 2B: Optional Enhancements
 

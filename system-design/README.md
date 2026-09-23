@@ -99,7 +99,7 @@ Real interview problems with complete solutions and diagrams:
 
 ## 🔬 Bonus Deep-Dive Guides
 
-Two companion guides (3,000+ lines each) covering AI evaluation end-to-end — for Engineers, PMs, and QAs:
+Two companion guides (3,000+ lines each) covering AI evaluation end-to-end - for Engineers, PMs, and QAs:
 
 | Guide | Platforms Covered | What's Inside |
 |-------|------------------|---------------|

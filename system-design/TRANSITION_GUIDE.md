@@ -114,14 +114,14 @@ Backend Engineer
 
 ### 2. 🎨 Frontend Engineer → AI Product Engineering
 
-**Why this transition works:** Frontend engineers understand UX, real-time UI updates, and user behavior. AI products live or die on UX — streaming responses, progressive rendering, loading states, feedback collection. Your skills are more valuable than you think.
+**Why this transition works:** Frontend engineers understand UX, real-time UI updates, and user behavior. AI products live or die on UX - streaming responses, progressive rendering, loading states, feedback collection. Your skills are more valuable than you think.
 
 #### Target Roles
 
 ```
 Frontend Engineer
       │
-      ├──► AI Product Engineer         (3–6 months — highest demand)
+      ├──► AI Product Engineer         (3–6 months - highest demand)
       ├──► AI UX Engineer              (3–6 months, UX focus)
       └──► Full-Stack LLM Engineer     (6–9 months, add backend LLM skills)
 ```
@@ -171,14 +171,14 @@ Frontend Engineer
 
 ### 3. 🧪 QA Engineer → AI Eval Engineer
 
-**Why QA is the most underrated path:** AI evaluation is essentially a new form of QA. Manual test case design, edge case thinking, regression prevention — these are exactly what AI systems need. But the tools are different, and the mindset around non-deterministic outputs needs to shift.
+**Why QA is the most underrated path:** AI evaluation is essentially a new form of QA. Manual test case design, edge case thinking, regression prevention - these are exactly what AI systems need. But the tools are different, and the mindset around non-deterministic outputs needs to shift.
 
 #### Target Roles
 
 ```
 QA Engineer
       │
-      ├──► AI Eval Engineer            (3–6 months — best fit, fast transition)
+      ├──► AI Eval Engineer            (3–6 months - best fit, fast transition)
       ├──► AI Quality Engineer         (3–6 months)
       └──► Red Team Analyst            (6–9 months, security focus)
 ```
@@ -216,10 +216,10 @@ QA Engineer
 - Course: *Quality and Safety for LLM Applications* (DeepLearning.AI + WhyLabs, free)
 
 **Month 3: CI/CD Integration**
-- Wire evaluators into a GitHub Actions workflow — eval runs on every PR
+- Wire evaluators into a GitHub Actions workflow - eval runs on every PR
 - Define quality gates (faithfulness > 0.85, format pass rate > 0.99)
 - Create a weekly eval report dashboard
-- Course: *Evals for AI* (Maven, Hamel + Shreya — paid, worth it for career transition)
+- Course: *Evals for AI* (Maven, Hamel + Shreya - paid, worth it for career transition)
 
 #### Portfolio Project Ideas
 - Open-source eval suite for a public LLM application
@@ -237,7 +237,7 @@ QA Engineer
 ```
 Product Manager
       │
-      ├──► AI Product Manager           (3–6 months — direct analog)
+      ├──► AI Product Manager           (3–6 months - direct analog)
       ├──► AI Program Manager           (3–6 months, coordination focus)
       └──► Head of AI Product           (9–18 months, leadership path)
 ```
@@ -261,14 +261,14 @@ Product Manager
 
 **Month 1: Build Technical Vocabulary**
 - Read this repo's foundations, WITHOUT skipping to code:
-  - [01-foundations](01-foundations/) — understand transformers conceptually
-  - [02-model-landscape](02-model-landscape/) — know which models exist and what they cost
-  - [GLOSSARY.md](GLOSSARY.md) — learn the vocabulary
-- Course: *AI for Everyone* (Coursera, Andrew Ng, free) — designed for non-technical roles
+  - [01-foundations](01-foundations/) - understand transformers conceptually
+  - [02-model-landscape](02-model-landscape/) - know which models exist and what they cost
+  - [GLOSSARY.md](GLOSSARY.md) - learn the vocabulary
+- Course: *AI for Everyone* (Coursera, Andrew Ng, free) - designed for non-technical roles
 
 **Month 2: Own Error Analysis**
 - Ask your engineering team to set up Langfuse or LangSmith
-- Personally review 100+ traces from your product — take notes, find patterns
+- Personally review 100+ traces from your product - take notes, find patterns
 - Run an error analysis session with your team; lead the failure mode categorization
 - Read this repo: [14-evaluation-and-observability](14-evaluation-and-observability/)
 - Read: Chapter 3 (Error Analysis) in [AI Evals Comprehensive Study Guide](ai_evals_comprehensive_study_guide.md)
@@ -277,13 +277,13 @@ Product Manager
 - Write an "AI Quality Spec" for your product: define what good looks like for each feature
 - Work with engineers to instrument evals for those criteria
 - Set success metrics for your next quarter that include AI quality gates (not just user growth)
-- Course: *Evals for AI* (Maven, Hamel + Shreya — explicitly designed for PMs)
+- Course: *Evals for AI* (Maven, Hamel + Shreya - explicitly designed for PMs)
 
 #### Skills That Make You Stand Out as an AI PM
 - You've personally reviewed traces (most PMs delegate this)
 - You can define failure modes quantitatively, not just qualitatively
 - You can communicate the cost of quality improvements (prompt changes vs. model upgrades vs. fine-tuning)
-- You understand the difference between RAG, fine-tuning, and prompt engineering — and when each is appropriate
+- You understand the difference between RAG, fine-tuning, and prompt engineering - and when each is appropriate
 
 ---
 
@@ -316,9 +316,9 @@ Engineering Manager
 
 **Month 1: Technical Depth**
 - Read all of [09-frameworks-and-tools](09-frameworks-and-tools/) to understand the tooling landscape
-- Read [09-claude-code.md](09-frameworks-and-tools/09-claude-code.md) and [10-opencoderguide.md](09-frameworks-and-tools/10-opencoderguide.md) — you'll manage teams using these
+- Read [09-claude-code.md](09-frameworks-and-tools/09-claude-code.md) and [10-opencoderguide.md](09-frameworks-and-tools/10-opencoderguide.md) - you'll manage teams using these
 - Understand costs: read [02-model-landscape/03-pricing-and-costs.md](02-model-landscape/03-pricing-and-costs.md)
-- Course: *Generative AI with LLMs* (Coursera, DeepLearning.AI) — gives you enough depth to lead technical discussions
+- Course: *Generative AI with LLMs* (Coursera, DeepLearning.AI) - gives you enough depth to lead technical discussions
 
 **Month 2: Process and Team Design**
 - Redesign your team's definition of "done" to include eval gates
@@ -330,13 +330,13 @@ Engineering Manager
 - Define the AI skills matrix for your team: who has what, what's missing
 - Build an interview rubric for AI engineers (use [00-interview-prep](00-interview-prep/) as your source)
 - Set team-level AI quality OKRs for next quarter
-- Course: *CS294 LLM Agents* (Berkeley, free) — gives you the depth for strategy conversations
+- Course: *CS294 LLM Agents* (Berkeley, free) - gives you the depth for strategy conversations
 
 ---
 
 ### 6. 🛠️ DevOps / Platform Engineer → MLOps / AI Infrastructure Engineer
 
-**Why platform engineers thrive here:** Kubernetes, CI/CD, observability, cost management, SLAs — you've done all of this. The AI-specific additions are GPU scheduling, model serving, and LLMOps pipelines.
+**Why platform engineers thrive here:** Kubernetes, CI/CD, observability, cost management, SLAs - you've done all of this. The AI-specific additions are GPU scheduling, model serving, and LLMOps pipelines.
 
 #### Target Roles
 
@@ -394,7 +394,7 @@ DevOps / Platform Engineer
 ```
 Data Engineer
       │
-      ├──► AI Data Engineer             (2–4 months — fastest transition)
+      ├──► AI Data Engineer             (2–4 months - fastest transition)
       ├──► Embedding Pipeline Engineer  (3–6 months)
       └──► Fine-tuning Data Specialist  (4–8 months)
 ```
@@ -504,19 +504,19 @@ Use this when you're ready to go deep:
 
 ## Common Mistakes to Avoid
 
-1. **Skipping fundamentals** — Jumping to LangChain before understanding what an embedding is leads to cargo-cult code you can't debug.
+1. **Skipping fundamentals** - Jumping to LangChain before understanding what an embedding is leads to cargo-cult code you can't debug.
 
-2. **Building before evaluating** — Ship nothing without a way to measure quality. Define your eval criteria before writing the first prompt.
+2. **Building before evaluating** - Ship nothing without a way to measure quality. Define your eval criteria before writing the first prompt.
 
-3. **Copying prompts without understanding them** — Prompts are engineering decisions. Understand why each element is there.
+3. **Copying prompts without understanding them** - Prompts are engineering decisions. Understand why each element is there.
 
-4. **Ignoring costs until it's too late** — Every API call has a price. Build cost tracking from day one. See [02-model-landscape/03-pricing-and-costs.md](02-model-landscape/03-pricing-and-costs.md).
+4. **Ignoring costs until it's too late** - Every API call has a price. Build cost tracking from day one. See [02-model-landscape/03-pricing-and-costs.md](02-model-landscape/03-pricing-and-costs.md).
 
-5. **Assuming the model is the bottleneck** — In most production AI systems, the bottleneck is retrieval quality, prompt design, or data quality. The model is rarely the problem.
+5. **Assuming the model is the bottleneck** - In most production AI systems, the bottleneck is retrieval quality, prompt design, or data quality. The model is rarely the problem.
 
-6. **Using "latest" in model version strings in production** — Pin exact versions. Silent model updates will break your product.
+6. **Using "latest" in model version strings in production** - Pin exact versions. Silent model updates will break your product.
 
-7. **Over-agenting** — Starting with a 5-agent system when a single well-prompted call would work. Start simple, add complexity only when needed.
+7. **Over-agenting** - Starting with a 5-agent system when a single well-prompted call would work. Start simple, add complexity only when needed.
 
 ---
 
@@ -524,10 +524,10 @@ Use this when you're ready to go deep:
 
 **Build in public.** The AI engineering job market rewards demonstrated work:
 
-1. **GitHub portfolio** — One polished end-to-end project beats 10 toy projects
-2. **Write a blog post** — Describing one real problem you solved and how (error analysis, eval pipeline, RAG latency fix)
-3. **Contribute to open source** — OpenHands, LlamaIndex, DSPy, RAGAS. Even documentation PRs get you noticed.
-4. **Use this repo's interview prep** — [00-interview-prep/01-question-bank.md](00-interview-prep/01-question-bank.md) has 80 questions with strong answers
+1. **GitHub portfolio** - One polished end-to-end project beats 10 toy projects
+2. **Write a blog post** - Describing one real problem you solved and how (error analysis, eval pipeline, RAG latency fix)
+3. **Contribute to open source** - OpenHands, LlamaIndex, DSPy, RAGAS. Even documentation PRs get you noticed.
+4. **Use this repo's interview prep** - [00-interview-prep/01-question-bank.md](00-interview-prep/01-question-bank.md) has 80 questions with strong answers
 
 **What to say in interviews:**
 - Name specific decisions: "I chose Qdrant over Pinecone because of X" (not "I built a RAG system")
@@ -537,4 +537,4 @@ Use this when you're ready to go deep:
 
 ---
 
-*Part of the [AI System Design Guide](README.md) — maintained by [ombharatiya](https://github.com/ombharatiya)*
+*Part of the [AI System Design Guide](README.md) - maintained by [ombharatiya](https://github.com/ombharatiya)*

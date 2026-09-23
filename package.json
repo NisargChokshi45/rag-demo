@@ -10,6 +10,7 @@
     "db:setup": "bash scripts/supabase-remote.sh setup",
     "db:cleanup": "bash scripts/supabase-remote.sh cleanup",
     "db:seed": "bash scripts/supabase-remote.sh seed",
+    "db:migrate": "bash scripts/apply-migrations.sh",
     "format": "prettier --write \"./**/*.{ts,tsx,json,css}\"",
     "format:check": "prettier --check \"./**/*.{ts,tsx,json,css}\""
   },

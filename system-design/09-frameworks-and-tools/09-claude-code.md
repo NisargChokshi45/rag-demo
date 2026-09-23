@@ -83,7 +83,7 @@ Claude Code uses **Claude 3.7 Sonnet** as its backbone model, with Extended Thin
 
 Claude Code has three native tools and supports custom MCP tools:
 
-### 1. `bash` — Shell Execution
+### 1. `bash` - Shell Execution
 
 ```python
 # Claude calls this internally:
@@ -97,9 +97,9 @@ bash(command="pytest tests/ -v --tb=short", timeout=60)
 - Build commands (`npm build`, `make`, `docker build`)
 - Package installation (`pip install`, `npm install`)
 
-The bash session is **persistent across turns** — environment variables and working directory carry over within a session.
+The bash session is **persistent across turns** - environment variables and working directory carry over within a session.
 
-### 2. `text_editor` — File Operations
+### 2. `text_editor` - File Operations
 
 ```python
 # Read a file
@@ -125,9 +125,9 @@ text_editor(command="create", path="/project/tests/test_auth.py", file_text="...
 - Reduces hallucination (only changes what needs changing)
 - Enables atomic, reviewable diffs
 
-### 3. `computer` — GUI Automation (optional)
+### 3. `computer` - GUI Automation (optional)
 
-Full desktop control (screenshots, mouse, keyboard) — used for browser testing and UI verification. Requires sandboxed environment.
+Full desktop control (screenshots, mouse, keyboard) - used for browser testing and UI verification. Requires sandboxed environment.
 
 ---
 
@@ -136,7 +136,7 @@ Full desktop control (screenshots, mouse, keyboard) — used for browser testing
 The `CLAUDE.md` file is the **single most important pattern** for using Claude Code productively. It injects persistent project context into every Claude Code session.
 
 ```markdown
-# CLAUDE.md — Project: E-Commerce API
+# CLAUDE.md - Project: E-Commerce API
 
 ## Architecture
 - Python 3.11 FastAPI backend
@@ -157,9 +157,9 @@ The `CLAUDE.md` file is the **single most important pattern** for using Claude C
 - New features require tests with >80% coverage
 
 ## Forbidden Patterns
-- Do NOT use `os.system()` — use `subprocess.run()` instead
-- Do NOT commit secrets — use environment variables
-- Do NOT modify `alembic/versions/` — create new migrations
+- Do NOT use `os.system()` - use `subprocess.run()` instead
+- Do NOT commit secrets - use environment variables
+- Do NOT modify `alembic/versions/` - create new migrations
 
 ## Architecture Decisions
 - Auth: JWT tokens, 1hr expiry, refresh token pattern
@@ -424,7 +424,7 @@ jobs:
 ### Q: How does Claude Code differ from GitHub Copilot?
 
 **Strong answer:**
-Copilot is a **completion tool** — it predicts the next few lines of code as you type. Claude Code is an **autonomous agent** — you give it a task (e.g., "add authentication to this API"), and it reads the codebase, plans the implementation, edits multiple files, runs tests, fixes failures, and only finishes when tests pass. The experience is fundamentally different: Copilot helps you code faster; Claude Code codes *for* you while you review the output.
+Copilot is a **completion tool** - it predicts the next few lines of code as you type. Claude Code is an **autonomous agent** - you give it a task (e.g., "add authentication to this API"), and it reads the codebase, plans the implementation, edits multiple files, runs tests, fixes failures, and only finishes when tests pass. The experience is fundamentally different: Copilot helps you code faster; Claude Code codes *for* you while you review the output.
 
 ### Q: What is CLAUDE.md and why is it critical?
 
@@ -443,18 +443,18 @@ Three layers:
 
 **Strong answer:**
 I optimize in three ways:
-1. **Task scoping**: Claude Code is cost-effective for independent, bounded tasks (bug fixes, test generation). I don't use it for open-ended exploration — that's still cheaper with a human.
+1. **Task scoping**: Claude Code is cost-effective for independent, bounded tasks (bug fixes, test generation). I don't use it for open-ended exploration - that's still cheaper with a human.
 2. **Max turns**: Setting `max_turns=15` prevents runaway jobs that burn $10+ on circular reasoning.
-3. **Model routing**: For simple bug fixes (syntax errors, obvious typos), I use Claude 3.5 Haiku via the SDK — 5x cheaper. For architectural refactoring, I use Claude 3.7 Sonnet with Extended Thinking.
+3. **Model routing**: For simple bug fixes (syntax errors, obvious typos), I use Claude 3.5 Haiku via the SDK - 5x cheaper. For architectural refactoring, I use Claude 3.7 Sonnet with Extended Thinking.
 
 ---
 
 ## References
 
-- Anthropic. "Claude Code: Building Agentic Coding Experiences" (2025) — https://docs.anthropic.com/claude-code
-- Anthropic. "Claude Code SDK Documentation" — https://github.com/anthropics/claude-code
-- Anthropic. "CLAUDE.md Best Practices" — https://docs.anthropic.com/claude-code/settings#claudemd
-- SWE-bench Verified Leaderboard — https://www.swebench.com/
+- Anthropic. "Claude Code: Building Agentic Coding Experiences" (2025) - https://docs.anthropic.com/claude-code
+- Anthropic. "Claude Code SDK Documentation" - https://github.com/anthropics/claude-code
+- Anthropic. "CLAUDE.md Best Practices" - https://docs.anthropic.com/claude-code/settings#claudemd
+- SWE-bench Verified Leaderboard - https://www.swebench.com/
 
 ---
 

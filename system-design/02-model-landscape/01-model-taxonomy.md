@@ -328,7 +328,7 @@ Assume 1M requests/day, 1K input + 500 output tokens:
 | Claude 3.7 Sonnet | $3,000 | $7,500 | $315,000 |
 | o3-mini | $1,100 | $2,200 | $99,000 |
 | Gemini 2.0 Flash | $100 | $200 | $9,000 |
-| Self-hosted Llama 3.3 70B* | — | — | ~$50,000 |
+| Self-hosted Llama 3.3 70B* | - | - | ~$50,000 |
 
 *Self-hosted assumes 4× H100 GPUs
 
@@ -343,10 +343,10 @@ Assume 1M requests/day, 1K input + 500 output tokens:
 | **o3 (high)** | 91.6 | 96.7 | 71.7% | 96.7% |
 | **Claude 3.7 Sonnet** | 90.5 | 93.6 | 70.3% | 80.0% |
 | **GPT-4.5** | 89.4 | 86.8 | 38.0% | 36.7% |
-| **Grok 3** | 90.2 | 88.9 | — | 93.3% |
+| **Grok 3** | 90.2 | 88.9 | - | 93.3% |
 | **DeepSeek-R1** | 90.8 | 92.6 | 49.2% | 79.8% |
-| **Llama 3.1 405B** | 88.6 | 89.0 | — | — |
-| **Gemini 2.0 Flash** | 85.5 | 83.0 | — | — |
+| **Llama 3.1 405B** | 88.6 | 89.0 | - | - |
+| **Gemini 2.0 Flash** | 85.5 | 83.0 | - | - |
 
 *Source: Respective technical reports and LMSYS Chatbot Arena, March 2026. Always verify with current leaderboards.*
 
@@ -408,7 +408,7 @@ Always calculate for top 2-3 candidates.
 | Customization | Limited fine-tuning | Full fine-tuning |
 | Ops overhead | None | Significant |
 
-**Key insight (2026)**: DeepSeek-V3 and R1 changed this conversation — open models now match GPT-4o on benchmarks. The gap is real but narrower than ever.
+**Key insight (2026)**: DeepSeek-V3 and R1 changed this conversation - open models now match GPT-4o on benchmarks. The gap is real but narrower than ever.
 
 ### Q: What is the difference between o3 and Claude 3.7's Extended Thinking?
 

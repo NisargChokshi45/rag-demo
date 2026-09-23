@@ -1,6 +1,6 @@
 # AutoGen and CrewAI (March 2026)
 
-In 2025-2026, **AutoGen** and **CrewAI** have both undergone major rewrites. AutoGen 0.4 is a full async-first redesign (AgentChat API), while CrewAI added **Flows** — a state-machine orchestration layer alongside its classic Process model.
+In 2025-2026, **AutoGen** and **CrewAI** have both undergone major rewrites. AutoGen 0.4 is a full async-first redesign (AgentChat API), while CrewAI added **Flows** - a state-machine orchestration layer alongside its classic Process model.
 
 ## Table of Contents
 
@@ -52,7 +52,7 @@ class ContentFlow(Flow):
 
 ### AutoGen 0.4 (Complete Rewrite)
 
-Microsoft released AutoGen 0.4 in late 2025 — a **complete rewrite** with a new async-first architecture.
+Microsoft released AutoGen 0.4 in late 2025 - a **complete rewrite** with a new async-first architecture.
 
 ```python
 # AutoGen 0.4: AgentChat API

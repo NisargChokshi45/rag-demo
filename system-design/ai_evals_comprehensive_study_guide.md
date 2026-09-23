@@ -18,7 +18,7 @@
 - How to close the loop: turn eval results into system improvements
 - How to do all of this with your observability platform of choice (Phoenix, Langfuse, Braintrust, LangSmith, or your own)
 
-**Platform Examples:** This guide uses **Arize Phoenix** (open-source, self-hosted) and **Langfuse** (open-source, cloud or self-hosted) as primary examples. The methodology is platform-agnostic — adapt it to whichever tool you use.
+**Platform Examples:** This guide uses **Arize Phoenix** (open-source, self-hosted) and **Langfuse** (open-source, cloud or self-hosted) as primary examples. The methodology is platform-agnostic - adapt it to whichever tool you use.
 
 ---
 
@@ -215,7 +215,7 @@ All of these support the same core concepts: traces, spans, datasets, evaluation
 
 ### Setting Up Phoenix (Open-Source, Self-Hosted)
 
-Phoenix is an open-source AI observability platform built on OpenTelemetry. It provides tracing, evaluation, datasets, experiments, and prompt management — all for free.
+Phoenix is an open-source AI observability platform built on OpenTelemetry. It provides tracing, evaluation, datasets, experiments, and prompt management - all for free.
 
 #### Install and Start
 
@@ -294,7 +294,7 @@ pip install langfuse openai
 #### Instrument Your Application (Drop-In Replacement)
 
 ```python
-# Just change your import — everything else stays the same!
+# Just change your import - everything else stays the same!
 from langfuse.openai import OpenAI
 
 client = OpenAI()
@@ -816,7 +816,7 @@ DIETARY RESTRICTION DEFINITIONS:
 - Vegetarian: No meat or fish, but dairy and eggs are allowed
 - Gluten-free: No wheat, barley, rye, or other gluten-containing grains
 - Keto: Very low carb (<20g net carbs), high fat, moderate protein
-[... full definitions — see Appendix C for the full list ...]
+[... full definitions - see Appendix C for the full list ...]
 
 EVALUATION CRITERIA:
 - PASS: Recipe clearly adheres to the dietary preferences
@@ -875,7 +875,7 @@ DIETARY RESTRICTION DEFINITIONS:
 - Dairy-free: No milk, cheese, butter, yogurt, or other dairy products
 - Keto: Very low carb (typically <20g net carbs), high fat
 - Paleo: No grains, legumes, dairy, refined sugar, or processed foods
-[... all 16 definitions — see Appendix C for the full list ...]
+[... all 16 definitions - see Appendix C for the full list ...]
 ```
 
 #### Part 2: Clear Evaluation Criteria
@@ -1066,7 +1066,7 @@ Test Set Performance:
   Accuracy: 84.0%
 ```
 
-Notice the first attempt had a TNR of only 22.2% — meaning when a recipe actually violated dietary restrictions, the judge only caught it 22% of the time! This is dangerous (imagine telling a diabetic a recipe is safe when it isn't). After careful prompt iteration, the judge achieved 100% TNR.
+Notice the first attempt had a TNR of only 22.2% - meaning when a recipe actually violated dietary restrictions, the judge only caught it 22% of the time! This is dangerous (imagine telling a diabetic a recipe is safe when it isn't). After careful prompt iteration, the judge achieved 100% TNR.
 
 ### Target Metrics
 
@@ -1842,13 +1842,13 @@ Even without writing code, you can:
 
 ### Why Multi-Turn Is Different
 
-Most eval examples show single-turn Q&A: user asks, AI answers, done. But real applications have **conversations** — and new failure modes emerge across turns:
+Most eval examples show single-turn Q&A: user asks, AI answers, done. But real applications have **conversations** - and new failure modes emerge across turns:
 
-1. **Context loss** — AI forgets what the user said 3 messages ago
-2. **Contradiction** — AI says one thing in turn 2, contradicts it in turn 5
-3. **Instruction drift** — AI gradually stops following the original system prompt
-4. **Repetition** — AI repeats the same information or suggestion
-5. **Escalation failure** — AI doesn't know when to hand off to a human
+1. **Context loss** - AI forgets what the user said 3 messages ago
+2. **Contradiction** - AI says one thing in turn 2, contradicts it in turn 5
+3. **Instruction drift** - AI gradually stops following the original system prompt
+4. **Repetition** - AI repeats the same information or suggestion
+5. **Escalation failure** - AI doesn't know when to hand off to a human
 
 ### Strategies for Multi-Turn Evaluation
 
@@ -1903,7 +1903,7 @@ SCENARIOS = [
     {
         "turns": [
             "I'm looking for a vegan restaurant",
-            "Actually, make that vegetarian — I eat eggs",
+            "Actually, make that vegetarian - I eat eggs",
             "What about that first place you mentioned?"  # Tests context retention
         ],
         "failure_mode": "context_retention"
@@ -1933,7 +1933,7 @@ SCENARIOS = [
 
 ### Offline vs. Online Evals
 
-Everything in Chapters 3-8 is **offline evaluation** — you run evals after the fact on collected traces. But production systems also need **online evaluation**:
+Everything in Chapters 3-8 is **offline evaluation** - you run evals after the fact on collected traces. But production systems also need **online evaluation**:
 
 | | Offline Evals | Online Evals |
 |---|---|---|
@@ -2149,7 +2149,7 @@ This is much more credible than "we tested it and it seems to work."
 ---
 
 <a name="chapter-11"></a>
-## Chapter 11: Closing the Loop — From Evals to Improvements
+## Chapter 11: Closing the Loop - From Evals to Improvements
 
 ### The Most Common Failure: Measuring Without Acting
 
@@ -2232,12 +2232,12 @@ for model in MODELS:
 After every eval cycle, create a simple report:
 
 ```
-EVAL REPORT — Week of [date]
+EVAL REPORT - Week of [date]
 
 Top 3 failure modes this week:
-1. [Failure mode] — [X]% of traces — [Root cause] — [Action item]
-2. [Failure mode] — [X]% of traces — [Root cause] — [Action item]
-3. [Failure mode] — [X]% of traces — [Root cause] — [Action item]
+1. [Failure mode] - [X]% of traces - [Root cause] - [Action item]
+2. [Failure mode] - [X]% of traces - [Root cause] - [Action item]
+3. [Failure mode] - [X]% of traces - [Root cause] - [Action item]
 
 Improvements from last week:
 - [Previous fix]: Failure rate went from X% to Y% ✅
@@ -2252,10 +2252,10 @@ Regressions detected: [None / List]
 
 ### When Manual Labels Beat LLM Labels
 
-- **Ambiguous cases** where even experts disagree — you need to capture that disagreement
+- **Ambiguous cases** where even experts disagree - you need to capture that disagreement
 - **High-stakes domains** (medical, legal, financial) where errors have real consequences
 - **New failure modes** that your LLM judge hasn't been trained to detect
-- **Ground truth calibration** — even if you use LLM labeling at scale, validate a sample manually
+- **Ground truth calibration** - even if you use LLM labeling at scale, validate a sample manually
 
 ### Inter-Annotator Agreement
 
@@ -2633,11 +2633,11 @@ A plain-language glossary of the technical terms used throughout this guide. Sha
 | **Ground Truth** | Human-verified labels that represent the "correct" answer; used to measure judge accuracy |
 | **True Positive Rate (TPR)** | The percentage of actual positives (e.g., good responses) that the judge correctly identifies. Also called *recall* or *sensitivity*. Formula: TP / (TP + FN) |
 | **True Negative Rate (TNR)** | The percentage of actual negatives (e.g., bad responses) that the judge correctly catches. Also called *specificity*. Formula: TN / (TN + FP) |
-| **False Positive (FP)** | When the judge says "Pass" but the real answer is "Fail" — a missed defect |
-| **False Negative (FN)** | When the judge says "Fail" but the real answer is "Pass" — a false alarm |
+| **False Positive (FP)** | When the judge says "Pass" but the real answer is "Fail" - a missed defect |
+| **False Negative (FN)** | When the judge says "Fail" but the real answer is "Pass" - a false alarm |
 | **Precision** | Of all items the judge labeled positive, how many were actually positive. Formula: TP / (TP + FP) |
-| **F1 Score** | The harmonic mean of precision and recall — a single number balancing both. Formula: 2 * (Precision * Recall) / (Precision + Recall) |
-| **Confusion Matrix** | A 2x2 table showing TP, FP, FN, TN counts — the foundation of all classification metrics |
+| **F1 Score** | The harmonic mean of precision and recall - a single number balancing both. Formula: 2 * (Precision * Recall) / (Precision + Recall) |
+| **Confusion Matrix** | A 2x2 table showing TP, FP, FN, TN counts - the foundation of all classification metrics |
 | **Confidence Interval (CI)** | A range of values (e.g., 72%–81%) within which the true metric likely falls, given sampling uncertainty |
 | **Bias Correction** | Adjusting raw judge scores to account for systematic over- or under-counting of passes/fails |
 | **Cohen's Kappa** | A statistic measuring agreement between two raters (or a rater and ground truth), adjusting for chance agreement. Values: <0.2 poor, 0.4–0.6 moderate, 0.6–0.8 substantial, >0.8 almost perfect |
@@ -2649,7 +2649,7 @@ A plain-language glossary of the technical terms used throughout this guide. Sha
 | **Train/Dev/Test Split** | Dividing labeled data into three sets: Train (for building the judge prompt), Dev (for iterating), Test (for final unbiased measurement) |
 | **Stratified Split** | Splitting data so each subset has the same proportion of Pass/Fail labels as the original |
 | **Few-Shot Examples** | Example input-output pairs included in a prompt to show the model what good evaluation looks like |
-| **Open Coding** | Reading traces and writing freeform notes about what's going wrong — no categories yet |
+| **Open Coding** | Reading traces and writing freeform notes about what's going wrong - no categories yet |
 | **Axial Coding** | Grouping your open-coded notes into categories (error types) and counting frequency |
 | **Dimensional Sampling** | Systematically creating test inputs that cover all important dimensions (topics, edge cases, user types) |
 | **Failure Mode** | A specific, named way the AI system can fail (e.g., "dietary violation," "hallucinated citation") |
@@ -2659,12 +2659,12 @@ A plain-language glossary of the technical terms used throughout this guide. Sha
 
 | Term | Definition |
 |------|-----------|
-| **Trace** | A complete record of one AI interaction — from user input through all processing steps to final output |
+| **Trace** | A complete record of one AI interaction - from user input through all processing steps to final output |
 | **Span** | A single unit of work within a trace (e.g., one LLM call, one database lookup, one tool invocation) |
 | **Instrumentation** | Adding code to your application so that traces and spans are automatically captured |
 | **Dataset** | A stored collection of examples (inputs + expected outputs) used for running experiments |
 | **Experiment** | Running your AI system (or judge) against a dataset and recording all results |
-| **Annotation** | A label or score attached to a trace or span — can be human-generated or from an automated eval |
+| **Annotation** | A label or score attached to a trace or span - can be human-generated or from an automated eval |
 | **Prompt Version** | A saved snapshot of a prompt template, allowing you to track changes and compare performance |
 
 ### RAG-Specific Terms
@@ -2674,7 +2674,7 @@ A plain-language glossary of the technical terms used throughout this guide. Sha
 | **RAG (Retrieval-Augmented Generation)** | An AI architecture that retrieves relevant documents before generating a response |
 | **BM25** | A classic keyword-based search algorithm used as a baseline for retrieval quality |
 | **Recall@K** | Of all relevant documents, what fraction appear in the top K retrieved results |
-| **MRR (Mean Reciprocal Rank)** | Average of 1/rank for the first relevant document — higher means relevant docs appear sooner |
+| **MRR (Mean Reciprocal Rank)** | Average of 1/rank for the first relevant document - higher means relevant docs appear sooner |
 | **Chunking** | Splitting large documents into smaller pieces for retrieval |
 | **Context Window** | The maximum amount of text an LLM can process in a single call |
 | **Hallucination** | When an LLM generates information not supported by the retrieved context |
@@ -2686,7 +2686,7 @@ A plain-language glossary of the technical terms used throughout this guide. Sha
 | **p_obs (Observed Rate)** | The raw pass rate from the judge, before any correction |
 | **θ̂ (Theta-hat)** | The corrected true success rate after accounting for judge errors |
 | **judgy** | A Python library that computes corrected success rates and confidence intervals given TPR and TNR |
-| **Sampling** | Evaluating a random subset of traces instead of all traces — used to manage cost |
+| **Sampling** | Evaluating a random subset of traces instead of all traces - used to manage cost |
 | **Statistical Significance** | Whether an observed difference is likely real or could be due to random chance |
 
 ---
@@ -2958,7 +2958,7 @@ Return your evaluation as JSON:
 | GPT-4o-mini / Claude Haiku | Cost-sensitive, high-volume evals | 75–90% |
 | Open-source (Llama, Mistral) | Self-hosted, privacy-sensitive | 70–85% |
 
-**Tip:** Start with the most capable model to establish a performance ceiling. Then test whether a cheaper model can match it for your specific use case. Often it can — especially with good few-shot examples.
+**Tip:** Start with the most capable model to establish a performance ceiling. Then test whether a cheaper model can match it for your specific use case. Often it can - especially with good few-shot examples.
 
 ### 10. Prompt Versioning
 
@@ -3229,13 +3229,13 @@ compiled = prompt.compile(role="chef", question="Best pasta recipe?")
 
 | Day | Activity | Time | Role Focus |
 |-----|----------|------|------------|
-| 22 | RAG evaluation — retrieval metrics + answer quality (Ch. 6) | 2h | Engineer |
+| 22 | RAG evaluation - retrieval metrics + answer quality (Ch. 6) | 2h | Engineer |
 | 23 | Multi-step pipeline evaluation (Ch. 7) | 2h | Engineer |
 | 24 | Multi-turn conversation evaluation (Ch. 8) | 2h | Engineer |
-| 25 | Safety evals — prompt injection, PII leakage (Ch. 9) | 2h | All |
+| 25 | Safety evals - prompt injection, PII leakage (Ch. 9) | 2h | All |
 | 26 | Set up regression test suite (Ch. 11) | 2h | Engineer |
-| 27 | Human annotation calibration — measure inter-annotator agreement (Ch. 12) | 1h | All |
-| 28 | Optimize for cost — tiered evaluation, sampling strategy (Ch. 13) | 1h | All |
+| 27 | Human annotation calibration - measure inter-annotator agreement (Ch. 12) | 1h | All |
+| 28 | Optimize for cost - tiered evaluation, sampling strategy (Ch. 13) | 1h | All |
 | 29 | Create monitoring dashboard + automated eval runs | 2h | Engineer |
 | 30 | Document eval suite, present to stakeholders, plan maintenance | 2h | All |
 
@@ -3249,7 +3249,7 @@ Real lessons from implementing complete eval pipelines in production:
 
 1. **LLM-as-Judge is powerful but needs guardrails** - Without proper validation, a judge can confidently give wrong answers. Always validate against ground truth.
 
-2. **You must test evaluators against ground truth** - A judge that seems reasonable but has TNR=22% is actively harmful — it misses most real failures.
+2. **You must test evaluators against ground truth** - A judge that seems reasonable but has TNR=22% is actively harmful - it misses most real failures.
 
 3. **Train/Dev/Test splits enable confidence** - Without them, you're fooling yourself about your judge's quality. This is non-negotiable.
 
@@ -3279,27 +3279,27 @@ Real lessons from implementing complete eval pipelines in production:
 
 ## Conclusion
 
-AI evals are not just "testing" — they're a product development methodology that touches engineering, product management, and quality assurance.
+AI evals are not just "testing" - they're a product development methodology that touches engineering, product management, and quality assurance.
 
 **Key takeaways:**
 
-1. **Everyone needs evals** — Not just big companies. If your AI app touches users, you need systematic evaluation.
-2. **Start with error analysis** — Sit down and look at your failures before building anything automated (Chapter 3).
-3. **PMs and QAs must lead** — Error analysis and criteria definition are product/quality work, not just engineering tasks.
-4. **Build incrementally** — Start with code-based evals, then add LLM judges, then add safety evals. Don't try to do everything at once.
-5. **Measure what matters** — Application-specific criteria, not generic "helpfulness" scores.
-6. **Both TPR and TNR** — A judge that catches failures but also false-alarms is harmful. Measure both.
-7. **Split your data** — Train/Dev/Test is mandatory. Without it, you're overfitting your judge.
-8. **Correct for bias** — Use statistical correction (Chapter 10) for honest metrics.
-9. **Close the loop** — Evals that don't lead to improvements are wasted effort (Chapter 11).
-10. **Plan for scale** — Start with the best model, then optimize for cost (Chapter 13).
+1. **Everyone needs evals** - Not just big companies. If your AI app touches users, you need systematic evaluation.
+2. **Start with error analysis** - Sit down and look at your failures before building anything automated (Chapter 3).
+3. **PMs and QAs must lead** - Error analysis and criteria definition are product/quality work, not just engineering tasks.
+4. **Build incrementally** - Start with code-based evals, then add LLM judges, then add safety evals. Don't try to do everything at once.
+5. **Measure what matters** - Application-specific criteria, not generic "helpfulness" scores.
+6. **Both TPR and TNR** - A judge that catches failures but also false-alarms is harmful. Measure both.
+7. **Split your data** - Train/Dev/Test is mandatory. Without it, you're overfitting your judge.
+8. **Correct for bias** - Use statistical correction (Chapter 10) for honest metrics.
+9. **Close the loop** - Evals that don't lead to improvements are wasted effort (Chapter 11).
+10. **Plan for scale** - Start with the best model, then optimize for cost (Chapter 13).
 
 **Your action plan (see Appendix G for details):**
 
 1. Week 1: Set up observability (Phoenix, Langfuse, or your tool of choice), do error analysis
 2. Week 2: Build 2-3 core code-based evals
 3. Week 3: Build and validate an LLM judge with proper train/dev/test splits
-4. Week 4: Advanced topics — RAG evals, multi-turn evals, safety evals, automation
+4. Week 4: Advanced topics - RAG evals, multi-turn evals, safety evals, automation
 5. Ongoing: 30 minutes per week maintenance + regression testing
 
 **Remember:** The teams shipping the best AI products are the ones with the best evals. Not the fanciest models. Not the biggest teams. The ones who systematically measure and improve.
@@ -3330,9 +3330,9 @@ Start today. Your future self will thank you.
 
 ### Blogs That Shaped This Guide
 
-- **Hamel Husain's Blog**: [hamel.dev](https://hamel.dev/) — Applied AI engineering, LLM evals deep-dives
-- **Shreya Shankar's Site**: [sh-reya.com](https://www.sh-reya.com/) — LLM data systems research, eval methodology
-- **Maxim AI Articles**: [getmaxim.ai/articles](https://www.getmaxim.ai/articles) — Agentic evaluation patterns
+- **Hamel Husain's Blog**: [hamel.dev](https://hamel.dev/) - Applied AI engineering, LLM evals deep-dives
+- **Shreya Shankar's Site**: [sh-reya.com](https://www.sh-reya.com/) - LLM data systems research, eval methodology
+- **Maxim AI Articles**: [getmaxim.ai/articles](https://www.getmaxim.ai/articles) - Agentic evaluation patterns
 
 ### Open-Source Tools & Libraries
 
@@ -3367,9 +3367,9 @@ Start today. Your future self will thank you.
 
 ### Reference Work Credits
 This guide was built on the foundation of the following people's work and ideas. Their courses, blogs, and open-source contributions made this guide possible:
-- Hamel Husain: [@HamelHusain](https://x.com/HamelHusain) — [hamel.dev](https://hamel.dev/)
-- Shreya Shankar: [@sh_reya](https://x.com/sh_reya) — [sh-reya.com](https://www.sh-reya.com/)
-- Eugene Yan: [@eugeneyan](https://x.com/eugeneyan) — [eugeneyan.com](https://eugeneyan.com/)
+- Hamel Husain: [@HamelHusain](https://x.com/HamelHusain) - [hamel.dev](https://hamel.dev/)
+- Shreya Shankar: [@sh_reya](https://x.com/sh_reya) - [sh-reya.com](https://www.sh-reya.com/)
+- Eugene Yan: [@eugeneyan](https://x.com/eugeneyan) - [eugeneyan.com](https://eugeneyan.com/)
 
 ---
 

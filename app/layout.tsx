@@ -17,23 +17,17 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex flex-col min-h-screen bg-gray-50">
         <header className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-0 sm:justify-between">
             <Link
               href="/"
               className="flex items-center gap-2 hover:opacity-75 transition"
             >
               <span className="text-2xl">📄</span>
-              <h1 className="text-xl font-bold text-gray-900">
+              <span className="text-xl font-bold text-gray-900">
                 Resume Screening
-              </h1>
+              </span>
             </Link>
-            <nav className="flex gap-6 items-center">
-              <Link
-                href="/"
-                className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-              >
-                Home
-              </Link>
+            <nav className="flex flex-wrap justify-center gap-4 sm:gap-6 items-center">
               <Link
                 href="/candidates"
                 className="text-gray-600 hover:text-gray-900 font-medium text-sm"
@@ -52,7 +46,7 @@ export default function RootLayout({
               >
                 Screen
               </Link>
-              <div className="ml-4 pl-4 border-l border-gray-200">
+              <div className="sm:ml-4 sm:pl-4 sm:border-l sm:border-gray-200">
                 <AuthHeader />
               </div>
             </nav>

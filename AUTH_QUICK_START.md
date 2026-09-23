@@ -66,25 +66,25 @@ When you're ready for per-user data:
 ## Files Added/Changed
 
 ### New Files (Auth):
-- `lib/auth.ts` — Auth helpers
-- `lib/config.ts` — Feature flags
-- `lib/hooks/useAuth.ts` — Auth hook for components
-- `lib/supabase/middleware.ts` — Session refresh
-- `app/login/page.tsx` — Login page
-- `app/components/AuthHeader.tsx` — User menu
-- `app/api/auth/login/route.ts` — Login endpoint
-- `app/api/auth/logout/route.ts` — Logout endpoint
-- `app/api/auth/signup/route.ts` — Signup endpoint
-- `middleware.ts` — Next.js middleware
-- `AUTH_SETUP.md` — Full setup guide
-- `AUTH_IMPLEMENTATION.md` — Technical details
+- `lib/auth.ts` - Auth helpers
+- `lib/config.ts` - Feature flags
+- `lib/hooks/useAuth.ts` - Auth hook for components
+- `lib/supabase/middleware.ts` - Session refresh
+- `app/login/page.tsx` - Login page
+- `app/components/AuthHeader.tsx` - User menu
+- `app/api/auth/login/route.ts` - Login endpoint
+- `app/api/auth/logout/route.ts` - Logout endpoint
+- `app/api/auth/signup/route.ts` - Signup endpoint
+- `middleware.ts` - Next.js middleware
+- `AUTH_SETUP.md` - Full setup guide
+- `AUTH_IMPLEMENTATION.md` - Technical details
 
 ### Updated Files:
-- `package.json` — Added `@supabase/ssr`
-- `lib/supabase/server.ts` — Added `createAuthenticatedServerClient()`
-- `lib/db.ts` — Uses renamed `createServiceClient()`
-- `app/layout.tsx` — Added `AuthHeader` component
-- `app/api/ingest/route.ts` — Optional auth check (example)
+- `package.json` - Added `@supabase/ssr`
+- `lib/supabase/server.ts` - Added `createAuthenticatedServerClient()`
+- `lib/db.ts` - Uses renamed `createServiceClient()`
+- `app/layout.tsx` - Added `AuthHeader` component
+- `app/api/ingest/route.ts` - Optional auth check (example)
 
 ---
 
@@ -116,18 +116,18 @@ When you're ready for per-user data:
 
 ## Feature Roadmap
 
-- ✅ **Phase 1** — Implemented (disabled by default)
+- ✅ **Phase 1** - Implemented (disabled by default)
   - Login/logout
   - Signup
   - Session management
   - Optional API protection
 
-- 📋 **Phase 2A** — Planned (easy)
+- 📋 **Phase 2A** - Planned (easy)
   - Add `user_id` to database
   - Filter queries by user
   - Full data isolation
 
-- 📋 **Phase 2B** — Future
+- 📋 **Phase 2B** - Future
   - Email verification
   - Password reset
   - OAuth (Google/GitHub)

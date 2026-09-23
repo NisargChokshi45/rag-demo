@@ -1,4 +1,4 @@
-# Agentic Resume Screening RAG — TypeScript MVP
+# Agentic Resume Screening RAG - TypeScript MVP
 
 A production-ready Next.js application that uses an agentic RAG (Retrieval-Augmented Generation) loop to screen resumes against job descriptions. Features real-time tool tracing, LLM-based reranking, and grounded structured reports.
 
@@ -7,9 +7,9 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 1. **Upload**: Recruiters upload resume PDFs and job descriptions
 2. **Parse & Ingest**: PDFs are parsed, chunked, embedded, and indexed in Postgres (pgvector)
 3. **Screen**: Free-form questions about candidates are answered via an agent loop:
-   - `list_all_candidates` — fetch full candidate pool for coverage
-   - `search_chunks` — vector search + LLM reranking
-   - `get_full_resume` — fetch full resume text to overcome fragmentation
+   - `list_all_candidates` - fetch full candidate pool for coverage
+   - `search_chunks` - vector search + LLM reranking
+   - `get_full_resume` - fetch full resume text to overcome fragmentation
 4. **Report**: Structured report with scored candidates, evidence quotes, and unknowns
 
 **Key insight from the notebook**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → Three fixes (full-resume fetch, agent loop, LLM reranking) → shipped in production.

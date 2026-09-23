@@ -18,20 +18,6 @@ interface Candidate {
   chunk_count: number;
 }
 
-interface Assessment {
-  id: string;
-  candidate_id: string;
-  score: number;
-  evidence: string[];
-  unknowns: string[];
-  screenings?: {
-    id: string;
-    query: string;
-    summary: string;
-    jobs?: { id: string; title: string };
-  };
-}
-
 interface Job {
   id: string;
   title: string;
@@ -42,14 +28,14 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [resume, setResume] = useState<{
     name: string;
-    text: string;
     pdfUrl: string;
   } | null>(null);
-  const [selectedAssessment, setSelectedAssessment] =
-    useState<Assessment | null>(null);
+  const [parsedResume, setParsedResume] = useState<{
+    name: string;
+    text: string;
+  } | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -238,20 +224,41 @@ export default function CandidatesPage() {
 
   const viewResume = async (candidate: Candidate) => {
     try {
-      const response = await fetch(`/api/candidates/${candidate.id}`);
+      const response = await fetch(
+        `/api/candidates/${candidate.id}?view=resume`
+      );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load resume');
       setResume({
         name: candidate.name,
-        text: data.resume,
         pdfUrl: data.pdfUrl,
       });
-      setAssessments(data.assessments || []);
     } catch (resumeError) {
       setError(
         resumeError instanceof Error
           ? resumeError.message
           : 'Unable to load resume'
+      );
+    }
+  };
+
+  const viewParsedResume = async (candidate: Candidate) => {
+    try {
+      const response = await fetch(
+        `/api/candidates/${candidate.id}?view=resume`
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || 'Unable to load parsed resume');
+      setParsedResume({
+        name: candidate.name,
+        text: data.resume || '',
+      });
+    } catch (resumeError) {
+      setError(
+        resumeError instanceof Error
+          ? resumeError.message
+          : 'Unable to load parsed resume'
       );
     }
   };
@@ -558,7 +565,7 @@ export default function CandidatesPage() {
                             {candidate.name}
                           </h2>
                           <p className="mt-1 text-sm text-gray-600">
-                            Applied role: {candidate.role_guess}
+                            Role: {candidate.role_guess}
                           </p>
                           <p className="mt-2 truncate text-xs text-gray-500">
                             {candidate.original_filename}
@@ -579,6 +586,13 @@ export default function CandidatesPage() {
                           className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
                         >
                           View resume
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => viewParsedResume(candidate)}
+                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          View parsed resume
                         </button>
                       </div>
                     </div>
@@ -613,69 +627,11 @@ export default function CandidatesPage() {
                   title={`Resume PDF: ${resume.name}`}
                   className="h-[70vh] min-h-[500px] w-full rounded border border-gray-200"
                 />
-                <pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                  {resume.text}
-                </pre>
-                {assessments.length > 0 && (
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold text-gray-900 mb-4">
-                      Screening Assessments
-                    </h3>
-                    <div className="space-y-4">
-                      {assessments.map((assessment) => (
-                        <div
-                          key={assessment.id}
-                          className="bg-gray-50 p-4 rounded-lg"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <h4 className="font-medium text-gray-900">
-                              {assessment.screenings?.jobs?.title ||
-                                'General Screening'}
-                            </h4>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-blue-600">
-                                {assessment.score}
-                              </div>
-                              <div className="text-xs text-gray-500">/100</div>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-3 italic">
-                            {assessment.screenings?.query}
-                          </p>
-                          {assessment.evidence.length > 0 && (
-                            <div className="mb-3">
-                              <h5 className="text-xs font-semibold text-gray-700 mb-1">
-                                Evidence
-                              </h5>
-                              <ul className="text-xs text-gray-700 space-y-1">
-                                {assessment.evidence.map((item) => (
-                                  <li key={item}>• {item}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {assessment.unknowns.length > 0 && (
-                            <div>
-                              <h5 className="text-xs font-semibold text-gray-700 mb-1">
-                                Unknowns
-                              </h5>
-                              <ul className="text-xs text-amber-700 space-y-1">
-                                {assessment.unknowns.map((item) => (
-                                  <li key={item}>? {item}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
-        {selectedAssessment && (
+        {parsedResume && (
           <div
             className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
             role="dialog"
@@ -683,39 +639,27 @@ export default function CandidatesPage() {
           >
             <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Screening report</h2>
+                <h2 className="text-xl font-semibold">
+                  Parsed resume: {parsedResume.name}
+                </h2>
                 <button
                   type="button"
-                  onClick={() => setSelectedAssessment(null)}
+                  onClick={() => setParsedResume(null)}
                   className="text-2xl text-gray-500"
                   aria-label="Close"
                 >
                   &times;
                 </button>
               </div>
-              <p className="mb-4 text-4xl font-bold text-blue-600">
-                {selectedAssessment.score}
-                <span className="text-base font-normal text-gray-500">
-                  {' '}
-                  / 100
-                </span>
-              </p>
-              <h3 className="mb-2 font-semibold text-gray-900">Evidence</h3>
-              <ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-gray-700">
-                {selectedAssessment.evidence.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-              <h3 className="mb-2 font-semibold text-gray-900">Unknowns</h3>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
-                {selectedAssessment.unknowns.length ? (
-                  selectedAssessment.unknowns.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))
-                ) : (
-                  <li>None recorded</li>
-                )}
-              </ul>
+              {parsedResume.text ? (
+                <pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                  {parsedResume.text}
+                </pre>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  No parsed resume text is available for this candidate.
+                </p>
+              )}
             </div>
           </div>
         )}

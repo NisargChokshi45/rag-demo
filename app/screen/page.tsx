@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 
 interface Job {
   id: string;
@@ -66,6 +65,7 @@ export default function ScreenPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [showToolTrace, setShowToolTrace] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load screening history from Supabase (or localStorage as fallback)
@@ -315,6 +315,7 @@ export default function ScreenPage() {
 
       if (reportData) {
         saveToHistory(query, reportData);
+        setQuery('');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -448,29 +449,37 @@ export default function ScreenPage() {
               </div>
             )}
 
-            {/* Tool Calls Trace */}
+            {/* Tool Calls Trace - Hidden by Default */}
             {toolCalls.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg mb-6">
-                <h3 className="font-semibold text-blue-900 mb-4">
-                  Tool Calls Trace
-                </h3>
-                <div className="space-y-3">
-                  {toolCalls.map((call, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white p-4 rounded border border-blue-100"
-                    >
-                      <p className="font-mono text-sm font-semibold text-blue-700">
-                        {call.toolName}
-                      </p>
-                      {Object.keys(call.toolInput).length > 0 && (
-                        <pre className="mt-2 text-xs bg-gray-50 p-2 rounded overflow-auto max-h-20">
-                          {JSON.stringify(call.toolInput, null, 2)}
-                        </pre>
-                      )}
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowToolTrace(!showToolTrace)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 font-medium mb-3"
+                >
+                  <span>{showToolTrace ? '▼' : '▶'}</span>
+                  <span>🔧 View Agent Reasoning ({toolCalls.length} tool calls)</span>
+                </button>
+                {showToolTrace && (
+                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <div className="space-y-2">
+                      {toolCalls.map((call, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-white p-3 rounded border border-gray-100 text-xs"
+                        >
+                          <p className="font-mono font-semibold text-gray-700">
+                            {call.toolName}
+                          </p>
+                          {Object.keys(call.toolInput).length > 0 && (
+                            <pre className="mt-1 text-xs bg-gray-50 p-1 rounded overflow-auto max-h-16 text-gray-600">
+                              {JSON.stringify(call.toolInput, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -622,34 +631,13 @@ export default function ScreenPage() {
             )}
 
             {isLoading && !report && (
-              <div className="bg-white border border-gray-200 p-6 rounded-lg">
-                <div className="space-y-4">
-                  {/* Thinking Indicator */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                    <p className="text-gray-700 font-medium">AI Assistant is thinking...</p>
-                  </div>
-
-                  {/* Tool Calls in Progress */}
-                  {toolCalls.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm text-gray-600 mb-2">
-                        Retrieved {toolCalls.length} tool {toolCalls.length === 1 ? 'call' : 'calls'}
-                      </p>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {toolCalls.map((call, idx) => (
-                          <div key={idx} className="text-xs bg-gray-50 p-2 rounded border border-gray-200">
-                            <p className="text-blue-600 font-mono font-semibold">{call.toolName}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              <div className="flex items-center gap-3 py-8">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                 </div>
+                <p className="text-gray-600">Analyzing candidates...</p>
               </div>
             )}
 
@@ -669,18 +657,18 @@ export default function ScreenPage() {
         <div className="border-t border-gray-200 bg-white p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 sm:gap-3">
                 <label
                   htmlFor="job"
                   className="text-sm font-medium text-gray-700"
                 >
-                  Screen for job
+                  Screen for job (optional)
                 </label>
                 <select
                   id="job"
                   value={selectedJobId}
                   onChange={(e) => setSelectedJobId(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 text-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
                   disabled={isLoading}
                 >
                   <option value="">General screening criteria</option>
@@ -690,12 +678,6 @@ export default function ScreenPage() {
                     </option>
                   ))}
                 </select>
-                <Link
-                  href="/jobs"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                >
-                  Create a job
-                </Link>
               </div>
               <textarea
                 value={query}

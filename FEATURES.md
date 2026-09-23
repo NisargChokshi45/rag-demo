@@ -3,25 +3,25 @@
 This document tracks all features for the LangChain-based resume screening RAG system. Features are organized by status and priority.
 
 ## Legend
-- ✅ **Implemented** — Feature is complete and tested
-- 🔄 **In Progress** — Feature is actively being developed
-- 📋 **Planned** — Feature is next in the backlog
-- 💭 **Proposed** — Feature idea, not yet prioritized
-- ⚠️ **Known Limitation** — Deferred by design (MVP cut)
-- 🚫 **Blocked** — Waiting on external dependency or prerequisite
+- ✅ **Implemented** - Feature is complete and tested
+- 🔄 **In Progress** - Feature is actively being developed
+- 📋 **Planned** - Feature is next in the backlog
+- 💭 **Proposed** - Feature idea, not yet prioritized
+- ⚠️ **Known Limitation** - Deferred by design (MVP cut)
+- 🚫 **Blocked** - Waiting on external dependency or prerequisite
 
 ---
 
 ## PLAN.md Implementation Checklist
 
-Derived directly from `PLAN.md`. Checked items are verified against current code (not against this document's own status labels below, which had drifted in places — see "Deviations" at the end of this section).
+Derived directly from `PLAN.md`. Checked items are verified against current code (not against this document's own status labels below, which had drifted in places - see "Deviations" at the end of this section).
 
 ### Build Order
 
 **1. Setup**
 - [x] Supabase project with `vector` extension enabled (`supabase/schema.sql`)
 - [x] `schema.sql` covers candidates, resume_chunks, jobs, screenings, screening_assessments
-- [ ] `resumes` Storage bucket — not verifiable from code (Supabase dashboard config)
+- [ ] `resumes` Storage bucket - not verifiable from code (Supabase dashboard config)
 - [x] LangChain/LangGraph, `@langchain/groq`, `@supabase/supabase-js`, `unpdf`, `zod` installed (`package.json`)
 
 **2. Test data**
@@ -47,14 +47,14 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 
 **6. Screen page UI**
 - [x] Streamed tool-call trace and structured report cards (`app/screen/page.tsx`)
-- [ ] Job description in browser session storage — **deviation**, see below
+- [ ] Job description in browser session storage - **deviation**, see below
 
 **7. End-to-end test**
-- [ ] Replayed the three notebook example queries against `/screen` — not verified this session
+- [ ] Replayed the three notebook example queries against `/screen` - not verified this session
 
 **8. Deploy**
-- [ ] Pushed to GitHub / `vercel link` / env vars set in Vercel dashboard — not verifiable from code
-- [ ] Production smoke test of the three queries — not verified this session
+- [ ] Pushed to GitHub / `vercel link` / env vars set in Vercel dashboard - not verifiable from code
+- [ ] Production smoke test of the three queries - not verified this session
 
 ### Hard Technical Constraints
 
@@ -72,7 +72,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 
 - [ ] Ingest sample resumes; confirm `resume_chunks` row count is in a reasonable ratio to resume count
 - [ ] Run the three notebook example queries against `/screen` and confirm correct behavior
-- [ ] `next build` passes locally with no type errors — not re-run this session against current working tree (auth and other files changed since the last known-good build)
+- [ ] `next build` passes locally with no type errors - not re-run this session against current working tree (auth and other files changed since the last known-good build)
 - [ ] Confirm Supabase service-role key never appears in client-side bundles
 - [ ] Re-run the three test queries against the deployed Vercel URL
 
@@ -85,13 +85,13 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 
 ### Known Gaps (not in PLAN.md's cut-line, but real)
 
-- [ ] Job-scoped search: `search_chunks`/`list_all_candidates` don't accept or filter by `jobId` (0 matches in `lib/agent-tools.ts`) — candidate pool is global regardless of selected job
+- [ ] Job-scoped search: `search_chunks`/`list_all_candidates` don't accept or filter by `jobId` (0 matches in `lib/agent-tools.ts`) - candidate pool is global regardless of selected job
 - [ ] No `/api/jobs/[id]` route (no GET-one/PUT/DELETE for a single job)
 - [ ] No `/api/screenings` route despite persistence functions existing in `lib/db.ts`
 
 ---
 
-## Core Features (MVP — Phase 1)
+## Core Features (MVP - Phase 1)
 
 ### Resume Ingestion Pipeline
 
@@ -327,7 +327,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 ### Job Management
 
 #### 🔄 Job CRUD Operations
-- **Status:** In Progress — Create/List implemented, Read-one/Update/Delete missing
+- **Status:** In Progress - Create/List implemented, Read-one/Update/Delete missing
 - **Description:** Full Create, Read, Update, Delete for job postings
 - **Implemented:**
   - `app/jobs/page.tsx` (list jobs)
@@ -354,14 +354,14 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 ### Screening Management & Persistence
 
 #### 🔄 Screening History Database
-- **Status:** In Progress — Persistence implemented, no API route or export yet
+- **Status:** In Progress - Persistence implemented, no API route or export yet
 - **Description:** Persist screening queries and reports to database (not just localStorage)
 - **Implemented:**
-  - `supabase/migrations/004_screenings.sql` — `screenings` + `screening_assessments` tables
+  - `supabase/migrations/004_screenings.sql` - `screenings` + `screening_assessments` tables
   - `lib/db.ts`: `createScreening`, `getScreeningsByJob`, `getAssessmentsByCandidate`
   - `app/api/agent/route.ts` calls `createScreening` after report generation
 - **Still needed:**
-  - `app/api/screenings/route.ts` (GET, DELETE) — no route currently exposes `getScreeningsByJob`
+  - `app/api/screenings/route.ts` (GET, DELETE) - no route currently exposes `getScreeningsByJob`
   - Delete screening
   - Export screening report as JSON/CSV
 - **Impact:** Resolves Issue #2 from review (history persistence); enables auditing
@@ -515,7 +515,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 
 ---
 
-## Known Limitations (MVP Cuts — By Design)
+## Known Limitations (MVP Cuts - By Design)
 
 ### ⚠️ Single Global Candidate Pool
 - **Status:** Known Limitation
@@ -533,7 +533,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 ### ⚠️ No Streaming Resume Download
 - **Status:** Known Limitation
 - **Reason:** Vercel 4.5MB POST limit requires signed URLs (implementation complete)
-- **Status:** Actually resolved — signed URL flow implemented ✅
+- **Status:** Actually resolved - signed URL flow implemented ✅
 
 ### ⚠️ Reranking Sequential Only
 - **Status:** Performance limitation

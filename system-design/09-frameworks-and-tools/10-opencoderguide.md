@@ -66,7 +66,7 @@ The strongest open-source coding model family as of March 2026:
 - Matches GPT-4o on many coding benchmarks
 - 100+ programming languages
 - Excellent fill-in-the-middle (FIM) for completions
-- Apache 2.0 license — fully commercial
+- Apache 2.0 license - fully commercial
 
 ```python
 # Self-hosted with vLLM
@@ -489,7 +489,7 @@ Metric: Semantic similarity of diff (not byte-exact)
 Senior engineer rates: Correctness, Style, Safety, 1-5 scale
 ```
 
-I also track **regression rate** — if an agent fix introduces a new failing test, that's a hard failure. The agent should run the full test suite and only succeed if it improves or maintains the passing rate.
+I also track **regression rate** - if an agent fix introduces a new failing test, that's a hard failure. The agent should run the full test suite and only succeed if it improves or maintains the passing rate.
 
 ---
 

@@ -3,11 +3,19 @@ import { getFullResumeById, getAssessmentsByCandidate } from '@/lib/db';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const view = request.nextUrl.searchParams.get('view');
+
+    if (view === 'assessment') {
+      return NextResponse.json({
+        assessments: await getAssessmentsByCandidate(id),
+      });
+    }
+
     const client = createServiceClient();
     const { data: candidate, error: candidateError } = await client
       .from('candidates')
@@ -24,10 +32,8 @@ export async function GET(
     if (signedUrlError) throw signedUrlError;
 
     const resume = await getFullResumeById(id);
-    const assessments = await getAssessmentsByCandidate(id);
     return NextResponse.json({
       resume,
-      assessments,
       pdfUrl: signedUrl.signedUrl,
     });
   } catch (error) {

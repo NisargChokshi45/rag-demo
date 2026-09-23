@@ -70,7 +70,7 @@ For a modern, production-grade agentic system:
 - **Autonomous coding**: Claude Code (CLI) or Cline (VS Code) for file-level editing tasks.
 - **Open coding agent**: OpenHands for self-hosted or CI pipeline integration.
 
-**The 2026 insight**: Agentic coding tools (Claude Code, Cursor, OpenHands) are not replacements for orchestration frameworks — they are a **new category** that operates at the file-system level, above the LLM API but below the application logic.
+**The 2026 insight**: Agentic coding tools (Claude Code, Cursor, OpenHands) are not replacements for orchestration frameworks - they are a **new category** that operates at the file-system level, above the LLM API but below the application logic.
 
 ---
 

@@ -109,13 +109,13 @@ NEXT_PUBLIC_USER_DATA_ISOLATION=true
 
 When `AUTH_ENABLED=true`, these routes enforce authentication:
 
-- `POST /api/upload-url` — Generate signed upload URLs
-- `POST /api/ingest` — Ingest resumes (prevents unsigned upload URL abuse)
-- `POST /api/agent` — Run screening (requires authenticated user)
-- `GET /api/candidates` — List candidates
-- `GET /api/candidates/[id]` — View resume
-- `GET /api/jobs` — List jobs
-- `POST /api/jobs` — Create jobs
+- `POST /api/upload-url` - Generate signed upload URLs
+- `POST /api/ingest` - Ingest resumes (prevents unsigned upload URL abuse)
+- `POST /api/agent` - Run screening (requires authenticated user)
+- `GET /api/candidates` - List candidates
+- `GET /api/candidates/[id]` - View resume
+- `GET /api/jobs` - List jobs
+- `POST /api/jobs` - Create jobs
 
 **Note:** Auth check can be disabled per-route by removing the `validateAuth()` call.
 
@@ -124,17 +124,17 @@ When `AUTH_ENABLED=true`, these routes enforce authentication:
 ### Auth Clients
 
 **`lib/supabase/server.ts`:**
-- `createServiceClient()` — Uses service role key (admin, bypasses RLS)
-- `createAuthenticatedServerClient()` — Uses anon key + user session (respects RLS)
+- `createServiceClient()` - Uses service role key (admin, bypasses RLS)
+- `createAuthenticatedServerClient()` - Uses anon key + user session (respects RLS)
 
 **`lib/supabase/client.ts`:**
-- `createClient()` — Browser client with anon key
+- `createClient()` - Browser client with anon key
 
 ### Auth Routes
 
-- `GET/POST /api/auth/login` — Sign in with email/password
-- `POST /api/auth/logout` — Sign out
-- `POST /api/auth/signup` — Create new account
+- `GET/POST /api/auth/login` - Sign in with email/password
+- `POST /api/auth/logout` - Sign out
+- `POST /api/auth/signup` - Create new account
 
 ### Login Page
 

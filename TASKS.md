@@ -1,4 +1,4 @@
-# Agentic Resume-Screening RAG — Task Checklist
+# Agentic Resume-Screening RAG - Task Checklist
 
 ## Current status
 

@@ -183,7 +183,7 @@ After running all three queries:
 - [ ] **No hallucinations**: All evidence quotes are real (spot-check 2–3 excerpts in browser → PDF)
 - [ ] **Streaming works**: Tool trace updates live as queries execute (not batched at the end)
 - [ ] **Build passes**: `pnpm build` completes with no type errors
-- [ ] **No secrets leaked**: Open DevTools → Network tab, inspect `/api/agent` response — should NOT contain `SUPABASE_SERVICE_ROLE_KEY` or `GOOGLE_API_KEY`
+- [ ] **No secrets leaked**: Open DevTools → Network tab, inspect `/api/agent` response - should NOT contain `SUPABASE_SERVICE_ROLE_KEY` or `GOOGLE_API_KEY`
 
 ## Troubleshooting
 
@@ -194,7 +194,7 @@ After running all three queries:
 
 ### **Candidates page shows 0 candidates**
 - Verify `schema.sql` was executed in Supabase (check SQL editor for `candidates` table)
-- Check `api/ingest` logs — should show PDF parse → chunk → embed → insert steps
+- Check `api/ingest` logs - should show PDF parse → chunk → embed → insert steps
 - Verify embeddings are being stored (query `SELECT COUNT(*) FROM resume_chunks` in Supabase SQL editor)
 
 ### **Agent queries hang or return errors**
