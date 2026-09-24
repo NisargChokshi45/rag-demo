@@ -4,7 +4,6 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { createAgentTools } from '@/lib/agent-tools';
-import { ScreeningReportSchema } from '@/lib/schema';
 import { getChatModel } from '@/lib/models';
 import { getJobById, createScreening } from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
@@ -161,18 +160,45 @@ Format citations as actual text snippets from the resume content shown in the to
 {"candidateId":"<same candidate ID as the assessment>","candidateName":"<same candidate name as the assessment>","content":"<resume excerpt>","tool":"search_chunks"}`;
 
           // Generate final structured report with timeout
-          const structuredOutput = getChatModel(0.3).withStructuredOutput(
-            ScreeningReportSchema
-          );
-          const report = (await Promise.race([
-            structuredOutput.invoke(reportPrompt),
+          const model = getChatModel(0.3);
+          const reportResponse = (await Promise.race([
+            model.invoke(reportPrompt),
             new Promise((_, reject) =>
               setTimeout(
                 () => reject(new Error('Report generation timeout')),
                 55000
               )
             ),
-          ])) as Awaited<ReturnType<typeof structuredOutput.invoke>>;
+          ])) as unknown;
+
+          // Extract text from response (handles both string and object returns)
+          let reportText =
+            typeof reportResponse === 'string'
+              ? reportResponse
+              : typeof reportResponse === 'object' &&
+                  reportResponse !== null &&
+                  'content' in reportResponse
+                ? (reportResponse as { content: string }).content
+                : JSON.stringify(reportResponse);
+
+          // Extract JSON from the response (handle markdown code blocks)
+          const jsonMatch = reportText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          const jsonStr = jsonMatch ? jsonMatch[1] : reportText;
+
+          let report;
+          try {
+            report = JSON.parse(jsonStr);
+          } catch {
+            // Fallback: try to extract JSON object directly
+            const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+            if (objectMatch) {
+              report = JSON.parse(objectMatch[0]);
+            } else {
+              throw new Error(
+                'Failed to parse report as JSON: ' + reportText.substring(0, 200)
+              );
+            }
+          }
 
           // Persist screening to database if job exists (don't block response)
           if (jobId) {
