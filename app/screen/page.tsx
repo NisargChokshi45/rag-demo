@@ -2,6 +2,50 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+type IconName = 'copy' | 'edit' | 'eye' | 'like' | 'dislike' | 'retry';
+
+function Icon({ name }: { name: IconName }) {
+  const paths = {
+    copy: (
+      <>
+        <rect x="9" y="9" width="10" height="10" rx="1" />
+        <path d="M5 15V5a1 1 0 0 1 1-1h10" />
+      </>
+    ),
+    edit: (
+      <path d="m4 20 4.5-1 9.7-9.7a2.1 2.1 0 0 0-3-3L5.5 16 4 20Zm9.8-12.8 3 3" />
+    ),
+    eye: (
+      <>
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+    like: (
+      <path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.9-1.4l2-6A2 2 0 0 0 18.4 10H14l.7-3.4A2.2 2.2 0 0 0 12.5 4L7 10v10Z" />
+    ),
+    dislike: (
+      <path d="M7 14V4H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h3Zm0-10h9.4a2 2 0 0 1 1.9 1.4l2 6A2 2 0 0 1 18.4 14H14l.7 3.4a2.2 2.2 0 0 1-2.2 2.6L7 14V4Z" />
+    ),
+    retry: (
+      <path d="M20 11a8 8 0 0 0-14.7-4L3 10m0 0V5m0 5h5M4 13a8 8 0 0 0 14.7 4L21 14m0 0v5m0-5h-5" />
+    ),
+  }[name];
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      {paths}
+    </svg>
+  );
+}
+
 interface Job {
   id: string;
   title: string;
@@ -87,7 +131,14 @@ export default function ScreenPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [inspector, setInspector] = useState<'sources' | 'tools' | null>(null);
+  const [inspector, setInspector] = useState<
+    'sources' | 'tools' | 'resume' | null
+  >(null);
+  const [resume, setResume] = useState<{
+    name: string;
+    pdfUrl: string;
+  } | null>(null);
+  const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
   const [citationAssessmentIndex, setCitationAssessmentIndex] = useState<
     number | null
   >(null);
@@ -293,9 +344,31 @@ export default function ScreenPage() {
     localStorage.removeItem('screeningHistory');
   };
 
-  const copyReport = async () => {
-    if (!report) return;
-    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+  const copyText = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+  };
+
+  const retryQuery = () => {
+    if (!submittedQuery || isLoading) return;
+    void submitQuery(submittedQuery);
+  };
+
+  const viewResume = async (candidateId: string, candidateName: string) => {
+    try {
+      const response = await fetch(
+        `/api/candidates/${candidateId}?view=resume`
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load resume');
+      setResume({ name: candidateName, pdfUrl: data.pdfUrl });
+      setInspector('resume');
+    } catch (resumeError) {
+      setError(
+        resumeError instanceof Error
+          ? resumeError.message
+          : 'Unable to load resume'
+      );
+    }
   };
 
   const startInspectorResize = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -315,11 +388,8 @@ export default function ScreenPage() {
     window.addEventListener('mouseup', onUp);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-
-    const screeningQuery = query.trim();
+  const submitQuery = async (screeningQuery: string) => {
+    if (!screeningQuery.trim()) return;
     setSubmittedQuery(screeningQuery);
     setQuery('');
     setIsLoading(true);
@@ -441,6 +511,11 @@ export default function ScreenPage() {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submitQuery(query.trim());
+  };
+
   return (
     <div className="min-h-[calc(100vh-80px)] bg-gray-50 flex">
       {/* Sidebar */}
@@ -553,10 +628,114 @@ export default function ScreenPage() {
             {/* Submitted Query Display */}
             {submittedQuery && (
               <div className="mb-6 flex justify-end">
-                <div className="max-w-[85%] rounded-lg bg-gray-100 p-4 text-white">
-                  <p className="mb-1 text-sm text-gray-600">Your Query:</p>
-                  <p className="text-gray-900 font-medium">{submittedQuery}</p>
+                <div className="max-w-[85%]">
+                  <div className="rounded-lg bg-gray-100 p-4 text-white">
+                    <p className="mb-1 text-sm text-gray-600">Your Query:</p>
+                    <p className="text-gray-900 font-medium">
+                      {submittedQuery}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1 text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => copyText(submittedQuery)}
+                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                      aria-label="Copy your query"
+                      title="Copy"
+                    >
+                      <Icon name="copy" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuery(submittedQuery);
+                        setSubmittedQuery('');
+                        setReport(null);
+                        setToolCalls([]);
+                      }}
+                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                      aria-label="Edit your query"
+                      title="Edit"
+                    >
+                      <Icon name="edit" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={retryQuery}
+                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                      aria-label="Retry your query"
+                      title="Retry"
+                      disabled={isLoading}
+                    >
+                      <Icon name="retry" />
+                    </button>
+                  </div>
                 </div>
+              </div>
+            )}
+
+            {submittedQuery && report && (
+              <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                {[
+                  {
+                    key: 'summary' as const,
+                    label: 'Summary',
+                    content: report.summary,
+                  },
+                  {
+                    key: 'reasoning' as const,
+                    label: 'Thinking Process',
+                    content: report.reasoning,
+                  },
+                  {
+                    key: 'context' as const,
+                    label: 'Context Used',
+                    content: report.context?.join('\n'),
+                  },
+                ].map((section, index) =>
+                  section.content ? (
+                    <div
+                      key={section.key}
+                      className={index > 0 ? 'border-t border-gray-200' : ''}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenReportSection(
+                            openReportSection === section.key
+                              ? null
+                              : section.key
+                          )
+                        }
+                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+                        aria-expanded={openReportSection === section.key}
+                      >
+                        <span className="font-semibold text-gray-900">
+                          {section.label}
+                        </span>
+                        <span className="text-gray-400">
+                          {openReportSection === section.key ? '−' : '+'}
+                        </span>
+                      </button>
+                      {openReportSection === section.key && (
+                        <div className="whitespace-pre-line border-t border-gray-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
+                          {section.key === 'context' ? (
+                            <ul className="space-y-2">
+                              {report.context?.map((item, i) => (
+                                <li key={i} className="flex gap-2">
+                                  <span className="text-gray-400">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            section.content
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : null
+                )}
               </div>
             )}
 
@@ -569,290 +748,296 @@ export default function ScreenPage() {
 
             {/* Final Report */}
             {report && (
-              <div className="flex justify-start">
-                <div className="w-full max-w-[85%] space-y-6">
-                  {report.summary && (
-                    <>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={copyReport}
-                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                        >
-                          Copy report
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCitationAssessmentIndex(null);
-                            setInspector('sources');
-                          }}
-                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                        >
-                          View sources
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAssessmentView((view) =>
-                              view === 'list' ? 'table' : 'list'
-                            )
-                          }
-                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                        >
-                          {assessmentView === 'list'
-                            ? 'Table view'
-                            : 'List view'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInspector('tools')}
-                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                        >
-                          Tool calls ({toolCalls.length})
-                        </button>
-                      </div>
-                      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                        {[
-                          {
-                            key: 'summary' as const,
-                            label: 'Summary',
-                            content: report.summary,
-                          },
-                          {
-                            key: 'reasoning' as const,
-                            label: 'Thinking Process',
-                            content: report.reasoning,
-                          },
-                          {
-                            key: 'context' as const,
-                            label: 'Context Used',
-                            content: report.context?.join('\n'),
-                          },
-                        ].map((section, index) =>
-                          section.content ? (
-                            <div
-                              key={section.key}
-                              className={
-                                index > 0 ? 'border-t border-gray-200' : ''
-                              }
-                            >
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpenReportSection(
-                                    openReportSection === section.key
-                                      ? null
-                                      : section.key
-                                  )
-                                }
-                                className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
-                                aria-expanded={
-                                  openReportSection === section.key
-                                }
-                              >
-                                <span className="font-semibold text-gray-900">
-                                  {section.label}
-                                </span>
-                                <span className="text-gray-400">
-                                  {openReportSection === section.key
-                                    ? '−'
-                                    : '+'}
-                                </span>
-                              </button>
-                              {openReportSection === section.key && (
-                                <div className="whitespace-pre-line border-t border-gray-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
-                                  {section.key === 'context' ? (
-                                    <ul className="space-y-2">
-                                      {report.context?.map((item, i) => (
-                                        <li key={i} className="flex gap-2">
-                                          <span className="text-gray-400">
-                                            •
-                                          </span>
-                                          <span>{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    section.content
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-
-                      {/* Candidate Assessments */}
-                      {report.assessments && (
-                        <div>
-                          <h3 className="font-semibold text-lg mb-4">
-                            Candidate Assessments
-                          </h3>
-                          {assessmentView === 'table' ? (
-                            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                              <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-                                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
-                                  <tr>
-                                    <th className="px-4 py-3">Candidate</th>
-                                    <th className="px-4 py-3">Score</th>
-                                    <th className="px-4 py-3">Evidence</th>
-                                    <th className="px-4 py-3">Unknowns</th>
-                                    <th className="px-4 py-3">
-                                      Resume citations
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                  {report.assessments.map((assessment, idx) => (
-                                    <tr
-                                      key={idx}
-                                      className="align-top hover:bg-gray-50"
-                                    >
-                                      <td className="px-4 py-4">
-                                        <div className="font-bold text-gray-900">
-                                          {assessment.candidateName}
+              <>
+                <div className="flex justify-start">
+                  <div className="w-full max-w-[85%] space-y-6">
+                    {(report.summary || report.text || report.assessments) && (
+                      <>
+                        {/* Candidate Assessments */}
+                        {report.assessments && (
+                          <div>
+                            <h3 className="font-semibold text-lg mb-4">
+                              Candidate Assessments
+                            </h3>
+                            {assessmentView === 'table' ? (
+                              <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                                <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+                                  <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                                    <tr>
+                                      <th className="px-4 py-3">Candidate</th>
+                                      <th className="px-4 py-3">Score</th>
+                                      <th className="px-4 py-3">Evidence</th>
+                                      <th className="px-4 py-3">Unknowns</th>
+                                      <th className="px-4 py-3">
+                                        Resume citations
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200">
+                                    {report.assessments.map(
+                                      (assessment, idx) => (
+                                        <tr
+                                          key={idx}
+                                          className="align-top hover:bg-gray-50"
+                                        >
+                                          <td className="px-4 py-4">
+                                            <div className="flex items-center gap-2 font-bold text-gray-900">
+                                              <span>
+                                                {assessment.candidateName}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  viewResume(
+                                                    assessment.candidateId,
+                                                    assessment.candidateName
+                                                  )
+                                                }
+                                                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
+                                                aria-label={`View resume for ${assessment.candidateName}`}
+                                                title="View resume"
+                                              >
+                                                <Icon name="eye" />
+                                              </button>
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-4">
+                                            <span className="text-2xl font-bold text-blue-600">
+                                              {assessment.score}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                              /100
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-4">
+                                            <ul className="space-y-2">
+                                              {assessment.evidence.map(
+                                                (item, i) => (
+                                                  <li
+                                                    key={i}
+                                                    className="font-semibold text-gray-700"
+                                                  >
+                                                    <span className="mr-1 text-green-600">
+                                                      ✓
+                                                    </span>
+                                                    {item}
+                                                  </li>
+                                                )
+                                              )}
+                                            </ul>
+                                          </td>
+                                          <td className="px-4 py-4 text-amber-700">
+                                            <ul className="space-y-2">
+                                              {assessment.unknowns.map(
+                                                (item, i) => (
+                                                  <li key={i}>
+                                                    <span className="mr-1 text-amber-600">
+                                                      ?
+                                                    </span>
+                                                    {item}
+                                                  </li>
+                                                )
+                                              )}
+                                            </ul>
+                                          </td>
+                                          <td className="px-4 py-4">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setCitationAssessmentIndex(idx);
+                                                setInspector('sources');
+                                              }}
+                                              className="font-semibold text-blue-700 hover:text-blue-900"
+                                            >
+                                              View citations (
+                                              {
+                                                (assessment.citations || [])
+                                                  .length
+                                              }
+                                              ) →
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      )
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {report.assessments.map((assessment, idx) => (
+                                  <article
+                                    key={idx}
+                                    className="rounded-lg border border-gray-200 bg-white p-4"
+                                  >
+                                    <div className="flex items-start justify-between gap-4">
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-bold text-gray-900">
+                                            {assessment.candidateName}
+                                          </h4>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              viewResume(
+                                                assessment.candidateId,
+                                                assessment.candidateName
+                                              )
+                                            }
+                                            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
+                                            aria-label={`View resume for ${assessment.candidateName}`}
+                                            title="View resume"
+                                          >
+                                            <Icon name="eye" />
+                                          </button>
                                         </div>
-                                        <div className="mt-1 break-all font-mono text-xs text-gray-500">
-                                          {assessment.candidateId}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-4">
+                                      </div>
+                                      <div className="shrink-0 text-right">
                                         <span className="text-2xl font-bold text-blue-600">
                                           {assessment.score}
                                         </span>
                                         <span className="text-xs text-gray-500">
                                           /100
                                         </span>
-                                      </td>
-                                      <td className="px-4 py-4">
-                                        <ul className="space-y-2">
+                                      </div>
+                                    </div>
+                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                      <div>
+                                        <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                          Evidence
+                                        </h5>
+                                        <ul className="space-y-2 text-sm text-gray-700">
                                           {assessment.evidence.map(
                                             (item, i) => (
                                               <li
                                                 key={i}
-                                                className="font-semibold text-gray-700"
+                                                className="flex gap-2"
                                               >
-                                                <span className="mr-1 text-green-600">
-                                                  ✓
+                                                <span className="text-green-600">
+                                                  •
                                                 </span>
-                                                {item}
+                                                <strong>{item}</strong>
                                               </li>
                                             )
                                           )}
                                         </ul>
-                                      </td>
-                                      <td className="px-4 py-4 text-amber-700">
-                                        <ul className="space-y-2">
+                                      </div>
+                                      <div>
+                                        <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                          Unknowns
+                                        </h5>
+                                        <ul className="space-y-2 text-sm text-gray-700">
                                           {assessment.unknowns.map(
                                             (item, i) => (
-                                              <li key={i}>
-                                                <span className="mr-1 text-amber-600">
-                                                  ?
+                                              <li
+                                                key={i}
+                                                className="flex gap-2"
+                                              >
+                                                <span className="text-amber-600">
+                                                  •
                                                 </span>
-                                                {item}
+                                                <span>{item}</span>
                                               </li>
                                             )
                                           )}
                                         </ul>
-                                      </td>
-                                      <td className="px-4 py-4">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setCitationAssessmentIndex(idx);
-                                            setInspector('sources');
-                                          }}
-                                          className="font-semibold text-blue-700 hover:text-blue-900"
-                                        >
-                                          View citations (
-                                          {(assessment.citations || []).length})
-                                          →
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {report.assessments.map((assessment, idx) => (
-                                <article
-                                  key={idx}
-                                  className="rounded-lg border border-gray-200 bg-white p-4"
-                                >
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                      <h4 className="font-bold text-gray-900">
-                                        {assessment.candidateName}
-                                      </h4>
-                                      <p className="mt-1 break-all font-mono text-xs text-gray-500">
-                                        {assessment.candidateId}
-                                      </p>
+                                      </div>
                                     </div>
-                                    <div className="shrink-0 text-right">
-                                      <span className="text-2xl font-bold text-blue-600">
-                                        {assessment.score}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        /100
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                        Evidence
-                                      </h5>
-                                      <ul className="space-y-2 text-sm text-gray-700">
-                                        {assessment.evidence.map((item, i) => (
-                                          <li key={i} className="flex gap-2">
-                                            <span className="text-green-600">
-                                              •
-                                            </span>
-                                            <strong>{item}</strong>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                    <div>
-                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                        Unknowns
-                                      </h5>
-                                      <ul className="space-y-2 text-sm text-gray-700">
-                                        {assessment.unknowns.map((item, i) => (
-                                          <li key={i} className="flex gap-2">
-                                            <span className="text-amber-600">
-                                              •
-                                            </span>
-                                            <span>{item}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setCitationAssessmentIndex(idx);
-                                      setInspector('sources');
-                                    }}
-                                    className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
-                                  >
-                                    Resume citations (
-                                    {(assessment.citations || []).length}) →
-                                  </button>
-                                </article>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCitationAssessmentIndex(idx);
+                                        setInspector('sources');
+                                      }}
+                                      className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
+                                    >
+                                      Resume citations (
+                                      {(assessment.citations || []).length}) →
+                                    </button>
+                                  </article>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+                <div className="flex items-start justify-start gap-1 text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyText(report.text || JSON.stringify(report, null, 2))
+                    }
+                    className="rounded p-2 hover:bg-gray-100 hover:text-gray-900"
+                    aria-label="Copy agent response"
+                    title="Copy"
+                  >
+                    <Icon name="copy" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFeedback(feedback === 'like' ? null : 'like')
+                    }
+                    className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'like' ? 'bg-green-100 text-green-700' : ''}`}
+                    aria-label="Like agent response"
+                    title="Like"
+                  >
+                    <Icon name="like" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFeedback(feedback === 'dislike' ? null : 'dislike')
+                    }
+                    className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
+                    aria-label="Dislike agent response"
+                    title="Dislike"
+                  >
+                    <Icon name="dislike" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={retryQuery}
+                    className="rounded p-2 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
+                    aria-label="Retry screening query"
+                    title="Retry"
+                    disabled={isLoading}
+                  >
+                    <Icon name="retry" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCitationAssessmentIndex(null);
+                      setInspector('sources');
+                    }}
+                    className="ml-2 rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    View sources
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAssessmentView((view) =>
+                        view === 'list' ? 'table' : 'list'
+                      )
+                    }
+                    className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    {assessmentView === 'list' ? 'Table view' : 'List view'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspector('tools')}
+                    className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    Tool calls ({toolCalls.length})
+                  </button>
+                </div>
+              </>
             )}
 
             {isLoading && !report && (
@@ -940,7 +1125,12 @@ export default function ScreenPage() {
               >
                 {isLoading ? 'Screening...' : 'Screen Candidates'}
               </button>
-              <p id="screening-prompt-hint" className="text-center text-xs text-gray-500">AI can make mistakes. Please verify important information.</p>
+              <p
+                id="screening-prompt-hint"
+                className="text-center text-xs text-gray-500"
+              >
+                AI can make mistakes. Please verify important information.
+              </p>
             </form>
           </div>
         </div>
@@ -959,15 +1149,20 @@ export default function ScreenPage() {
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-gray-200 p-4">
               <h2 className="font-semibold text-gray-900">
-                {inspector === 'sources'
-                  ? citationAssessmentIndex === null
-                    ? 'Resume citations'
-                    : `Citations: ${report?.assessments?.[citationAssessmentIndex]?.candidateName || 'Candidate'}`
-                  : 'Tool calls'}
+                {inspector === 'resume'
+                  ? `Resume: ${resume?.name || 'Candidate'}`
+                  : inspector === 'sources'
+                    ? citationAssessmentIndex === null
+                      ? 'Resume citations'
+                      : `Citations: ${report?.assessments?.[citationAssessmentIndex]?.candidateName || 'Candidate'}`
+                    : 'Tool calls'}
               </h2>
               <button
                 type="button"
-                onClick={() => setInspector(null)}
+                onClick={() => {
+                  setInspector(null);
+                  setResume(null);
+                }}
                 className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                 aria-label="Close inspector"
               >
@@ -975,7 +1170,17 @@ export default function ScreenPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {inspector === 'sources' ? (
+              {inspector === 'resume' ? (
+                resume ? (
+                  <iframe
+                    src={resume.pdfUrl}
+                    title={`Resume PDF: ${resume.name}`}
+                    className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500">Loading resume...</p>
+                )
+              ) : inspector === 'sources' ? (
                 <div className="space-y-3">
                   {(report?.assessments || [])
                     .filter(
