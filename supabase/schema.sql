@@ -53,6 +53,7 @@ create table if not exists screenings (
   response_text text,
   metadata jsonb not null default '{}'::jsonb,
   tool_calls jsonb not null default '[]'::jsonb,
+  feedback text check (feedback in ('like', 'dislike')),
   completed_at timestamptz,
   created_at timestamptz default now()
 );

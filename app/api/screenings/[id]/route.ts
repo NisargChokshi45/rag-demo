@@ -52,6 +52,7 @@ export async function GET(
         created_at,
         report,
         status,
+        feedback,
         response_text,
         metadata,
         tool_calls,
@@ -116,6 +117,7 @@ export async function PATCH(
     const body = (await request.json()) as {
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
+      feedback?: 'like' | 'dislike' | null;
       metadata?: Record<string, unknown>;
       toolCalls?: ToolCallRecord[];
       responseText?: string;
@@ -159,6 +161,7 @@ export async function PATCH(
           }
         : {}),
       ...(body.status ? { status: body.status } : {}),
+      ...(body.feedback !== undefined ? { feedback: body.feedback } : {}),
       ...(body.metadata ? { metadata: body.metadata } : {}),
       ...(body.toolCalls ? { tool_calls: body.toolCalls } : {}),
       ...(body.status === 'completed'

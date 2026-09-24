@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { updateScreeningFeedback } from '@/lib/screenings-api';
 
-type IconName = 'copy' | 'edit' | 'eye' | 'like' | 'dislike' | 'retry';
+type IconName =
+  'copy' | 'edit' | 'eye' | 'like' | 'dislike' | 'retry' | 'user' | 'assistant';
 
 function Icon({ name }: { name: IconName }) {
   const paths = {
@@ -29,6 +31,18 @@ function Icon({ name }: { name: IconName }) {
     ),
     retry: (
       <path d="M20 11a8 8 0 0 0-14.7-4L3 10m0 0V5m0 5h5M4 13a8 8 0 0 0 14.7 4L21 14m0 0v5m0-5h-5" />
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+      </>
+    ),
+    assistant: (
+      <>
+        <rect x="5" y="7" width="14" height="12" rx="3" />
+        <path d="M12 7V4m-2 0h4M8.5 12h.01M15.5 12h.01M9 16h6" />
+      </>
     ),
   }[name];
 
@@ -102,6 +116,7 @@ interface ScreeningHistory {
   jobId?: string | null;
   timestamp: number;
   report: ReportData | null;
+  feedback?: 'like' | 'dislike' | null;
   status?: 'running' | 'completed' | 'failed';
 }
 
@@ -127,29 +142,24 @@ export default function ScreenPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<ScreeningHistory[]>([]);
+  const [activeScreeningId, setActiveScreeningId] = useState<string | null>(
+    null
+  );
   const [isHistorySession, setIsHistorySession] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submittedQuery, setSubmittedQuery] = useState('');
+  const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
+  const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [inspector, setInspector] = useState<
-    'sources' | 'tools' | 'resume' | null
-  >(null);
+  const [inspector, setInspector] = useState<'resume' | null>(null);
   const [resume, setResume] = useState<{
     name: string;
     pdfUrl: string;
   } | null>(null);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
-  const [citationAssessmentIndex, setCitationAssessmentIndex] = useState<
-    number | null
-  >(null);
-  const [openReportSection, setOpenReportSection] = useState<
-    'summary' | 'reasoning' | 'context' | null
-  >('summary');
-  const [assessmentView, setAssessmentView] = useState<'list' | 'table'>(
-    'list'
-  );
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
+  const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load screening history from Supabase (or localStorage as fallback)
@@ -166,6 +176,7 @@ export default function ScreenPage() {
             jobId: s.job_id,
             timestamp: new Date(s.created_at).getTime(),
             report: s.report,
+            feedback: s.feedback,
             status: s.status,
           })
         );
@@ -217,6 +228,14 @@ export default function ScreenPage() {
     scrollToBottom();
   }, [toolCalls, report]);
 
+  useEffect(() => {
+    const textarea = editingQueryRef.current;
+    if (!textarea || !isEditingSubmittedQuery) return;
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [editingSubmittedQuery, isEditingSubmittedQuery]);
+
   const createSession = async (q: string) => {
     const response = await fetch('/api/screenings', {
       method: 'POST',
@@ -263,11 +282,15 @@ export default function ScreenPage() {
 
   const loadFromHistory = async (item: ScreeningHistory) => {
     setIsHistorySession(true);
+    setActiveScreeningId(item.id);
     setSelectedJobId(item.jobId || '');
     setQuery('');
     setSubmittedQuery(item.query);
+    setIsEditingSubmittedQuery(false);
+    setEditingSubmittedQuery('');
     setToolCalls([]);
     setError(null);
+    setFeedback(item.feedback || null);
 
     // Fetch full details from Supabase for better data integrity
     try {
@@ -300,6 +323,7 @@ export default function ScreenPage() {
           }))
         );
         setReport(report);
+        setFeedback(screening.feedback || null);
       } else {
         // Fallback to local report data
         setReport(item.report);
@@ -353,6 +377,40 @@ export default function ScreenPage() {
     void submitQuery(submittedQuery);
   };
 
+  const handleFeedback = async (nextFeedback: 'like' | 'dislike') => {
+    if (!activeScreeningId) {
+      setError('Feedback is unavailable until the screening is saved.');
+      return;
+    }
+
+    const feedbackToSave = feedback === nextFeedback ? null : nextFeedback;
+    const previousFeedback = feedback;
+    setFeedback(feedbackToSave);
+    setHistory((previousHistory) =>
+      previousHistory.map((item) =>
+        item.id === activeScreeningId
+          ? { ...item, feedback: feedbackToSave }
+          : item
+      )
+    );
+
+    const result = await updateScreeningFeedback(
+      activeScreeningId,
+      feedbackToSave
+    );
+    if (!result.success) {
+      setFeedback(previousFeedback);
+      setHistory((previousHistory) =>
+        previousHistory.map((item) =>
+          item.id === activeScreeningId
+            ? { ...item, feedback: previousFeedback }
+            : item
+        )
+      );
+      setError(result.error || 'Failed to save feedback');
+    }
+  };
+
   const viewResume = async (candidateId: string, candidateName: string) => {
     try {
       const response = await fetch(
@@ -391,11 +449,14 @@ export default function ScreenPage() {
   const submitQuery = async (screeningQuery: string) => {
     if (!screeningQuery.trim()) return;
     setSubmittedQuery(screeningQuery);
+    setIsEditingSubmittedQuery(false);
+    setEditingSubmittedQuery('');
     setQuery('');
     setIsLoading(true);
     setError(null);
     setToolCalls([]);
     setReport(null);
+    setFeedback(null);
     setProgress('Starting analysis...');
 
     let screeningId: string | null = null;
@@ -404,6 +465,7 @@ export default function ScreenPage() {
 
     try {
       screeningId = await createSession(screeningQuery);
+      setActiveScreeningId(screeningId);
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -531,10 +593,12 @@ export default function ScreenPage() {
           <button
             onClick={() => {
               setIsHistorySession(false);
+              setActiveScreeningId(null);
               setQuery('');
               setSubmittedQuery('');
               setReport(null);
               setToolCalls([]);
+              setFeedback(null);
               setError(null);
             }}
             className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -627,115 +691,94 @@ export default function ScreenPage() {
           <div className="max-w-4xl mx-auto">
             {/* Submitted Query Display */}
             {submittedQuery && (
-              <div className="mb-6 flex justify-end">
-                <div className="max-w-[85%]">
+              <div className="mb-6 flex items-start justify-end gap-2">
+                <div className="w-fit max-w-[70%]">
                   <div className="rounded-lg bg-gray-100 p-4 text-white">
-                    <p className="mb-1 text-sm text-gray-600">Your Query:</p>
-                    <p className="text-gray-900 font-medium">
-                      {submittedQuery}
-                    </p>
+                    {/* <p className="mb-1 text-sm text-gray-600">Your Query:</p> */}
+                    {isEditingSubmittedQuery ? (
+                      <textarea
+                        ref={editingQueryRef}
+                        value={editingSubmittedQuery}
+                        onChange={(e) =>
+                          setEditingSubmittedQuery(e.target.value)
+                        }
+                        rows={3}
+                        className="min-h-24 w-full resize-none overflow-hidden rounded border border-gray-300 bg-white p-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        aria-label="Edit your query"
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="font-medium text-gray-900">
+                        {submittedQuery}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-2 flex justify-end gap-1 text-gray-500">
-                    <button
-                      type="button"
-                      onClick={() => copyText(submittedQuery)}
-                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
-                      aria-label="Copy your query"
-                      title="Copy"
-                    >
-                      <Icon name="copy" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuery(submittedQuery);
-                        setSubmittedQuery('');
-                        setReport(null);
-                        setToolCalls([]);
-                      }}
-                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
-                      aria-label="Edit your query"
-                      title="Edit"
-                    >
-                      <Icon name="edit" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={retryQuery}
-                      className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
-                      aria-label="Retry your query"
-                      title="Retry"
-                      disabled={isLoading}
-                    >
-                      <Icon name="retry" />
-                    </button>
+                    {isEditingSubmittedQuery ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextQuery = editingSubmittedQuery.trim();
+                            if (nextQuery) void submitQuery(nextQuery);
+                          }}
+                          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
+                          disabled={isLoading || !editingSubmittedQuery.trim()}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingSubmittedQuery(false)}
+                          className="rounded px-3 py-1 text-sm hover:bg-gray-200 hover:text-gray-900"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => copyText(submittedQuery)}
+                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                          aria-label="Copy your query"
+                          title="Copy"
+                        >
+                          <Icon name="copy" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSubmittedQuery(submittedQuery);
+                            setIsEditingSubmittedQuery(true);
+                          }}
+                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                          aria-label="Edit your query"
+                          title="Edit"
+                        >
+                          <Icon name="edit" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={retryQuery}
+                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                          aria-label="Retry your query"
+                          title="Retry"
+                          disabled={isLoading}
+                        >
+                          <Icon name="retry" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {submittedQuery && report && (
-              <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
-                {[
-                  {
-                    key: 'summary' as const,
-                    label: 'Summary',
-                    content: report.summary,
-                  },
-                  {
-                    key: 'reasoning' as const,
-                    label: 'Thinking Process',
-                    content: report.reasoning,
-                  },
-                  {
-                    key: 'context' as const,
-                    label: 'Context Used',
-                    content: report.context?.join('\n'),
-                  },
-                ].map((section, index) =>
-                  section.content ? (
-                    <div
-                      key={section.key}
-                      className={index > 0 ? 'border-t border-gray-200' : ''}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenReportSection(
-                            openReportSection === section.key
-                              ? null
-                              : section.key
-                          )
-                        }
-                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
-                        aria-expanded={openReportSection === section.key}
-                      >
-                        <span className="font-semibold text-gray-900">
-                          {section.label}
-                        </span>
-                        <span className="text-gray-400">
-                          {openReportSection === section.key ? '−' : '+'}
-                        </span>
-                      </button>
-                      {openReportSection === section.key && (
-                        <div className="whitespace-pre-line border-t border-gray-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
-                          {section.key === 'context' ? (
-                            <ul className="space-y-2">
-                              {report.context?.map((item, i) => (
-                                <li key={i} className="flex gap-2">
-                                  <span className="text-gray-400">•</span>
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            section.content
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : null
-                )}
+                <span
+                  className="mt-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"
+                  aria-label="User"
+                  title="User"
+                >
+                  <Icon name="user" />
+                </span>
               </div>
             )}
 
@@ -749,8 +792,22 @@ export default function ScreenPage() {
             {/* Final Report */}
             {report && (
               <>
-                <div className="flex justify-start">
+                <div className="flex items-start justify-start gap-2">
+                  <span
+                    className="mt-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-700"
+                    aria-label="Assistant"
+                    title="Assistant"
+                  >
+                    <Icon name="assistant" />
+                  </span>
                   <div className="w-full max-w-[85%] space-y-6">
+                    {report.summary && (
+                      <div>
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                          {report.summary}
+                        </p>
+                      </div>
+                    )}
                     {(report.summary || report.text || report.assessments) && (
                       <>
                         {/* Candidate Assessments */}
@@ -759,212 +816,85 @@ export default function ScreenPage() {
                             <h3 className="font-semibold text-lg mb-4">
                               Candidate Assessments
                             </h3>
-                            {assessmentView === 'table' ? (
-                              <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                                <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-                                  <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
-                                    <tr>
-                                      <th className="px-4 py-3">Candidate</th>
-                                      <th className="px-4 py-3">Score</th>
-                                      <th className="px-4 py-3">Evidence</th>
-                                      <th className="px-4 py-3">Unknowns</th>
-                                      <th className="px-4 py-3">
-                                        Resume citations
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-200">
-                                    {report.assessments.map(
-                                      (assessment, idx) => (
-                                        <tr
-                                          key={idx}
-                                          className="align-top hover:bg-gray-50"
+                            <div className="space-y-3">
+                              {report.assessments.map((assessment, idx) => (
+                                <article
+                                  key={idx}
+                                  className="rounded-lg border border-gray-200 bg-white p-4"
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-gray-900">
+                                          {assessment.candidateName}
+                                        </h4>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            viewResume(
+                                              assessment.candidateId,
+                                              assessment.candidateName
+                                            )
+                                          }
+                                          className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
+                                          aria-label={`View resume for ${assessment.candidateName}`}
+                                          title="View resume"
                                         >
-                                          <td className="px-4 py-4">
-                                            <div className="flex items-center gap-2 font-bold text-gray-900">
-                                              <span>
-                                                {assessment.candidateName}
-                                              </span>
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  viewResume(
-                                                    assessment.candidateId,
-                                                    assessment.candidateName
-                                                  )
-                                                }
-                                                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
-                                                aria-label={`View resume for ${assessment.candidateName}`}
-                                                title="View resume"
-                                              >
-                                                <Icon name="eye" />
-                                              </button>
-                                            </div>
-                                          </td>
-                                          <td className="px-4 py-4">
-                                            <span className="text-2xl font-bold text-blue-600">
-                                              {assessment.score}
-                                            </span>
-                                            <span className="text-xs text-gray-500">
-                                              /100
-                                            </span>
-                                          </td>
-                                          <td className="px-4 py-4">
-                                            <ul className="space-y-2">
-                                              {assessment.evidence.map(
-                                                (item, i) => (
-                                                  <li
-                                                    key={i}
-                                                    className="font-semibold text-gray-700"
-                                                  >
-                                                    <span className="mr-1 text-green-600">
-                                                      ✓
-                                                    </span>
-                                                    {item}
-                                                  </li>
-                                                )
-                                              )}
-                                            </ul>
-                                          </td>
-                                          <td className="px-4 py-4 text-amber-700">
-                                            <ul className="space-y-2">
-                                              {assessment.unknowns.map(
-                                                (item, i) => (
-                                                  <li key={i}>
-                                                    <span className="mr-1 text-amber-600">
-                                                      ?
-                                                    </span>
-                                                    {item}
-                                                  </li>
-                                                )
-                                              )}
-                                            </ul>
-                                          </td>
-                                          <td className="px-4 py-4">
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setCitationAssessmentIndex(idx);
-                                                setInspector('sources');
-                                              }}
-                                              className="font-semibold text-blue-700 hover:text-blue-900"
-                                            >
-                                              View citations (
-                                              {
-                                                (assessment.citations || [])
-                                                  .length
-                                              }
-                                              ) →
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      )
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {report.assessments.map((assessment, idx) => (
-                                  <article
-                                    key={idx}
-                                    className="rounded-lg border border-gray-200 bg-white p-4"
-                                  >
-                                    <div className="flex items-start justify-between gap-4">
-                                      <div>
-                                        <div className="flex items-center gap-2">
-                                          <h4 className="font-bold text-gray-900">
-                                            {assessment.candidateName}
-                                          </h4>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              viewResume(
-                                                assessment.candidateId,
-                                                assessment.candidateName
-                                              )
-                                            }
-                                            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
-                                            aria-label={`View resume for ${assessment.candidateName}`}
-                                            title="View resume"
-                                          >
-                                            <Icon name="eye" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <div className="shrink-0 text-right">
-                                        <span className="text-2xl font-bold text-blue-600">
-                                          {assessment.score}
-                                        </span>
-                                        <span className="text-xs text-gray-500">
-                                          /100
-                                        </span>
+                                          <Icon name="eye" />
+                                        </button>
                                       </div>
                                     </div>
-                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                      <div>
-                                        <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                          Evidence
-                                        </h5>
-                                        <ul className="space-y-2 text-sm text-gray-700">
-                                          {assessment.evidence.map(
-                                            (item, i) => (
-                                              <li
-                                                key={i}
-                                                className="flex gap-2"
-                                              >
-                                                <span className="text-green-600">
-                                                  •
-                                                </span>
-                                                <strong>{item}</strong>
-                                              </li>
-                                            )
-                                          )}
-                                        </ul>
-                                      </div>
-                                      <div>
-                                        <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                          Unknowns
-                                        </h5>
-                                        <ul className="space-y-2 text-sm text-gray-700">
-                                          {assessment.unknowns.map(
-                                            (item, i) => (
-                                              <li
-                                                key={i}
-                                                className="flex gap-2"
-                                              >
-                                                <span className="text-amber-600">
-                                                  •
-                                                </span>
-                                                <span>{item}</span>
-                                              </li>
-                                            )
-                                          )}
-                                        </ul>
-                                      </div>
+                                    <div className="shrink-0 text-right">
+                                      <span className="text-2xl font-bold text-blue-600">
+                                        {assessment.score}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        /100
+                                      </span>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setCitationAssessmentIndex(idx);
-                                        setInspector('sources');
-                                      }}
-                                      className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
-                                    >
-                                      Resume citations (
-                                      {(assessment.citations || []).length}) →
-                                    </button>
-                                  </article>
-                                ))}
-                              </div>
-                            )}
+                                  </div>
+                                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        Evidence
+                                      </h5>
+                                      <ul className="space-y-2 text-sm text-gray-700">
+                                        {assessment.evidence.map((item, i) => (
+                                          <li key={i} className="flex gap-2">
+                                            <span className="text-green-600">
+                                              •
+                                            </span>
+                                            <strong>{item}</strong>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div>
+                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        Unknowns
+                                      </h5>
+                                      <ul className="space-y-2 text-sm text-gray-700">
+                                        {assessment.unknowns.map((item, i) => (
+                                          <li key={i} className="flex gap-2">
+                                            <span className="text-amber-600">
+                                              •
+                                            </span>
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </>
                     )}
                   </div>
                 </div>
-                <div className="flex items-start justify-start gap-1 text-gray-500">
+                <div className="ml-10 flex items-start justify-start gap-1 text-gray-500">
                   <button
                     type="button"
                     onClick={() =>
@@ -978,9 +908,7 @@ export default function ScreenPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFeedback(feedback === 'like' ? null : 'like')
-                    }
+                    onClick={() => void handleFeedback('like')}
                     className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'like' ? 'bg-green-100 text-green-700' : ''}`}
                     aria-label="Like agent response"
                     title="Like"
@@ -989,9 +917,7 @@ export default function ScreenPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFeedback(feedback === 'dislike' ? null : 'dislike')
-                    }
+                    onClick={() => void handleFeedback('dislike')}
                     className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
                     aria-label="Dislike agent response"
                     title="Dislike"
@@ -1007,34 +933,6 @@ export default function ScreenPage() {
                     disabled={isLoading}
                   >
                     <Icon name="retry" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCitationAssessmentIndex(null);
-                      setInspector('sources');
-                    }}
-                    className="ml-2 rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  >
-                    View sources
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAssessmentView((view) =>
-                        view === 'list' ? 'table' : 'list'
-                      )
-                    }
-                    className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  >
-                    {assessmentView === 'list' ? 'Table view' : 'List view'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInspector('tools')}
-                    className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  >
-                    Tool calls ({toolCalls.length})
                   </button>
                 </div>
               </>
@@ -1149,13 +1047,7 @@ export default function ScreenPage() {
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-gray-200 p-4">
               <h2 className="font-semibold text-gray-900">
-                {inspector === 'resume'
-                  ? `Resume: ${resume?.name || 'Candidate'}`
-                  : inspector === 'sources'
-                    ? citationAssessmentIndex === null
-                      ? 'Resume citations'
-                      : `Citations: ${report?.assessments?.[citationAssessmentIndex]?.candidateName || 'Candidate'}`
-                    : 'Tool calls'}
+                {`Resume: ${resume?.name || 'Candidate'}`}
               </h2>
               <button
                 type="button"
@@ -1170,76 +1062,14 @@ export default function ScreenPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {inspector === 'resume' ? (
-                resume ? (
-                  <iframe
-                    src={resume.pdfUrl}
-                    title={`Resume PDF: ${resume.name}`}
-                    className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
-                  />
-                ) : (
-                  <p className="text-sm text-gray-500">Loading resume...</p>
-                )
-              ) : inspector === 'sources' ? (
-                <div className="space-y-3">
-                  {(report?.assessments || [])
-                    .filter(
-                      (_, index) =>
-                        citationAssessmentIndex === null ||
-                        index === citationAssessmentIndex
-                    )
-                    .flatMap((assessment) =>
-                      (assessment.citations || []).map((citation, index) => (
-                        <div
-                          key={`${citation.candidateId}-${index}`}
-                          className="rounded border border-gray-200 bg-gray-50 p-3"
-                        >
-                          <p className="text-xs font-semibold text-blue-700">
-                            {citation.candidateName} · {citation.tool}
-                          </p>
-                          <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                            “{citation.content}”
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  {!report?.assessments
-                    ?.filter(
-                      (_, index) =>
-                        citationAssessmentIndex === null ||
-                        index === citationAssessmentIndex
-                    )
-                    .some(
-                      (assessment) => (assessment.citations || []).length > 0
-                    ) && (
-                    <p className="text-sm text-gray-500">
-                      No sources were returned.
-                    </p>
-                  )}
-                </div>
+              {resume ? (
+                <iframe
+                  src={resume.pdfUrl}
+                  title={`Resume PDF: ${resume.name}`}
+                  className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
+                />
               ) : (
-                <div className="space-y-3">
-                  {toolCalls.map((call, index) => (
-                    <div
-                      key={`${call.toolName}-${index}`}
-                      className="rounded border border-gray-200 p-3"
-                    >
-                      <p className="font-mono text-sm font-semibold text-gray-800">
-                        {call.toolName}
-                      </p>
-                      <pre className="mt-2 max-h-32 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
-                        {JSON.stringify(call.toolInput, null, 2)}
-                      </pre>
-                      {call.result !== undefined && (
-                        <pre className="mt-2 max-h-48 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
-                          {typeof call.result === 'string'
-                            ? call.result
-                            : JSON.stringify(call.result, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-gray-500">Loading resume...</p>
               )}
             </div>
           </div>

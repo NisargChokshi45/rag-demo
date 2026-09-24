@@ -30,6 +30,7 @@ export interface Screening {
   job_id?: string;
   created_at: string;
   report: ReportData;
+  feedback?: 'like' | 'dislike' | null;
   reasoning?: string;
   context?: string[];
   screening_assessments: Array<{
@@ -136,6 +137,35 @@ export async function fetchScreening(id: string): Promise<{
   } catch (error) {
     console.error('Error fetching screening:', error);
     return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Save feedback for a screening response
+ */
+export async function updateScreeningFeedback(
+  id: string,
+  feedback: 'like' | 'dislike' | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`/api/screenings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to save feedback' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving screening feedback:', error);
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }

@@ -45,7 +45,9 @@ function parseReportResponse(response: unknown): ScreeningReport {
     throw new Error('Groq returned a report without valid JSON');
   }
 
-  return ScreeningReportSchema.parse(JSON.parse(jsonText.slice(start, end + 1)));
+  return ScreeningReportSchema.parse(
+    JSON.parse(jsonText.slice(start, end + 1))
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -237,7 +239,8 @@ Format citations as actual text snippets from the resume content shown in the to
             encoder.encode(
               JSON.stringify({
                 type: 'error',
-                message: error instanceof Error ? error.message : 'Unknown error',
+                message:
+                  error instanceof Error ? error.message : 'Unknown error',
               }) + '\n'
             )
           );
