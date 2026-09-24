@@ -128,6 +128,50 @@ interface ConversationMessage {
   content: string;
 }
 
+function getConversationPreview(message: ConversationMessage): string {
+  if (message.role === 'user') return message.content;
+
+  try {
+    const parsed = JSON.parse(message.content) as ReportData;
+    const sections = [parsed.summary, parsed.reasoning]
+      .filter(Boolean)
+      .join('\n\n');
+    const context = parsed.context?.length
+      ? `Context:\n${parsed.context.map((item) => `- ${item}`).join('\n')}`
+      : '';
+    const assessments = parsed.assessments?.length
+      ? parsed.assessments
+          .map(
+            (assessment) =>
+              `${assessment.candidateName} (${assessment.score}/100)\nEvidence: ${assessment.evidence.join('; ')}\nUnknowns: ${assessment.unknowns.join('; ')}`
+          )
+          .join('\n\n')
+      : '';
+
+    return [sections, context, assessments].filter(Boolean).join('\n\n');
+  } catch {
+    return message.content;
+  }
+}
+
+function getConversationReport(
+  message: ConversationMessage
+): ReportData | null {
+  if (message.role !== 'assistant') return null;
+
+  try {
+    const parsed = JSON.parse(message.content) as ReportData;
+    return parsed.assessments ||
+      parsed.summary ||
+      parsed.reasoning ||
+      parsed.context
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 interface ProgressMessage {
   type: 'progress';
   message: string;
@@ -349,6 +393,8 @@ export default function ScreenPage() {
   };
 
   const deleteFromHistory = async (itemId: string) => {
+    if (!window.confirm('Delete this screening session?')) return;
+
     try {
       const response = await fetch(`/api/screenings/${itemId}`, {
         method: 'DELETE',
@@ -361,11 +407,11 @@ export default function ScreenPage() {
           JSON.stringify(history.filter((item) => item.id !== itemId))
         );
       } else {
-        setError('Failed to delete screening');
+        window.alert('Failed to delete screening');
       }
     } catch (err) {
       console.error('Error deleting screening:', err);
-      setError('Error deleting screening');
+      window.alert('Error deleting screening');
     }
   };
 
@@ -459,6 +505,142 @@ export default function ScreenPage() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
+
+  const renderReport = (reportToRender: ReportData, reportKey: string) => (
+    <div className="w-full space-y-6">
+      {reportToRender.summary && (
+        <div>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+            {reportToRender.summary}
+          </p>
+        </div>
+      )}
+      {/* {reportToRender.reasoning && (
+        <div>
+          <h3 className="mb-2 text-lg font-semibold">Reasoning</h3>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+            {reportToRender.reasoning}
+          </p>
+        </div>
+      )}
+      {reportToRender.context && reportToRender.context.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-lg font-semibold">Context</h3>
+          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-gray-700">
+            {reportToRender.context.map((item, index) => (
+              <li key={`${reportKey}-context-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )} */}
+      {reportToRender.assessments && (
+        <div>
+          <h3 className="mb-4 text-lg font-semibold">Candidate Assessments</h3>
+          <div className="space-y-3">
+            {reportToRender.assessments.map((assessment, index) => (
+              <article
+                key={`${reportKey}-assessment-${index}`}
+                className="rounded-lg border border-gray-200 bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-gray-900">
+                        {assessment.candidateName}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          viewResume(
+                            assessment.candidateId,
+                            assessment.candidateName
+                          )
+                        }
+                        className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
+                        aria-label={`View resume for ${assessment.candidateName}`}
+                        title="View resume in sidebar"
+                      >
+                        <Icon name="eye" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="text-2xl font-bold text-blue-600">
+                      {assessment.score}
+                    </span>
+                    <span className="text-xs text-gray-500">/100</span>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                      Evidence
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {assessment.evidence.map((item, evidenceIndex) => (
+                        <li
+                          key={`${reportKey}-evidence-${evidenceIndex}`}
+                          className="flex gap-2"
+                        >
+                          <span className="text-green-600">•</span>
+                          <strong>{item}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                      Unknowns
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {assessment.unknowns.map((item, unknownIndex) => (
+                        <li
+                          key={`${reportKey}-unknown-${unknownIndex}`}
+                          className="flex gap-2"
+                        >
+                          <span className="text-amber-600">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                {assessment.citations && assessment.citations.length > 0 && (
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                      Resume Citations
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {assessment.citations.map((citation, citationIndex) => (
+                        <li key={`${reportKey}-citation-${citationIndex}`}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              viewResume(
+                                citation.candidateId,
+                                citation.candidateName
+                              )
+                            }
+                            className="w-full rounded p-1 text-left hover:bg-blue-50 hover:text-blue-700"
+                            title="Open citation in sidebar"
+                          >
+                            <span className="font-medium text-gray-500">
+                              {citation.tool}:{' '}
+                            </span>
+                            {citation.content}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const submitQuery = async (screeningQuery: string) => {
     if (!screeningQuery.trim()) return;
@@ -611,6 +793,13 @@ export default function ScreenPage() {
     void submitQuery(query.trim());
   };
 
+  const previousConversation =
+    report &&
+    conversation.at(-2)?.role === 'user' &&
+    conversation.at(-2)?.content === submittedQuery
+      ? conversation.slice(0, -2)
+      : conversation;
+
   return (
     <div className="min-h-[calc(100vh-80px)] bg-gray-50 flex">
       {/* Sidebar */}
@@ -711,18 +900,149 @@ export default function ScreenPage() {
         </button>
 
         {/* Header */}
-        <div className="border-b border-gray-200 bg-white p-6 md:p-8">
+        {/* <div className="border-b border-gray-200 bg-white p-2 md:p-4">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
             Screen Candidates
           </h1>
           <p className="text-gray-600">
             Ask screening questions and get AI-powered candidate assessments
           </p>
-        </div>
+        </div> */}
 
         {/* Results Area */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
+            {previousConversation.length > 0 && (
+              <div className="mb-6 space-y-4">
+                {previousConversation.map((message, index) => (
+                  <div
+                    key={`${message.role}-${index}`}
+                    className={`flex items-start gap-2 ${
+                      message.role === 'user' ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    {message.role === 'assistant' && (
+                      <span
+                        className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-700"
+                        aria-label="Assistant"
+                        title="Assistant"
+                      >
+                        <Icon name="assistant" />
+                      </span>
+                    )}
+                    <div
+                      className={`max-w-[85%] rounded-lg p-4 ${
+                        message.role === 'user'
+                          ? 'bg-gray-100 text-gray-900'
+                          : 'border border-gray-200 bg-white text-gray-700'
+                      }`}
+                    >
+                      {getConversationReport(message) ? (
+                        renderReport(
+                          getConversationReport(message) as ReportData,
+                          `conversation-${index}`
+                        )
+                      ) : (
+                        <p className="whitespace-pre-line text-sm leading-relaxed">
+                          {getConversationPreview(message)}
+                        </p>
+                      )}
+                      <div className="mt-2 flex justify-end gap-1 text-gray-500">
+                        {message.role === 'user' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => copyText(message.content)}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              aria-label="Copy query"
+                              title="Copy"
+                            >
+                              <Icon name="copy" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSubmittedQuery(message.content);
+                                setEditingSubmittedQuery(message.content);
+                                setIsEditingSubmittedQuery(true);
+                              }}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              aria-label="Edit query"
+                              title="Edit"
+                            >
+                              <Icon name="edit" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSubmittedQuery(message.content);
+                                void submitQuery(message.content);
+                              }}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                              aria-label="Retry query"
+                              title="Retry"
+                              disabled={isLoading}
+                            >
+                              <Icon name="retry" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => copyText(message.content)}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              aria-label="Copy agent response"
+                              title="Copy"
+                            >
+                              <Icon name="copy" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleFeedback('like')}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              aria-label="Like agent response"
+                              title="Like"
+                            >
+                              <Icon name="like" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleFeedback('dislike')}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              aria-label="Dislike agent response"
+                              title="Dislike"
+                            >
+                              <Icon name="dislike" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={retryQuery}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                              aria-label="Retry screening query"
+                              title="Retry"
+                              disabled={isLoading}
+                            >
+                              <Icon name="retry" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {message.role === 'user' && (
+                      <span
+                        className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"
+                        aria-label="User"
+                        title="User"
+                      >
+                        <Icon name="user" />
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Submitted Query Display */}
             {submittedQuery && (
               <div className="mb-6 flex items-start justify-end gap-2">
@@ -834,99 +1154,7 @@ export default function ScreenPage() {
                   >
                     <Icon name="assistant" />
                   </span>
-                  <div className="w-full max-w-[85%] space-y-6">
-                    {report.summary && (
-                      <div>
-                        <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
-                          {report.summary}
-                        </p>
-                      </div>
-                    )}
-                    {(report.summary || report.text || report.assessments) && (
-                      <>
-                        {/* Candidate Assessments */}
-                        {report.assessments && (
-                          <div>
-                            <h3 className="font-semibold text-lg mb-4">
-                              Candidate Assessments
-                            </h3>
-                            <div className="space-y-3">
-                              {report.assessments.map((assessment, idx) => (
-                                <article
-                                  key={idx}
-                                  className="rounded-lg border border-gray-200 bg-white p-4"
-                                >
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <h4 className="font-bold text-gray-900">
-                                          {assessment.candidateName}
-                                        </h4>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            viewResume(
-                                              assessment.candidateId,
-                                              assessment.candidateName
-                                            )
-                                          }
-                                          className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-700"
-                                          aria-label={`View resume for ${assessment.candidateName}`}
-                                          title="View resume"
-                                        >
-                                          <Icon name="eye" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="shrink-0 text-right">
-                                      <span className="text-2xl font-bold text-blue-600">
-                                        {assessment.score}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        /100
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                        Evidence
-                                      </h5>
-                                      <ul className="space-y-2 text-sm text-gray-700">
-                                        {assessment.evidence.map((item, i) => (
-                                          <li key={i} className="flex gap-2">
-                                            <span className="text-green-600">
-                                              •
-                                            </span>
-                                            <strong>{item}</strong>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                    <div>
-                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-                                        Unknowns
-                                      </h5>
-                                      <ul className="space-y-2 text-sm text-gray-700">
-                                        {assessment.unknowns.map((item, i) => (
-                                          <li key={i} className="flex gap-2">
-                                            <span className="text-amber-600">
-                                              •
-                                            </span>
-                                            <span>{item}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </article>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {renderReport(report, 'current-report')}
                 </div>
                 <div className="ml-10 flex items-start justify-start gap-1 text-gray-500">
                   <button
@@ -994,13 +1222,17 @@ export default function ScreenPage() {
               </div>
             )}
 
-            {!report && !isLoading && history.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  Start by entering a screening query below
-                </p>
-              </div>
-            )}
+            {!report &&
+              !isLoading &&
+              !submittedQuery &&
+              !query.trim() &&
+              conversation.length === 0 && (
+                <div className="flex min-h-[50vh] items-center justify-center py-12 text-center">
+                  <p className="text-gray-500 text-lg">
+                    Start by entering a screening query below
+                  </p>
+                </div>
+              )}
 
             <div ref={messagesEndRef} />
           </div>

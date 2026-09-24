@@ -20,6 +20,17 @@ interface AgentRequest {
   }>;
 }
 
+function normalizeConversationHistory(
+  history: AgentRequest['conversationHistory']
+) {
+  return (history || []).filter(
+    (message) =>
+      (message.role === 'user' || message.role === 'assistant') &&
+      typeof message.content === 'string' &&
+      message.content.trim().length > 0
+  );
+}
+
 function getTextContent(content: unknown): string {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
@@ -62,8 +73,11 @@ export async function POST(request: NextRequest) {
       query,
       jobId,
       sessionId,
-      conversationHistory = [],
+      conversationHistory: submittedConversationHistory,
     }: AgentRequest = await request.json();
+    const conversationHistory = normalizeConversationHistory(
+      submittedConversationHistory
+    );
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
