@@ -66,8 +66,13 @@ export default function CandidatesPage() {
       const response = await fetch(`/api/candidates?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch candidates');
       const data = await response.json();
+      const roles = data.roles || [];
       setCandidates(data.candidates || []);
-      setAvailableRoles(data.roles || []);
+      setAvailableRoles(
+        roleFilter !== 'all' && !roles.includes(roleFilter)
+          ? [roleFilter, ...roles]
+          : roles
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -99,6 +104,10 @@ export default function CandidatesPage() {
             'jobId'
           );
           setSelectedJobId(jobId || '');
+          const selectedJob = data.jobs?.find(
+            (job: Job) => job.id === jobId
+          );
+          setRoleFilter(selectedJob?.title || 'all');
         }
       } catch (err) {
         console.error('Failed to fetch jobs:', err);
@@ -168,6 +177,7 @@ export default function CandidatesPage() {
             body: JSON.stringify({
               storagePath: path,
               jobDescription: '',
+              jobId: selectedJobId || undefined,
             }),
           });
 

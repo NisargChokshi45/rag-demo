@@ -11,6 +11,7 @@ import { validateEnv, getMissingEnvMessage } from '@/lib/env';
 
 interface IngestRequest {
   storagePath: string;
+  jobId?: string;
 }
 
 async function delay(ms: number) {
@@ -20,7 +21,7 @@ async function delay(ms: number) {
 export async function POST(request: NextRequest) {
   try {
     const body: IngestRequest = await request.json();
-    const { storagePath } = body;
+    const { storagePath, jobId } = body;
 
     console.log(`[INGEST] Starting ingestion for: ${storagePath}`);
 
@@ -153,7 +154,8 @@ export async function POST(request: NextRequest) {
       roleGuess,
       storagePath,
       filename,
-      fullText
+      fullText,
+      jobId
     );
 
     try {

@@ -17,6 +17,7 @@ create table if not exists candidates (
   id uuid primary key default gen_random_uuid(),
   name text,
   role_guess text,
+  job_id uuid references jobs(id) on delete set null,
   storage_path text not null,
   original_filename text not null,
   full_text text not null,

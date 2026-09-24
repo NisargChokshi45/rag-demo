@@ -137,7 +137,8 @@ export async function insertCandidate(
   roleGuess: string,
   storagePath: string,
   originalFilename: string,
-  fullText: string
+  fullText: string,
+  jobId?: string
 ): Promise<string> {
   const client = createServiceClient();
 
@@ -150,6 +151,7 @@ export async function insertCandidate(
         storage_path: storagePath,
         original_filename: originalFilename,
         full_text: fullText,
+        job_id: jobId || null,
       },
     ])
     .select('id')
@@ -230,17 +232,26 @@ export async function listCandidates(
 
   let candidateIdsForJob: string[] | undefined;
   if (options.jobId) {
-    const { data: assessments, error: assessmentError } = await client
-      .from('screening_assessments')
-      .select('candidate_id, screenings!inner(job_id)')
-      .eq('screenings.job_id', options.jobId);
+    const [
+      { data: assignedCandidates, error: assignedCandidatesError },
+      { data: assessments, error: assessmentError },
+    ] = await Promise.all([
+      client.from('candidates').select('id').eq('job_id', options.jobId),
+      client
+        .from('screening_assessments')
+        .select('candidate_id, screenings!inner(job_id)')
+        .eq('screenings.job_id', options.jobId),
+    ]);
 
+    if (assignedCandidatesError) throw assignedCandidatesError;
     if (assessmentError) throw assessmentError;
 
     candidateIdsForJob = Array.from(
       new Set(
-        (assessments || [])
-          .map((assessment) => assessment.candidate_id)
+        [...(assignedCandidates || []), ...(assessments || [])]
+          .map((candidate) =>
+            'candidate_id' in candidate ? candidate.candidate_id : candidate.id
+          )
           .filter((candidateId): candidateId is string => Boolean(candidateId))
       )
     );
