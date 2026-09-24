@@ -12,6 +12,7 @@ type IconName =
   | 'retry'
   | 'user'
   | 'assistant'
+  | 'citation'
   | 'close';
 
 function Icon({ name }: { name: IconName }) {
@@ -50,6 +51,12 @@ function Icon({ name }: { name: IconName }) {
       <>
         <rect x="5" y="7" width="14" height="12" rx="3" />
         <path d="M12 7V4m-2 0h4M8.5 12h.01M15.5 12h.01M9 16h6" />
+      </>
+    ),
+    citation: (
+      <>
+        <path d="M6 4h9l3 3v13H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+        <path d="M14 4v4h4M8 12h8M8 16h6" />
       </>
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
@@ -233,6 +240,7 @@ export default function ScreenPage() {
     candidateName: string;
     query: string;
     chunks: string[];
+    tool: Citation['tool'];
   } | null>(null);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(380);
@@ -559,6 +567,7 @@ export default function ScreenPage() {
           ? matchingSearch.toolInput.query
           : 'Search results',
       chunks: chunks.length > 0 ? chunks : [citation.content],
+      tool: citation.tool,
     });
     setInspector('chunks');
     setInspectorCollapsed(false);
@@ -684,43 +693,13 @@ export default function ScreenPage() {
                   <div className="mt-4 border-t border-gray-100 pt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        const searchChunksCitation = assessment.citations?.find(
-                          (citation) => citation.tool === 'search_chunks'
-                        );
-                        if (searchChunksCitation) {
-                          viewCitation(searchChunksCitation);
-                        }
-                      }}
-                      disabled={
-                        !assessment.citations.some(
-                          (citation) => citation.tool === 'search_chunks'
-                        )
-                      }
-                      className="mb-2 text-left text-xs font-bold uppercase tracking-wide text-gray-500 hover:text-blue-700 disabled:cursor-default disabled:hover:text-gray-500"
+                      onClick={() => viewCitation(assessment.citations![0])}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-700"
+                      title="Open resume citation in sidebar"
                     >
-                      Resume Citations
+                      <Icon name="citation" />
+                      Resume citation
                     </button>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      {assessment.citations.map((citation, citationIndex) => (
-                        <li key={`${reportKey}-citation-${citationIndex}`}>
-                          <a
-                            href="#search-chunks"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              viewCitation(citation);
-                            }}
-                            className="block rounded p-1 text-left hover:bg-blue-50 hover:text-blue-700"
-                            title="Open search chunks in sidebar"
-                          >
-                            <span className="font-medium text-gray-500">
-                              {citation.tool}:{' '}
-                            </span>
-                            {citation.content}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 )}
               </article>
@@ -1413,7 +1392,7 @@ export default function ScreenPage() {
         <aside
           id="search-chunks"
           style={{ width: inspectorCollapsed ? 48 : inspectorWidth }}
-          className={`fixed right-0 top-0 z-20 flex h-screen max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200 ${inspectorCollapsed ? 'w-12' : ''}`}
+          className={`fixed right-0 top-20 z-20 flex h-[calc(100vh-5rem)] max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200 ${inspectorCollapsed ? 'w-12' : ''}`}
         >
           {!inspectorCollapsed && (
             <div
@@ -1423,15 +1402,25 @@ export default function ScreenPage() {
             />
           )}
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between gap-2 border-b border-gray-200 p-4">
+            <div
+              className={`flex border-b border-gray-200 ${
+                inspectorCollapsed
+                  ? 'flex-col items-center gap-2 p-2'
+                  : 'items-center justify-between gap-2 p-4'
+              }`}
+            >
               {!inspectorCollapsed && (
                 <h2 className="min-w-0 truncate font-semibold text-gray-900">
                   {inspector === 'chunks'
-                    ? `Search chunks: ${selectedSearchChunks?.candidateName || 'Candidate'}`
+                    ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
                     : `Resume: ${resume?.name || 'Candidate'}`}
                 </h2>
               )}
-              <div className="ml-auto flex items-center gap-1">
+              <div
+                className={`flex items-center gap-1 ${
+                  inspectorCollapsed ? 'flex-col' : 'ml-auto'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() =>
@@ -1455,7 +1444,7 @@ export default function ScreenPage() {
                     setResume(null);
                     setSelectedSearchChunks(null);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   aria-label="Close sidebar"
                   title="Close sidebar"
                 >
@@ -1467,6 +1456,9 @@ export default function ScreenPage() {
               <div className="flex-1 overflow-y-auto p-4">
                 {inspector === 'chunks' && selectedSearchChunks ? (
                   <div className="space-y-4 text-sm text-gray-700">
+                    <p className="rounded bg-gray-50 p-3 text-gray-600">
+                      Tool: {selectedSearchChunks.tool}
+                    </p>
                     <p className="rounded bg-gray-50 p-3 text-gray-600">
                       Search: {selectedSearchChunks.query}
                     </p>
