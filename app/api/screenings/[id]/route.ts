@@ -5,7 +5,8 @@ import { FEATURE_FLAGS } from '@/lib/config';
 
 interface ReportData {
   query: string;
-  assessments: Array<{
+  text?: string;
+  assessments?: Array<{
     candidateId: string;
     candidateName: string;
     score: number;
@@ -18,7 +19,7 @@ interface ReportData {
       tool: 'search_chunks' | 'get_full_resume';
     }>;
   }>;
-  summary: string;
+  summary?: string;
   reasoning?: string;
   context?: string[];
 }
@@ -133,12 +134,13 @@ export async function PATCH(
     const update = {
       ...(body.report
         ? {
-            summary: body.report.summary,
+            summary: body.report.summary || null,
             report: body.report,
             reasoning: body.report.reasoning || null,
             context: body.report.context || null,
             response_text:
               body.responseText ||
+              body.report.text ||
               [
                 body.report.summary,
                 body.report.reasoning,
@@ -167,7 +169,7 @@ export async function PATCH(
       );
     }
 
-    if (body.report) {
+    if (body.report?.assessments) {
       await client
         .from('screening_assessments')
         .delete()

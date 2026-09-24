@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { createAgentTools } from '@/lib/agent-tools';
 import { getChatModel } from '@/lib/models';
-import { getJobById, createScreening } from '@/lib/db';
+import { getJobById } from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
 
 interface AgentRequest {
@@ -172,7 +172,7 @@ Format citations as actual text snippets from the resume content shown in the to
           ])) as unknown;
 
           // Extract text from response (handles both string and object returns)
-          let reportText =
+          const reportText =
             typeof reportResponse === 'string'
               ? reportResponse
               : typeof reportResponse === 'object' &&
@@ -181,40 +181,9 @@ Format citations as actual text snippets from the resume content shown in the to
                 ? (reportResponse as { content: string }).content
                 : JSON.stringify(reportResponse);
 
-          // Extract JSON from the response (handle markdown code blocks)
-          const jsonMatch = reportText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-          const jsonStr = jsonMatch ? jsonMatch[1] : reportText;
-
-          let report;
-          try {
-            report = JSON.parse(jsonStr);
-          } catch {
-            // Fallback: try to extract JSON object directly
-            const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-            if (objectMatch) {
-              report = JSON.parse(objectMatch[0]);
-            } else {
-              throw new Error(
-                'Failed to parse report as JSON: ' + reportText.substring(0, 200)
-              );
-            }
-          }
-
-          // Persist screening to database if job exists (don't block response)
-          if (jobId) {
-            createScreening(
-              jobId,
-              query,
-              report.summary,
-              report.assessments
-            ).catch((persistError) => {
-              console.error('Failed to persist screening:', persistError);
-            });
-          }
-
           const reportMessage = {
             type: 'report',
-            report,
+            text: reportText,
           };
 
           controller.enqueue(

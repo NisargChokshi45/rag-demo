@@ -26,7 +26,8 @@ interface Citation {
 
 interface ReportData {
   query: string;
-  assessments: Array<{
+  text?: string;
+  assessments?: Array<{
     candidateId: string;
     candidateName: string;
     score: number;
@@ -34,14 +35,14 @@ interface ReportData {
     unknowns: string[];
     citations?: Citation[];
   }>;
-  summary: string;
+  summary?: string;
   reasoning?: string;
   context?: string[];
 }
 
 interface ReportMessage {
   type: 'report';
-  report: ReportData;
+  text: string;
 }
 
 interface ScreeningHistory {
@@ -319,8 +320,11 @@ export default function ScreenPage() {
               collectedToolCalls.push(message);
               setToolCalls((prev) => [...prev, message]);
             } else if (message.type === 'report') {
-              reportData = message.report;
-              setReport(message.report);
+              reportData = {
+                query: screeningQuery,
+                text: message.text,
+              };
+              setReport(reportData);
             } else if (message.type === 'progress') {
               setProgress(message.message);
             }
@@ -341,8 +345,6 @@ export default function ScreenPage() {
             screeningId,
             reportData || {
               query: screeningQuery,
-              assessments: [],
-              summary: '',
             },
             collectedToolCalls,
             'failed'
@@ -409,7 +411,7 @@ export default function ScreenPage() {
                     <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
                       {item.query}
                     </p>
-                    {item.report && (
+                    {item.report && item.report.assessments && (
                       <p className="text-xs text-gray-400 mt-1">
                         {item.report.assessments.length} candidates
                       </p>
@@ -468,9 +470,11 @@ export default function ScreenPage() {
           <div className="max-w-4xl mx-auto">
             {/* Submitted Query Display */}
             {submittedQuery && (
-              <div className="mb-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
-                <p className="text-sm text-gray-600 mb-1">Your Query:</p>
-                <p className="text-gray-900 font-medium">{submittedQuery}</p>
+              <div className="mb-6 flex justify-end">
+                <div className="max-w-[85%] rounded-lg bg-gray-100 p-4 text-white">
+                  <p className="mb-1 text-sm text-gray-600">Your Query:</p>
+                  <p className="text-gray-900 font-medium">{submittedQuery}</p>
+                </div>
               </div>
             )}
 
@@ -519,168 +523,202 @@ export default function ScreenPage() {
 
             {/* Final Report */}
             {report && (
-              <div className="space-y-6">
-                {/* Summary Section */}
-                <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
-                  <h3 className="font-semibold text-green-900 mb-2">Summary</h3>
-                  <p className="text-green-800">{report.summary}</p>
-                </div>
+              <div className="flex justify-start">
+                <div className="w-full max-w-[85%] space-y-6">
+                  {/* Text Report (when available) */}
+                  {report.text && (
+                    <div className="bg-white border border-gray-200 p-6 rounded-lg prose prose-sm max-w-none">
+                      <div className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+                        {report.text}
+                      </div>
+                    </div>
+                  )}
 
-                {/* Reasoning & Thinking Process */}
-                {report.reasoning && (
-                  <div className="bg-purple-50 border border-purple-200 p-6 rounded-lg">
-                    <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                      <span>🧠</span> Thinking Process
-                    </h3>
-                    <p className="text-purple-800 text-sm leading-relaxed">
-                      {report.reasoning}
-                    </p>
-                  </div>
-                )}
+                  {/* Structured Report (fallback) */}
+                  {!report.text && report.summary && (
+                    <>
+                      {/* Summary Section */}
+                      <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
+                        <h3 className="font-semibold text-green-900 mb-2">
+                          Summary
+                        </h3>
+                        <p className="text-green-800">{report.summary}</p>
+                      </div>
 
-                {/* Context Used */}
-                {report.context && report.context.length > 0 && (
-                  <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg">
-                    <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                      <span>📋</span> Context Used
-                    </h3>
-                    <ul className="space-y-2">
-                      {report.context.map((item, i) => (
-                        <li
-                          key={i}
-                          className="text-sm text-indigo-800 flex gap-2"
-                        >
-                          <span className="text-indigo-600 flex-shrink-0">
-                            •
-                          </span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                      {/* Reasoning & Thinking Process */}
+                      {report.reasoning && (
+                        <div className="bg-purple-50 border border-purple-200 p-6 rounded-lg">
+                          <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                            <span>🧠</span> Thinking Process
+                          </h3>
+                          <p className="text-purple-800 text-sm leading-relaxed">
+                            {report.reasoning}
+                          </p>
+                        </div>
+                      )}
 
-                {/* Candidate Assessments */}
-                <div>
-                  <h3 className="font-semibold text-lg mb-4">
-                    Candidate Assessments
-                  </h3>
-                  <div className="space-y-4">
-                    {report.assessments.map((assessment, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
-                      >
-                        {/* Header with Score */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h4 className="font-semibold text-lg">
-                              {assessment.candidateName}
-                            </h4>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-3xl font-bold text-blue-600">
-                              {assessment.score}
-                            </div>
-                            <div className="text-xs text-gray-600">/100</div>
+                      {/* Context Used */}
+                      {report.context && report.context.length > 0 && (
+                        <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg">
+                          <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+                            <span>📋</span> Context Used
+                          </h3>
+                          <ul className="space-y-2">
+                            {report.context.map((item, i) => (
+                              <li
+                                key={i}
+                                className="text-sm text-indigo-800 flex gap-2"
+                              >
+                                <span className="text-indigo-600 flex-shrink-0">
+                                  •
+                                </span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Candidate Assessments */}
+                      {report.assessments && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-4">
+                            Candidate Assessments
+                          </h3>
+                          <div className="space-y-4">
+                            {report.assessments.map((assessment, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
+                              >
+                                {/* Header with Score */}
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-lg">
+                                      {assessment.candidateName}
+                                    </h4>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-3xl font-bold text-blue-600">
+                                      {assessment.score}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      /100
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Evidence */}
+                                {assessment.evidence.length > 0 && (
+                                  <div className="mb-4">
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">
+                                      ✓ Evidence
+                                    </h5>
+                                    <ul className="space-y-1">
+                                      {assessment.evidence.map((item, i) => (
+                                        <li
+                                          key={i}
+                                          className="text-sm text-gray-700 flex gap-2"
+                                        >
+                                          <span className="text-green-600">
+                                            ✓
+                                          </span>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* Unknowns */}
+                                {assessment.unknowns.length > 0 && (
+                                  <div className="mb-4">
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">
+                                      ? Unknowns
+                                    </h5>
+                                    <ul className="space-y-1">
+                                      {assessment.unknowns.map((item, i) => (
+                                        <li
+                                          key={i}
+                                          className="text-sm text-amber-700 flex gap-2"
+                                        >
+                                          <span className="text-amber-600">
+                                            ?
+                                          </span>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* Citations */}
+                                {assessment.citations &&
+                                  assessment.citations.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                      <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                        <span>📌</span> Citations from Resume
+                                      </h5>
+                                      <div className="space-y-2">
+                                        {assessment.citations.map(
+                                          (citation, i) => (
+                                            <div
+                                              key={i}
+                                              className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
+                                            >
+                                              <p className="text-xs text-gray-500 mb-1">
+                                                Source:{' '}
+                                                <span className="font-mono text-blue-600">
+                                                  {citation.tool}
+                                                </span>
+                                              </p>
+                                              <p className="text-sm text-gray-700 italic">
+                                                "
+                                                {citation.content.substring(
+                                                  0,
+                                                  150
+                                                )}
+                                                {citation.content.length > 150
+                                                  ? '...'
+                                                  : ''}
+                                                "
+                                              </p>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                            ))}
                           </div>
                         </div>
-
-                        {/* Evidence */}
-                        {assessment.evidence.length > 0 && (
-                          <div className="mb-4">
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">
-                              ✓ Evidence
-                            </h5>
-                            <ul className="space-y-1">
-                              {assessment.evidence.map((item, i) => (
-                                <li
-                                  key={i}
-                                  className="text-sm text-gray-700 flex gap-2"
-                                >
-                                  <span className="text-green-600">✓</span>
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Unknowns */}
-                        {assessment.unknowns.length > 0 && (
-                          <div className="mb-4">
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">
-                              ? Unknowns
-                            </h5>
-                            <ul className="space-y-1">
-                              {assessment.unknowns.map((item, i) => (
-                                <li
-                                  key={i}
-                                  className="text-sm text-amber-700 flex gap-2"
-                                >
-                                  <span className="text-amber-600">?</span>
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Citations */}
-                        {assessment.citations &&
-                          assessment.citations.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                                <span>📌</span> Citations from Resume
-                              </h5>
-                              <div className="space-y-2">
-                                {assessment.citations.map((citation, i) => (
-                                  <div
-                                    key={i}
-                                    className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
-                                  >
-                                    <p className="text-xs text-gray-500 mb-1">
-                                      Source:{' '}
-                                      <span className="font-mono text-blue-600">
-                                        {citation.tool}
-                                      </span>
-                                    </p>
-                                    <p className="text-sm text-gray-700 italic">
-                                      "{citation.content.substring(0, 150)}
-                                      {citation.content.length > 150
-                                        ? '...'
-                                        : ''}
-                                      "
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
             {isLoading && !report && (
-              <div className="flex items-center gap-3 py-8">
-                <div className="flex gap-1">
-                  <div
-                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                    style={{ animationDelay: '0s' }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.2s' }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.4s' }}
-                  ></div>
+              <div className="flex justify-start">
+                <div className="flex max-w-[85%] items-center gap-3 rounded-lg bg-white px-4 py-4 border border-gray-200">
+                  <div className="flex gap-1">
+                    <div
+                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                      style={{ animationDelay: '0s' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.2s' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.4s' }}
+                    ></div>
+                  </div>
+                  <p className="text-gray-600">{progress || 'Processing...'}</p>
                 </div>
-                <p className="text-gray-600">{progress || 'Processing...'}</p>
               </div>
             )}
 
