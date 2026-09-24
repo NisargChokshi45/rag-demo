@@ -297,7 +297,11 @@ export default function CandidatesPage() {
                 Upload More
               </button>
               <Link
-                href="/screen"
+                href={
+                  selectedJobId
+                    ? `/screen?jobId=${encodeURIComponent(selectedJobId)}`
+                    : '/screen'
+                }
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
               >
                 Screen Candidates

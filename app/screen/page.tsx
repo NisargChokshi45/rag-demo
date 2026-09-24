@@ -113,7 +113,7 @@ export default function ScreenPage() {
 
   useEffect(() => {
     loadHistory();
-    fetch('/api/jobs?active=true')
+    fetch('/api/jobs')
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to load jobs');
