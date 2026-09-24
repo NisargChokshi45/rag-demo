@@ -14,6 +14,40 @@ interface AgentRequest {
   jobId?: string;
 }
 
+function getTextContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+
+  return content
+    .map((part) => {
+      if (typeof part === 'string') return part;
+      if (part && typeof part === 'object' && 'text' in part) {
+        return typeof part.text === 'string' ? part.text : '';
+      }
+      return '';
+    })
+    .join('');
+}
+
+function parseReportResponse(response: unknown): ScreeningReport {
+  const content =
+    response && typeof response === 'object' && 'content' in response
+      ? getTextContent(response.content)
+      : getTextContent(response);
+  const jsonText = content
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const start = jsonText.indexOf('{');
+  const end = jsonText.lastIndexOf('}');
+
+  if (start < 0 || end < start) {
+    throw new Error('Groq returned a report without valid JSON');
+  }
+
+  return ScreeningReportSchema.parse(JSON.parse(jsonText.slice(start, end + 1)));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { query, jobId }: AgentRequest = await request.json();
@@ -166,13 +200,14 @@ Additionally, provide:
 - Key reasoning steps that guided the assessment (e.g., "Used vector search to find candidates with matching skills, then reranked by relevance")
 - Context items used (such as job criteria, search strategies, number of candidates evaluated, tools employed)
 
-Format the response as the structured report schema. Use only candidate IDs, names, and resume excerpts that appear in the tool results. Do not include markdown, headings, or a free-form report outside the schema.
+Return only one valid JSON object matching this exact shape. Do not use markdown fences, headings, commentary, or tool calls. Use JSON strings and arrays exactly as shown:
+{"query":"string","assessments":[{"candidateId":"string","candidateName":"string","score":0,"evidence":["string"],"unknowns":["string"],"citations":[{"candidateId":"string","candidateName":"string","content":"string","tool":"search_chunks"}]}],"summary":"string","reasoning":"string","context":["string"]}
+Use only candidate IDs, names, and resume excerpts that appear in the tool results.
 Format citations as actual text snippets from the resume content shown in the tool results above. Each citation must include the exact candidateId and candidateName from its assessment.`;
 
           // Generate final structured report with timeout
-          const model = getChatModel(0.3).withStructuredOutput(
-            ScreeningReportSchema
-          );
+          // Groq does not support LangChain's synthetic `json` tool strategy.
+          const model = getChatModel(0.3);
           const reportResponse = (await Promise.race([
             model.invoke(reportPrompt),
             new Promise((_, reject) =>
@@ -182,7 +217,7 @@ Format citations as actual text snippets from the resume content shown in the to
               )
             ),
           ])) as unknown;
-          const report = reportResponse as ScreeningReport;
+          const report = parseReportResponse(reportResponse);
 
           const reportMessage = {
             type: 'report',
@@ -198,7 +233,15 @@ Format citations as actual text snippets from the resume content shown in the to
           controller.close();
         } catch (error) {
           console.error('Stream error:', error);
-          controller.error(error);
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Unknown error',
+              }) + '\n'
+            )
+          );
+          controller.close();
         }
       },
     });

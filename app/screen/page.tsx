@@ -55,6 +55,7 @@ interface ReportMessage {
 interface ScreeningHistory {
   id: string;
   query: string;
+  jobId?: string | null;
   timestamp: number;
   report: ReportData | null;
   status?: 'running' | 'completed' | 'failed';
@@ -65,7 +66,13 @@ interface ProgressMessage {
   message: string;
 }
 
-type StreamMessage = ToolCall | ToolResult | ReportMessage | ProgressMessage;
+interface ErrorMessage {
+  type: 'error';
+  message: string;
+}
+
+type StreamMessage =
+  ToolCall | ToolResult | ReportMessage | ProgressMessage | ErrorMessage;
 
 export default function ScreenPage() {
   const [query, setQuery] = useState('');
@@ -76,11 +83,20 @@ export default function ScreenPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<ScreeningHistory[]>([]);
+  const [isHistorySession, setIsHistorySession] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [showToolTrace, setShowToolTrace] = useState(false);
   const [inspector, setInspector] = useState<'sources' | 'tools' | null>(null);
+  const [citationAssessmentIndex, setCitationAssessmentIndex] = useState<
+    number | null
+  >(null);
+  const [openReportSection, setOpenReportSection] = useState<
+    'summary' | 'reasoning' | 'context' | null
+  >('summary');
+  const [assessmentView, setAssessmentView] = useState<'list' | 'table'>(
+    'list'
+  );
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -96,6 +112,7 @@ export default function ScreenPage() {
           (s: any) => ({
             id: s.id,
             query: s.query,
+            jobId: s.job_id,
             timestamp: new Date(s.created_at).getTime(),
             report: s.report,
             status: s.status,
@@ -194,7 +211,9 @@ export default function ScreenPage() {
   };
 
   const loadFromHistory = async (item: ScreeningHistory) => {
-    setQuery(item.query);
+    setIsHistorySession(true);
+    setSelectedJobId(item.jobId || '');
+    setQuery('');
     setSubmittedQuery(item.query);
     setToolCalls([]);
     setError(null);
@@ -204,6 +223,7 @@ export default function ScreenPage() {
       const response = await fetch(`/api/screenings/${item.id}`);
       if (response.ok) {
         const screening = await response.json();
+        setSelectedJobId(screening.job_id || '');
         const report: ReportData = screening.report || {
           query: screening.query,
           summary: screening.summary,
@@ -386,6 +406,8 @@ export default function ScreenPage() {
               setReport(reportData);
             } else if (message.type === 'progress') {
               setProgress(message.message);
+            } else if (message.type === 'error') {
+              throw new Error(message.message);
             }
           } catch (parseError) {
             console.error('Failed to parse message:', line, parseError);
@@ -433,6 +455,7 @@ export default function ScreenPage() {
           </h2>
           <button
             onClick={() => {
+              setIsHistorySession(false);
               setQuery('');
               setSubmittedQuery('');
               setReport(null);
@@ -544,42 +567,6 @@ export default function ScreenPage() {
               </div>
             )}
 
-            {/* Tool Calls Trace - Hidden by Default */}
-            {toolCalls.length > 0 && (
-              <div className="mb-6">
-                <button
-                  onClick={() => setShowToolTrace(!showToolTrace)}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 font-medium mb-3"
-                >
-                  <span>{showToolTrace ? '▼' : '▶'}</span>
-                  <span>
-                    🔧 View Agent Reasoning ({toolCalls.length} tool calls)
-                  </span>
-                </button>
-                {showToolTrace && (
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                    <div className="space-y-2">
-                      {toolCalls.map((call, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-white p-3 rounded border border-gray-100 text-xs"
-                        >
-                          <p className="font-mono font-semibold text-gray-700">
-                            {call.toolName}
-                          </p>
-                          {Object.keys(call.toolInput).length > 0 && (
-                            <pre className="mt-1 text-xs bg-gray-50 p-1 rounded overflow-auto max-h-16 text-gray-600">
-                              {JSON.stringify(call.toolInput, null, 2)}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Final Report */}
             {report && (
               <div className="flex justify-start">
@@ -596,10 +583,26 @@ export default function ScreenPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setInspector('sources')}
+                          onClick={() => {
+                            setCitationAssessmentIndex(null);
+                            setInspector('sources');
+                          }}
                           className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                         >
                           View sources
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAssessmentView((view) =>
+                              view === 'list' ? 'table' : 'list'
+                            )
+                          }
+                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                        >
+                          {assessmentView === 'list'
+                            ? 'Table view'
+                            : 'List view'}
                         </button>
                         <button
                           type="button"
@@ -609,47 +612,76 @@ export default function ScreenPage() {
                           Tool calls ({toolCalls.length})
                         </button>
                       </div>
-                      {/* Summary Section */}
-                      <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
-                        <h3 className="font-semibold text-green-900 mb-2">
-                          Summary
-                        </h3>
-                        <p className="text-green-800">{report.summary}</p>
-                      </div>
-
-                      {/* Reasoning & Thinking Process */}
-                      {report.reasoning && (
-                        <div className="bg-purple-50 border border-purple-200 p-6 rounded-lg">
-                          <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                            <span>🧠</span> Thinking Process
-                          </h3>
-                          <p className="text-purple-800 text-sm leading-relaxed">
-                            {report.reasoning}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Context Used */}
-                      {report.context && report.context.length > 0 && (
-                        <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg">
-                          <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                            <span>📋</span> Context Used
-                          </h3>
-                          <ul className="space-y-2">
-                            {report.context.map((item, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-indigo-800 flex gap-2"
+                      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        {[
+                          {
+                            key: 'summary' as const,
+                            label: 'Summary',
+                            content: report.summary,
+                          },
+                          {
+                            key: 'reasoning' as const,
+                            label: 'Thinking Process',
+                            content: report.reasoning,
+                          },
+                          {
+                            key: 'context' as const,
+                            label: 'Context Used',
+                            content: report.context?.join('\n'),
+                          },
+                        ].map((section, index) =>
+                          section.content ? (
+                            <div
+                              key={section.key}
+                              className={
+                                index > 0 ? 'border-t border-gray-200' : ''
+                              }
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenReportSection(
+                                    openReportSection === section.key
+                                      ? null
+                                      : section.key
+                                  )
+                                }
+                                className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+                                aria-expanded={
+                                  openReportSection === section.key
+                                }
                               >
-                                <span className="text-indigo-600 flex-shrink-0">
-                                  •
+                                <span className="font-semibold text-gray-900">
+                                  {section.label}
                                 </span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                                <span className="text-gray-400">
+                                  {openReportSection === section.key
+                                    ? '−'
+                                    : '+'}
+                                </span>
+                              </button>
+                              {openReportSection === section.key && (
+                                <div className="whitespace-pre-line border-t border-gray-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
+                                  {section.key === 'context' ? (
+                                    <ul className="space-y-2">
+                                      {report.context?.map((item, i) => (
+                                        <li key={i} className="flex gap-2">
+                                          <span className="text-gray-400">
+                                            •
+                                          </span>
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    section.content
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : null
+                        )}
+                      </div>
 
                       {/* Candidate Assessments */}
                       {report.assessments && (
@@ -657,113 +689,164 @@ export default function ScreenPage() {
                           <h3 className="font-semibold text-lg mb-4">
                             Candidate Assessments
                           </h3>
-                          <div className="space-y-4">
-                            {report.assessments.map((assessment, idx) => (
-                              <div
-                                key={idx}
-                                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
-                              >
-                                {/* Header with Score */}
-                                <div className="flex items-start justify-between mb-4">
-                                  <div>
-                                    <h4 className="font-semibold text-lg">
-                                      {assessment.candidateName}
-                                    </h4>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-3xl font-bold text-blue-600">
-                                      {assessment.score}
-                                    </div>
-                                    <div className="text-xs text-gray-600">
-                                      /100
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Evidence */}
-                                {assessment.evidence.length > 0 && (
-                                  <div className="mb-4">
-                                    <h5 className="text-sm font-medium text-gray-700 mb-2">
-                                      ✓ Evidence
-                                    </h5>
-                                    <ul className="space-y-1">
-                                      {assessment.evidence.map((item, i) => (
-                                        <li
-                                          key={i}
-                                          className="text-sm text-gray-700 flex gap-2"
-                                        >
-                                          <span className="text-green-600">
-                                            ✓
-                                          </span>
-                                          {item}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Unknowns */}
-                                {assessment.unknowns.length > 0 && (
-                                  <div className="mb-4">
-                                    <h5 className="text-sm font-medium text-gray-700 mb-2">
-                                      ? Unknowns
-                                    </h5>
-                                    <ul className="space-y-1">
-                                      {assessment.unknowns.map((item, i) => (
-                                        <li
-                                          key={i}
-                                          className="text-sm text-amber-700 flex gap-2"
-                                        >
-                                          <span className="text-amber-600">
-                                            ?
-                                          </span>
-                                          {item}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Citations */}
-                                {assessment.citations &&
-                                  assessment.citations.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-gray-100">
-                                      <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                                        <span>📌</span> Citations from Resume
-                                      </h5>
-                                      <div className="space-y-2">
-                                        {assessment.citations.map(
-                                          (citation, i) => (
-                                            <div
-                                              key={i}
-                                              className="bg-gray-50 p-3 rounded border-l-4 border-blue-400"
-                                            >
-                                              <p className="text-xs text-gray-500 mb-1">
-                                                Source:{' '}
-                                                <span className="font-mono text-blue-600">
-                                                  {citation.tool}
+                          {assessmentView === 'table' ? (
+                            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                              <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+                                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                                  <tr>
+                                    <th className="px-4 py-3">Candidate</th>
+                                    <th className="px-4 py-3">Score</th>
+                                    <th className="px-4 py-3">Evidence</th>
+                                    <th className="px-4 py-3">Unknowns</th>
+                                    <th className="px-4 py-3">
+                                      Resume citations
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {report.assessments.map((assessment, idx) => (
+                                    <tr
+                                      key={idx}
+                                      className="align-top hover:bg-gray-50"
+                                    >
+                                      <td className="px-4 py-4">
+                                        <div className="font-bold text-gray-900">
+                                          {assessment.candidateName}
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-xs text-gray-500">
+                                          {assessment.candidateId}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <span className="text-2xl font-bold text-blue-600">
+                                          {assessment.score}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          /100
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <ul className="space-y-2">
+                                          {assessment.evidence.map(
+                                            (item, i) => (
+                                              <li
+                                                key={i}
+                                                className="font-semibold text-gray-700"
+                                              >
+                                                <span className="mr-1 text-green-600">
+                                                  ✓
                                                 </span>
-                                              </p>
-                                              <p className="text-sm text-gray-700 italic">
-                                                "
-                                                {citation.content.substring(
-                                                  0,
-                                                  150
-                                                )}
-                                                {citation.content.length > 150
-                                                  ? '...'
-                                                  : ''}
-                                                "
-                                              </p>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
+                                                {item}
+                                              </li>
+                                            )
+                                          )}
+                                        </ul>
+                                      </td>
+                                      <td className="px-4 py-4 text-amber-700">
+                                        <ul className="space-y-2">
+                                          {assessment.unknowns.map(
+                                            (item, i) => (
+                                              <li key={i}>
+                                                <span className="mr-1 text-amber-600">
+                                                  ?
+                                                </span>
+                                                {item}
+                                              </li>
+                                            )
+                                          )}
+                                        </ul>
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setCitationAssessmentIndex(idx);
+                                            setInspector('sources');
+                                          }}
+                                          className="font-semibold text-blue-700 hover:text-blue-900"
+                                        >
+                                          View citations (
+                                          {(assessment.citations || []).length})
+                                          →
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {report.assessments.map((assessment, idx) => (
+                                <article
+                                  key={idx}
+                                  className="rounded-lg border border-gray-200 bg-white p-4"
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <h4 className="font-bold text-gray-900">
+                                        {assessment.candidateName}
+                                      </h4>
+                                      <p className="mt-1 break-all font-mono text-xs text-gray-500">
+                                        {assessment.candidateId}
+                                      </p>
                                     </div>
-                                  )}
-                              </div>
-                            ))}
-                          </div>
+                                    <div className="shrink-0 text-right">
+                                      <span className="text-2xl font-bold text-blue-600">
+                                        {assessment.score}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        /100
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        Evidence
+                                      </h5>
+                                      <ul className="space-y-2 text-sm text-gray-700">
+                                        {assessment.evidence.map((item, i) => (
+                                          <li key={i} className="flex gap-2">
+                                            <span className="text-green-600">
+                                              •
+                                            </span>
+                                            <strong>{item}</strong>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div>
+                                      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                        Unknowns
+                                      </h5>
+                                      <ul className="space-y-2 text-sm text-gray-700">
+                                        {assessment.unknowns.map((item, i) => (
+                                          <li key={i} className="flex gap-2">
+                                            <span className="text-amber-600">
+                                              •
+                                            </span>
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCitationAssessmentIndex(idx);
+                                      setInspector('sources');
+                                    }}
+                                    className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
+                                  >
+                                    Resume citations (
+                                    {(assessment.citations || []).length}) →
+                                  </button>
+                                </article>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
@@ -822,7 +905,7 @@ export default function ScreenPage() {
                   value={selectedJobId}
                   onChange={(e) => setSelectedJobId(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 text-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-                  disabled={isLoading}
+                  disabled={isLoading || isHistorySession}
                 >
                   <option value="">General screening criteria</option>
                   {jobs.map((job) => (
@@ -846,10 +929,10 @@ export default function ScreenPage() {
                 disabled={isLoading}
                 aria-describedby="screening-prompt-hint"
               />
-              <p id="screening-prompt-hint" className="text-xs text-gray-500">
+              {/* <p id="screening-prompt-hint" className="text-xs text-gray-500">
                 Press Shift+Enter for a new line. Press Enter to screen
                 candidates.
-              </p>
+              </p> */}
               <button
                 type="submit"
                 disabled={isLoading || !query.trim()}
@@ -857,6 +940,7 @@ export default function ScreenPage() {
               >
                 {isLoading ? 'Screening...' : 'Screen Candidates'}
               </button>
+              <p id="screening-prompt-hint" className="text-center text-xs text-gray-500">AI can make mistakes. Please verify important information.</p>
             </form>
           </div>
         </div>
@@ -875,7 +959,11 @@ export default function ScreenPage() {
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-gray-200 p-4">
               <h2 className="font-semibold text-gray-900">
-                {inspector === 'sources' ? 'Sources' : 'Tool calls'}
+                {inspector === 'sources'
+                  ? citationAssessmentIndex === null
+                    ? 'Resume citations'
+                    : `Citations: ${report?.assessments?.[citationAssessmentIndex]?.candidateName || 'Candidate'}`
+                  : 'Tool calls'}
               </h2>
               <button
                 type="button"
@@ -889,24 +977,36 @@ export default function ScreenPage() {
             <div className="flex-1 overflow-y-auto p-4">
               {inspector === 'sources' ? (
                 <div className="space-y-3">
-                  {(report?.assessments || []).flatMap((assessment) =>
-                    (assessment.citations || []).map((citation, index) => (
-                      <div
-                        key={`${citation.candidateId}-${index}`}
-                        className="rounded border border-gray-200 bg-gray-50 p-3"
-                      >
-                        <p className="text-xs font-semibold text-blue-700">
-                          {citation.candidateName} · {citation.tool}
-                        </p>
-                        <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                          “{citation.content}”
-                        </p>
-                      </div>
-                    ))
-                  )}
-                  {!report?.assessments?.some(
-                    (assessment) => (assessment.citations || []).length > 0
-                  ) && (
+                  {(report?.assessments || [])
+                    .filter(
+                      (_, index) =>
+                        citationAssessmentIndex === null ||
+                        index === citationAssessmentIndex
+                    )
+                    .flatMap((assessment) =>
+                      (assessment.citations || []).map((citation, index) => (
+                        <div
+                          key={`${citation.candidateId}-${index}`}
+                          className="rounded border border-gray-200 bg-gray-50 p-3"
+                        >
+                          <p className="text-xs font-semibold text-blue-700">
+                            {citation.candidateName} · {citation.tool}
+                          </p>
+                          <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                            “{citation.content}”
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  {!report?.assessments
+                    ?.filter(
+                      (_, index) =>
+                        citationAssessmentIndex === null ||
+                        index === citationAssessmentIndex
+                    )
+                    .some(
+                      (assessment) => (assessment.citations || []).length > 0
+                    ) && (
                     <p className="text-sm text-gray-500">
                       No sources were returned.
                     </p>
