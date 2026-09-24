@@ -29,16 +29,16 @@ export default function RootLayout({
             </Link>
             <nav className="flex flex-wrap justify-center gap-4 sm:gap-6 items-center">
               <Link
-                href="/candidates"
-                className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-              >
-                Candidates
-              </Link>
-              <Link
                 href="/jobs"
                 className="text-gray-600 hover:text-gray-900 font-medium text-sm"
               >
                 Jobs
+              </Link>
+              <Link
+                href="/candidates"
+                className="text-gray-600 hover:text-gray-900 font-medium text-sm"
+              >
+                Candidates
               </Link>
               <Link
                 href="/screen"
