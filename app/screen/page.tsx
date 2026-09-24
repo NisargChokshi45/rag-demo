@@ -4,7 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { updateScreeningFeedback } from '@/lib/screenings-api';
 
 type IconName =
-  'copy' | 'edit' | 'eye' | 'like' | 'dislike' | 'retry' | 'user' | 'assistant';
+  | 'copy'
+  | 'edit'
+  | 'eye'
+  | 'like'
+  | 'dislike'
+  | 'retry'
+  | 'user'
+  | 'assistant'
+  | 'close';
 
 function Icon({ name }: { name: IconName }) {
   const paths = {
@@ -44,16 +52,21 @@ function Icon({ name }: { name: IconName }) {
         <path d="M12 7V4m-2 0h4M8.5 12h.01M15.5 12h.01M9 16h6" />
       </>
     ),
+    close: <path d="m6 6 12 12M18 6 6 18" />,
   }[name];
 
   return (
     <svg
       viewBox="0 0 24 24"
+      width="16"
+      height="16"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
-      className="h-4 w-4"
+      className="block h-4 w-4 shrink-0"
     >
       {paths}
     </svg>
@@ -80,6 +93,13 @@ interface ToolResult {
   type: 'tool-result';
   toolName: string;
   result: unknown;
+}
+
+interface SearchChunkCandidate {
+  candidateId: string;
+  candidateName: string;
+  relevanceScore?: number;
+  topChunks: string[];
 }
 
 interface Citation {
@@ -203,10 +223,16 @@ export default function ScreenPage() {
   const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [inspector, setInspector] = useState<'resume' | null>(null);
+  const [inspector, setInspector] = useState<'resume' | 'chunks' | null>(null);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [resume, setResume] = useState<{
     name: string;
     pdfUrl: string;
+  } | null>(null);
+  const [selectedSearchChunks, setSelectedSearchChunks] = useState<{
+    candidateName: string;
+    query: string;
+    chunks: string[];
   } | null>(null);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(380);
@@ -480,6 +506,7 @@ export default function ScreenPage() {
       if (!response.ok) throw new Error(data.error || 'Unable to load resume');
       setResume({ name: candidateName, pdfUrl: data.pdfUrl });
       setInspector('resume');
+      setInspectorCollapsed(false);
     } catch (resumeError) {
       setError(
         resumeError instanceof Error
@@ -487,6 +514,54 @@ export default function ScreenPage() {
           : 'Unable to load resume'
       );
     }
+  };
+
+  const viewCitation = (citation: Citation) => {
+    const matchingSearch = [...toolCalls].reverse().find((call) => {
+      if (
+        call.toolName !== 'search_chunks' ||
+        typeof call.result !== 'string'
+      ) {
+        return false;
+      }
+
+      try {
+        const parsed = JSON.parse(call.result) as {
+          results?: SearchChunkCandidate[];
+        };
+        return parsed.results?.some(
+          (candidate) => candidate.candidateId === citation.candidateId
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    let chunks: string[] = [];
+    if (matchingSearch && typeof matchingSearch.result === 'string') {
+      try {
+        const parsed = JSON.parse(matchingSearch.result) as {
+          results?: SearchChunkCandidate[];
+        };
+        chunks =
+          parsed.results?.find(
+            (candidate) => candidate.candidateId === citation.candidateId
+          )?.topChunks || [];
+      } catch {
+        chunks = [];
+      }
+    }
+
+    setSelectedSearchChunks({
+      candidateName: citation.candidateName,
+      query:
+        typeof matchingSearch?.toolInput.query === 'string'
+          ? matchingSearch.toolInput.query
+          : 'Search results',
+      chunks: chunks.length > 0 ? chunks : [citation.content],
+    });
+    setInspector('chunks');
+    setInspectorCollapsed(false);
   };
 
   const startInspectorResize = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -607,28 +682,42 @@ export default function ScreenPage() {
                 </div>
                 {assessment.citations && assessment.citations.length > 0 && (
                   <div className="mt-4 border-t border-gray-100 pt-4">
-                    <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const searchChunksCitation = assessment.citations?.find(
+                          (citation) => citation.tool === 'search_chunks'
+                        );
+                        if (searchChunksCitation) {
+                          viewCitation(searchChunksCitation);
+                        }
+                      }}
+                      disabled={
+                        !assessment.citations.some(
+                          (citation) => citation.tool === 'search_chunks'
+                        )
+                      }
+                      className="mb-2 text-left text-xs font-bold uppercase tracking-wide text-gray-500 hover:text-blue-700 disabled:cursor-default disabled:hover:text-gray-500"
+                    >
                       Resume Citations
-                    </h5>
+                    </button>
                     <ul className="space-y-2 text-sm text-gray-700">
                       {assessment.citations.map((citation, citationIndex) => (
                         <li key={`${reportKey}-citation-${citationIndex}`}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              viewResume(
-                                citation.candidateId,
-                                citation.candidateName
-                              )
-                            }
-                            className="w-full rounded p-1 text-left hover:bg-blue-50 hover:text-blue-700"
-                            title="Open citation in sidebar"
+                          <a
+                            href="#search-chunks"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              viewCitation(citation);
+                            }}
+                            className="block rounded p-1 text-left hover:bg-blue-50 hover:text-blue-700"
+                            title="Open search chunks in sidebar"
                           >
                             <span className="font-medium text-gray-500">
                               {citation.tool}:{' '}
                             </span>
                             {citation.content}
-                          </button>
+                          </a>
                         </li>
                       ))}
                     </ul>
@@ -801,12 +890,12 @@ export default function ScreenPage() {
       : conversation;
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-gray-50 flex">
+    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <div
         className={`${
           sidebarOpen ? 'w-64' : 'w-0'
-        } bg-white border-r border-gray-200 transition-all duration-200 overflow-hidden flex flex-col`}
+        } flex h-full shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-200`}
       >
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900 mb-2">
@@ -880,8 +969,10 @@ export default function ScreenPage() {
         {history.length > 0 && (
           <div className="p-4 border-t border-gray-200">
             <button
-              onClick={clearHistory}
-              className="w-full px-3 py-2 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition"
+              // onClick={clearHistory}
+              disabled
+              title="Clear History is temporarily disabled"
+              className="w-full px-3 py-2 text-xs text-gray-400 border border-gray-200 rounded cursor-not-allowed"
             >
               Clear History
             </button>
@@ -890,7 +981,7 @@ export default function ScreenPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Toggle Button */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -910,7 +1001,7 @@ export default function ScreenPage() {
         </div> */}
 
         {/* Results Area */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
             {previousConversation.length > 0 && (
               <div className="mb-6 space-y-4">
@@ -931,23 +1022,41 @@ export default function ScreenPage() {
                       </span>
                     )}
                     <div
-                      className={`max-w-[85%] rounded-lg p-4 ${
+                      className={`max-w-[85%] ${
                         message.role === 'user'
-                          ? 'bg-gray-100 text-gray-900'
-                          : 'border border-gray-200 bg-white text-gray-700'
+                          ? 'flex w-fit max-w-[70%] flex-col items-end text-gray-900'
+                          : 'text-gray-700'
                       }`}
                     >
-                      {getConversationReport(message) ? (
-                        renderReport(
-                          getConversationReport(message) as ReportData,
-                          `conversation-${index}`
-                        )
-                      ) : (
-                        <p className="whitespace-pre-line text-sm leading-relaxed">
-                          {getConversationPreview(message)}
-                        </p>
-                      )}
-                      <div className="mt-2 flex justify-end gap-1 text-gray-500">
+                      <div
+                        className={
+                          message.role === 'user'
+                            ? 'rounded-lg bg-gray-100 p-4'
+                            : ''
+                        }
+                      >
+                        {getConversationReport(message) ? (
+                          renderReport(
+                            getConversationReport(message) as ReportData,
+                            `conversation-${index}`
+                          )
+                        ) : (
+                          <p
+                            className={`whitespace-pre-line text-sm leading-relaxed ${
+                              message.role === 'user' ? 'font-medium' : ''
+                            }`}
+                          >
+                            {getConversationPreview(message)}
+                          </p>
+                        )}
+                      </div>
+                      <div
+                        className={`mt-2 flex gap-1 text-gray-500 ${
+                          message.role === 'user'
+                            ? 'w-full justify-end'
+                            : 'justify-start'
+                        }`}
+                      >
                         {message.role === 'user' ? (
                           <>
                             <button
@@ -1239,13 +1348,13 @@ export default function ScreenPage() {
         </div>
 
         {/* Input Area - Bottom Fixed */}
-        <div className="border-t border-gray-200 bg-white p-6 md:p-8">
+        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-white px-4 py-3 md:px-6 md:py-4">
           <div className="max-w-4xl mx-auto">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex flex-col gap-3 sm:gap-3">
+            <form onSubmit={handleSubmit} className="space-y-2">
+              <div className="flex flex-col gap-1">
                 <label
                   htmlFor="job"
-                  className="text-sm font-medium text-gray-700"
+                  className="text-xs font-medium text-gray-700"
                 >
                   Screen for job (optional)
                 </label>
@@ -1253,7 +1362,7 @@ export default function ScreenPage() {
                   id="job"
                   value={selectedJobId}
                   onChange={(e) => setSelectedJobId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 text-sm transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
                   disabled={isLoading || isHistorySession}
                 >
                   <option value="">General screening criteria</option>
@@ -1274,7 +1383,7 @@ export default function ScreenPage() {
                   }
                 }}
                 placeholder="Ask screening questions (e.g., 'Find candidates with Java and AWS experience')"
-                className="w-full h-24 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="h-16 w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-blue-500"
                 disabled={isLoading}
                 aria-describedby="screening-prompt-hint"
               />
@@ -1285,7 +1394,7 @@ export default function ScreenPage() {
               <button
                 type="submit"
                 disabled={isLoading || !query.trim()}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium transition"
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:bg-gray-400"
               >
                 {isLoading ? 'Screening...' : 'Screen Candidates'}
               </button>
@@ -1302,42 +1411,85 @@ export default function ScreenPage() {
 
       {inspector && (
         <aside
-          style={{ width: inspectorWidth }}
-          className="fixed right-0 top-0 z-20 flex h-screen max-w-[90vw] border-l border-gray-200 bg-white shadow-xl"
+          id="search-chunks"
+          style={{ width: inspectorCollapsed ? 48 : inspectorWidth }}
+          className={`fixed right-0 top-0 z-20 flex h-screen max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200 ${inspectorCollapsed ? 'w-12' : ''}`}
         >
-          <div
-            onMouseDown={startInspectorResize}
-            className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
-            title="Resize panel"
-          />
+          {!inspectorCollapsed && (
+            <div
+              onMouseDown={startInspectorResize}
+              className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
+              title="Resize panel"
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between border-b border-gray-200 p-4">
-              <h2 className="font-semibold text-gray-900">
-                {`Resume: ${resume?.name || 'Candidate'}`}
-              </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setInspector(null);
-                  setResume(null);
-                }}
-                className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                aria-label="Close inspector"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {resume ? (
-                <iframe
-                  src={resume.pdfUrl}
-                  title={`Resume PDF: ${resume.name}`}
-                  className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
-                />
-              ) : (
-                <p className="text-sm text-gray-500">Loading resume...</p>
+            <div className="flex items-center justify-between gap-2 border-b border-gray-200 p-4">
+              {!inspectorCollapsed && (
+                <h2 className="min-w-0 truncate font-semibold text-gray-900">
+                  {inspector === 'chunks'
+                    ? `Search chunks: ${selectedSearchChunks?.candidateName || 'Candidate'}`
+                    : `Resume: ${resume?.name || 'Candidate'}`}
+                </h2>
               )}
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setInspectorCollapsed((collapsed) => !collapsed)
+                  }
+                  className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  aria-expanded={!inspectorCollapsed}
+                  aria-label={
+                    inspectorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+                  }
+                  title={
+                    inspectorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+                  }
+                >
+                  {inspectorCollapsed ? '>' : '<'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspector(null);
+                    setResume(null);
+                    setSelectedSearchChunks(null);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  aria-label="Close sidebar"
+                  title="Close sidebar"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
             </div>
+            {!inspectorCollapsed && (
+              <div className="flex-1 overflow-y-auto p-4">
+                {inspector === 'chunks' && selectedSearchChunks ? (
+                  <div className="space-y-4 text-sm text-gray-700">
+                    <p className="rounded bg-gray-50 p-3 text-gray-600">
+                      Search: {selectedSearchChunks.query}
+                    </p>
+                    {selectedSearchChunks.chunks.map((chunk, index) => (
+                      <article
+                        key={`search-chunk-${index}`}
+                        className="rounded border border-gray-200 p-3 leading-relaxed"
+                      >
+                        {chunk}
+                      </article>
+                    ))}
+                  </div>
+                ) : resume ? (
+                  <iframe
+                    src={resume.pdfUrl}
+                    title={`Resume PDF: ${resume.name}`}
+                    className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500">Loading resume...</p>
+                )}
+              </div>
+            )}
           </div>
         </aside>
       )}
