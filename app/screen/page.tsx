@@ -271,7 +271,9 @@ export default function ScreenPage() {
     e.preventDefault();
     if (!query.trim()) return;
 
-    setSubmittedQuery(query);
+    const screeningQuery = query.trim();
+    setSubmittedQuery(screeningQuery);
+    setQuery('');
     setIsLoading(true);
     setError(null);
     setToolCalls([]);
@@ -282,7 +284,10 @@ export default function ScreenPage() {
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, jobId: selectedJobId || undefined }),
+        body: JSON.stringify({
+          query: screeningQuery,
+          jobId: selectedJobId || undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -330,8 +335,7 @@ export default function ScreenPage() {
       }
 
       if (reportData) {
-        saveToHistory(query, reportData);
-        setQuery('');
+        saveToHistory(screeningQuery, reportData);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

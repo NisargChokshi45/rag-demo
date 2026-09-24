@@ -147,17 +147,18 @@ Tool Calls and Results (these contain resume chunks and candidate information):
 ${contextForReport}
 
 For each candidate assessment, include:
-1. ID, name, and relevance score (0-100)
+1. ID, name, and relevance score (0-100). Use the candidate ID and name returned by the tools exactly.
 2. Evidence from the resume (key qualifications that match the query)
 3. Unknowns or gaps in the resume
-4. Citations: Include 1-3 relevant resume excerpts from the tool results (each 80-150 chars) that directly support the assessment. Include the tool name that provided each citation (search_chunks or get_full_resume).
+4. Citations: Include 1-3 relevant resume excerpts from the tool results (each 80-150 chars) that directly support the assessment. Include the tool name that provided each citation (search_chunks or get_full_resume). Every citation MUST also include the enclosing assessment's exact 'candidateId' and 'candidateName'; these fields are required even though they repeat the assessment.
 
 Additionally, provide:
 - A summary of the screening explaining how candidates were evaluated
 - Key reasoning steps that guided the assessment (e.g., "Used vector search to find candidates with matching skills, then reranked by relevance")
 - Context items used (such as job criteria, search strategies, number of candidates evaluated, tools employed)
 
-Format citations as actual text snippets from the resume content shown in the tool results above.`;
+Format citations as actual text snippets from the resume content shown in the tool results above. A citation must have this shape:
+{"candidateId":"<same candidate ID as the assessment>","candidateName":"<same candidate name as the assessment>","content":"<resume excerpt>","tool":"search_chunks"}`;
 
           // Generate final structured report with timeout
           const structuredOutput = getChatModel(0.3).withStructuredOutput(
