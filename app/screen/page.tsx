@@ -441,19 +441,18 @@ export default function ScreenPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const clearHistory = async () => {
-    // Delete all screenings from Supabase
-    for (const item of history) {
-      try {
-        await fetch(`/api/screenings/${item.id}`, { method: 'DELETE' });
-      } catch (err) {
-        console.error('Error deleting screening:', err);
-      }
-    }
-    setHistory([]);
-    localStorage.removeItem('screeningHistory');
-  };
+  // const clearHistory = async () => {
+  //   // Delete all screenings from Supabase
+  //   for (const item of history) {
+  //     try {
+  //       await fetch(`/api/screenings/${item.id}`, { method: 'DELETE' });
+  //     } catch (err) {
+  //       console.error('Error deleting screening:', err);
+  //     }
+  //   }
+  //   setHistory([]);
+  //   localStorage.removeItem('screeningHistory');
+  // };
 
   const copyText = async (text: string) => {
     await navigator.clipboard.writeText(text);
