@@ -24,6 +24,12 @@ interface ReportData {
   context?: string[];
 }
 
+interface ToolCallRecord {
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  result?: unknown;
+}
+
 // GET /api/screenings/:id - Get a specific screening with all details
 export async function GET(
   _request: NextRequest,
@@ -48,6 +54,7 @@ export async function GET(
         status,
         response_text,
         metadata,
+        tool_calls,
         completed_at,
         reasoning,
         context,
@@ -110,6 +117,7 @@ export async function PATCH(
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
       metadata?: Record<string, unknown>;
+      toolCalls?: ToolCallRecord[];
       responseText?: string;
     };
     const client = createServiceClient();
@@ -152,6 +160,7 @@ export async function PATCH(
         : {}),
       ...(body.status ? { status: body.status } : {}),
       ...(body.metadata ? { metadata: body.metadata } : {}),
+      ...(body.toolCalls ? { tool_calls: body.toolCalls } : {}),
       ...(body.status === 'completed'
         ? { completed_at: new Date().toISOString() }
         : {}),

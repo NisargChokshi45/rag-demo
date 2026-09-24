@@ -7,6 +7,7 @@ import { createAgentTools } from '@/lib/agent-tools';
 import { getChatModel } from '@/lib/models';
 import { getJobById } from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
+import { ScreeningReportSchema, type ScreeningReport } from '@/lib/schema';
 
 interface AgentRequest {
   query: string;
@@ -111,6 +112,15 @@ export async function POST(request: NextRequest) {
                 const lastToolCall = toolCalls[toolCalls.length - 1];
                 if (lastToolCall.toolName === event.name) {
                   lastToolCall.result = event.data?.output;
+                  controller.enqueue(
+                    encoder.encode(
+                      JSON.stringify({
+                        type: 'tool-result',
+                        toolName: event.name,
+                        result: event.data?.output,
+                      }) + '\n'
+                    )
+                  );
                 }
               }
             }
@@ -156,11 +166,13 @@ Additionally, provide:
 - Key reasoning steps that guided the assessment (e.g., "Used vector search to find candidates with matching skills, then reranked by relevance")
 - Context items used (such as job criteria, search strategies, number of candidates evaluated, tools employed)
 
-Format citations as actual text snippets from the resume content shown in the tool results above. A citation must have this shape:
-{"candidateId":"<same candidate ID as the assessment>","candidateName":"<same candidate name as the assessment>","content":"<resume excerpt>","tool":"search_chunks"}`;
+Format the response as the structured report schema. Use only candidate IDs, names, and resume excerpts that appear in the tool results. Do not include markdown, headings, or a free-form report outside the schema.
+Format citations as actual text snippets from the resume content shown in the tool results above. Each citation must include the exact candidateId and candidateName from its assessment.`;
 
           // Generate final structured report with timeout
-          const model = getChatModel(0.3);
+          const model = getChatModel(0.3).withStructuredOutput(
+            ScreeningReportSchema
+          );
           const reportResponse = (await Promise.race([
             model.invoke(reportPrompt),
             new Promise((_, reject) =>
@@ -170,20 +182,14 @@ Format citations as actual text snippets from the resume content shown in the to
               )
             ),
           ])) as unknown;
-
-          // Extract text from response (handles both string and object returns)
-          const reportText =
-            typeof reportResponse === 'string'
-              ? reportResponse
-              : typeof reportResponse === 'object' &&
-                  reportResponse !== null &&
-                  'content' in reportResponse
-                ? (reportResponse as { content: string }).content
-                : JSON.stringify(reportResponse);
+          const report = reportResponse as ScreeningReport;
 
           const reportMessage = {
             type: 'report',
-            text: reportText,
+            report: {
+              ...report,
+              query,
+            },
           };
 
           controller.enqueue(

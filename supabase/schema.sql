@@ -52,6 +52,7 @@ create table if not exists screenings (
   status text not null default 'completed',
   response_text text,
   metadata jsonb not null default '{}'::jsonb,
+  tool_calls jsonb not null default '[]'::jsonb,
   completed_at timestamptz,
   created_at timestamptz default now()
 );

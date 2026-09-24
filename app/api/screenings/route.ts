@@ -31,6 +31,12 @@ interface ScreeningMetadata {
   [key: string]: unknown;
 }
 
+interface ToolCallRecord {
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  result?: unknown;
+}
+
 function responseText(report: ReportData): string {
   return [report.summary, report.reasoning, ...(report.context || [])]
     .filter(Boolean)
@@ -89,12 +95,14 @@ export async function POST(request: NextRequest) {
       report,
       status = report ? 'completed' : 'running',
       metadata = {},
+      toolCalls = [],
     }: {
       jobId?: string;
       query: string;
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
       metadata?: ScreeningMetadata;
+      toolCalls?: ToolCallRecord[];
     } = body;
 
     if (!query) {
@@ -120,6 +128,7 @@ export async function POST(request: NextRequest) {
         status,
         response_text: report ? responseText(report) : null,
         metadata,
+        tool_calls: toolCalls,
         completed_at: report ? new Date().toISOString() : null,
       })
       .select()
@@ -160,7 +169,7 @@ export async function GET(request: NextRequest) {
     let query = client
       .from('screenings')
       .select(
-        'id, query, summary, job_id, created_at, report, status, metadata'
+        'id, query, summary, job_id, created_at, report, status, metadata, tool_calls'
       )
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);

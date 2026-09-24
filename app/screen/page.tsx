@@ -15,6 +15,13 @@ interface ToolCall {
   type: 'tool-call';
   toolName: string;
   toolInput: Record<string, unknown>;
+  result?: unknown;
+}
+
+interface ToolResult {
+  type: 'tool-result';
+  toolName: string;
+  result: unknown;
 }
 
 interface Citation {
@@ -42,7 +49,7 @@ interface ReportData {
 
 interface ReportMessage {
   type: 'report';
-  text: string;
+  report: Omit<ReportData, 'query'> & { query: string };
 }
 
 interface ScreeningHistory {
@@ -58,7 +65,7 @@ interface ProgressMessage {
   message: string;
 }
 
-type StreamMessage = ToolCall | ReportMessage | ProgressMessage;
+type StreamMessage = ToolCall | ToolResult | ReportMessage | ProgressMessage;
 
 export default function ScreenPage() {
   const [query, setQuery] = useState('');
@@ -73,6 +80,8 @@ export default function ScreenPage() {
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [showToolTrace, setShowToolTrace] = useState(false);
+  const [inspector, setInspector] = useState<'sources' | 'tools' | null>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -171,11 +180,9 @@ export default function ScreenPage() {
       body: JSON.stringify({
         report: status === 'completed' ? r : undefined,
         status,
+        toolCalls: calls.map(({ type: _type, ...call }) => call),
         metadata: {
-          toolCalls: calls.map(({ toolName, toolInput }) => ({
-            toolName,
-            toolInput,
-          })),
+          toolCalls: calls.map(({ type: _type, ...call }) => call),
         },
       }),
     });
@@ -197,8 +204,7 @@ export default function ScreenPage() {
       const response = await fetch(`/api/screenings/${item.id}`);
       if (response.ok) {
         const screening = await response.json();
-        // Reconstruct report with assessments
-        const report: ReportData = {
+        const report: ReportData = screening.report || {
           query: screening.query,
           summary: screening.summary,
           reasoning: screening.reasoning,
@@ -206,7 +212,7 @@ export default function ScreenPage() {
           assessments: screening.screening_assessments.map(
             (assessment: any) => ({
               candidateId: assessment.candidate_id,
-              candidateName: '', // Will be fetched from candidates if needed
+              candidateName: '',
               score: assessment.score,
               evidence: assessment.evidence,
               unknowns: assessment.unknowns,
@@ -214,6 +220,14 @@ export default function ScreenPage() {
             })
           ),
         };
+        const savedToolCalls =
+          screening.tool_calls || screening.metadata?.toolCalls || [];
+        setToolCalls(
+          savedToolCalls.map((call: Omit<ToolCall, 'type'>) => ({
+            type: 'tool-call',
+            ...call,
+          }))
+        );
         setReport(report);
       } else {
         // Fallback to local report data
@@ -257,6 +271,28 @@ export default function ScreenPage() {
     }
     setHistory([]);
     localStorage.removeItem('screeningHistory');
+  };
+
+  const copyReport = async () => {
+    if (!report) return;
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+  };
+
+  const startInspectorResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = inspectorWidth;
+    const onMove = (moveEvent: MouseEvent) => {
+      setInspectorWidth(
+        Math.min(560, Math.max(280, startWidth + startX - moveEvent.clientX))
+      );
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -319,11 +355,34 @@ export default function ScreenPage() {
             if (message.type === 'tool-call') {
               collectedToolCalls.push(message);
               setToolCalls((prev) => [...prev, message]);
+            } else if (message.type === 'tool-result') {
+              setToolCalls((prev) => {
+                const next = [...prev];
+                const reverseIndex = [...next]
+                  .reverse()
+                  .findIndex(
+                    (call: ToolCall) =>
+                      call.toolName === message.toolName && !call.result
+                  );
+                const index =
+                  reverseIndex >= 0 ? next.length - 1 - reverseIndex : -1;
+                if (index >= 0)
+                  next[index] = { ...next[index], result: message.result };
+                return next;
+              });
+              for (
+                let index = collectedToolCalls.length - 1;
+                index >= 0;
+                index--
+              ) {
+                const pending = collectedToolCalls[index];
+                if (pending.toolName === message.toolName && !pending.result) {
+                  pending.result = message.result;
+                  break;
+                }
+              }
             } else if (message.type === 'report') {
-              reportData = {
-                query: screeningQuery,
-                text: message.text,
-              };
+              reportData = message.report;
               setReport(reportData);
             } else if (message.type === 'progress') {
               setProgress(message.message);
@@ -525,18 +584,31 @@ export default function ScreenPage() {
             {report && (
               <div className="flex justify-start">
                 <div className="w-full max-w-[85%] space-y-6">
-                  {/* Text Report (when available) */}
-                  {report.text && (
-                    <div className="bg-white border border-gray-200 p-6 rounded-lg prose prose-sm max-w-none">
-                      <div className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
-                        {report.text}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Structured Report (fallback) */}
-                  {!report.text && report.summary && (
+                  {report.summary && (
                     <>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={copyReport}
+                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                        >
+                          Copy report
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspector('sources')}
+                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                        >
+                          View sources
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspector('tools')}
+                          className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                        >
+                          Tool calls ({toolCalls.length})
+                        </button>
+                      </div>
                       {/* Summary Section */}
                       <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
                         <h3 className="font-semibold text-green-900 mb-2">
@@ -789,6 +861,85 @@ export default function ScreenPage() {
           </div>
         </div>
       </div>
+
+      {inspector && (
+        <aside
+          style={{ width: inspectorWidth }}
+          className="fixed right-0 top-0 z-20 flex h-screen max-w-[90vw] border-l border-gray-200 bg-white shadow-xl"
+        >
+          <div
+            onMouseDown={startInspectorResize}
+            className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
+            title="Resize panel"
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
+              <h2 className="font-semibold text-gray-900">
+                {inspector === 'sources' ? 'Sources' : 'Tool calls'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setInspector(null)}
+                className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Close inspector"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {inspector === 'sources' ? (
+                <div className="space-y-3">
+                  {(report?.assessments || []).flatMap((assessment) =>
+                    (assessment.citations || []).map((citation, index) => (
+                      <div
+                        key={`${citation.candidateId}-${index}`}
+                        className="rounded border border-gray-200 bg-gray-50 p-3"
+                      >
+                        <p className="text-xs font-semibold text-blue-700">
+                          {citation.candidateName} · {citation.tool}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                          “{citation.content}”
+                        </p>
+                      </div>
+                    ))
+                  )}
+                  {!report?.assessments?.some(
+                    (assessment) => (assessment.citations || []).length > 0
+                  ) && (
+                    <p className="text-sm text-gray-500">
+                      No sources were returned.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {toolCalls.map((call, index) => (
+                    <div
+                      key={`${call.toolName}-${index}`}
+                      className="rounded border border-gray-200 p-3"
+                    >
+                      <p className="font-mono text-sm font-semibold text-gray-800">
+                        {call.toolName}
+                      </p>
+                      <pre className="mt-2 max-h-32 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
+                        {JSON.stringify(call.toolInput, null, 2)}
+                      </pre>
+                      {call.result !== undefined && (
+                        <pre className="mt-2 max-h-48 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
+                          {typeof call.result === 'string'
+                            ? call.result
+                            : JSON.stringify(call.result, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
