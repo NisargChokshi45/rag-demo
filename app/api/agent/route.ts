@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { createAgentTools } from '@/lib/agent-tools';
 import { getChatModel } from '@/lib/models';
 import { getJobById } from '@/lib/db';
@@ -12,6 +13,11 @@ import { ScreeningReportSchema, type ScreeningReport } from '@/lib/schema';
 interface AgentRequest {
   query: string;
   jobId?: string;
+  sessionId?: string;
+  conversationHistory?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }>;
 }
 
 function getTextContent(content: unknown): string {
@@ -52,7 +58,12 @@ function parseReportResponse(response: unknown): ScreeningReport {
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, jobId }: AgentRequest = await request.json();
+    const {
+      query,
+      jobId,
+      sessionId,
+      conversationHistory = [],
+    }: AgentRequest = await request.json();
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
@@ -105,10 +116,20 @@ export async function POST(request: NextRequest) {
             )
           );
 
-          const input = { messages: [{ type: 'human', content: query }] };
+          const input = {
+            messages: [
+              ...conversationHistory.map((message) =>
+                message.role === 'user'
+                  ? new HumanMessage(message.content)
+                  : new AIMessage(message.content)
+              ),
+              new HumanMessage(query),
+            ],
+          };
           const stream = await agent.streamEvents(input, {
             version: 'v2',
             recursionLimit: 10,
+            ...(sessionId ? { configurable: { thread_id: sessionId } } : {}),
           });
 
           let toolCount = 0;
@@ -183,10 +204,17 @@ export async function POST(request: NextRequest) {
             })
             .join('\n\n---\n\n');
 
+          const previousConversation = conversationHistory.length
+            ? `Previous conversation:
+${conversationHistory.map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`).join('\n\n')}
+
+`
+            : '';
           const reportPrompt = `Based on the search results and candidate information below, provide a comprehensive screening report.
 
 Query: ${query}
 ${jobContext ? `Job Criteria:\n${jobContext}` : ''}
+${previousConversation}
 
 Tool Calls and Results (these contain resume chunks and candidate information):
 ${contextForReport}

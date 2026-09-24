@@ -4,13 +4,16 @@ In late 2025, caching has evolved from exact string matching to **Semantic Match
 
 ## Table of Contents
 
-- [Exact Cache vs. Semantic Cache](#vs)
-- [The Semantic Matching Pipeline](#pipeline)
-- [RedisVL and GPTCache](#tech-stack)
-- [Evaluation: Hit Rate vs. Hallucinated Drift](#eval)
-- [Multimodal Semantic Caching](#multimodal)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [Semantic Caching (Dec 2025)](#semantic-caching-dec-2025)
+  - [Table of Contents](#table-of-contents)
+  - [Exact Cache vs. Semantic Cache](#exact-cache-vs-semantic-cache)
+  - [The Semantic Matching Pipeline](#the-semantic-matching-pipeline)
+  - [RedisVL and GPTCache](#redisvl-and-gptcache)
+  - [Multimodal Semantic Caching](#multimodal-semantic-caching)
+  - [Interview Questions](#interview-questions)
+    - [Q: What is "Semantic Drift" in caching, and how do you prevent it?](#q-what-is-semantic-drift-in-caching-and-how-do-you-prevent-it)
+    - [Q: Why is a Semantic Cache sometimes *more* expensive than a raw LLM call at low volume?](#q-why-is-a-semantic-cache-sometimes-more-expensive-than-a-raw-llm-call-at-low-volume)
+  - [References](#references)
 
 ---
 

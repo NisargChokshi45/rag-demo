@@ -18,7 +18,7 @@ The screening page has been updated with persistent history management. This gui
 │ Screening      │ │ [Results Area - Shows query, loading, or │
 │ History        │ │  report with candidate assessments]      │
 │                │ │                                          │
-│ [New Query]    │ │                                          │
+│ [New Session]    │ │                                          │
 │                │ │                                          │
 │ ────────────   │ │ ────────────────────────────────────────│
 │ Query 1        │ │                                          │
@@ -61,8 +61,8 @@ The screening page has been updated with persistent history management. This gui
 4. Deleted item removed immediately from sidebar
 5. Deletion synced to Supabase
 
-#### New Query Button
-- Click "New Query" to clear current results
+#### New Session Button
+- Click "New Session" to clear current results
 - Resets form, clears query input, removes report display
 - Does NOT delete from history
 

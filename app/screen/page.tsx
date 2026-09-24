@@ -118,6 +118,14 @@ interface ScreeningHistory {
   report: ReportData | null;
   feedback?: 'like' | 'dislike' | null;
   status?: 'running' | 'completed' | 'failed';
+  metadata?: {
+    conversation?: ConversationMessage[];
+  };
+}
+
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 interface ProgressMessage {
@@ -159,6 +167,7 @@ export default function ScreenPage() {
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
+  const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -178,6 +187,7 @@ export default function ScreenPage() {
             report: s.report,
             feedback: s.feedback,
             status: s.status,
+            metadata: s.metadata,
           })
         );
         setHistory(formattedHistory);
@@ -259,6 +269,7 @@ export default function ScreenPage() {
     screeningId: string,
     r: ReportData,
     calls: ToolCall[],
+    conversationMessages: ConversationMessage[],
     status: 'completed' | 'failed' = 'completed'
   ) => {
     const response = await fetch(`/api/screenings/${screeningId}`, {
@@ -270,6 +281,7 @@ export default function ScreenPage() {
         toolCalls: calls.map(({ type: _type, ...call }) => call),
         metadata: {
           toolCalls: calls.map(({ type: _type, ...call }) => call),
+          conversation: conversationMessages,
         },
       }),
     });
@@ -289,6 +301,7 @@ export default function ScreenPage() {
     setIsEditingSubmittedQuery(false);
     setEditingSubmittedQuery('');
     setToolCalls([]);
+    setConversation(item.metadata?.conversation || []);
     setError(null);
     setFeedback(item.feedback || null);
 
@@ -298,6 +311,7 @@ export default function ScreenPage() {
       if (response.ok) {
         const screening = await response.json();
         setSelectedJobId(screening.job_id || '');
+        setConversation(screening.metadata?.conversation || []);
         const report: ReportData = screening.report || {
           query: screening.query,
           summary: screening.summary,
@@ -459,19 +473,23 @@ export default function ScreenPage() {
     setFeedback(null);
     setProgress('Starting analysis...');
 
-    let screeningId: string | null = null;
+    let screeningId: string | null = activeScreeningId;
     let reportData: ReportData | null = null;
     const collectedToolCalls: ToolCall[] = [];
 
     try {
-      screeningId = await createSession(screeningQuery);
-      setActiveScreeningId(screeningId);
+      if (!screeningId) {
+        screeningId = await createSession(screeningQuery);
+        setActiveScreeningId(screeningId);
+      }
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: screeningQuery,
           jobId: selectedJobId || undefined,
+          sessionId: screeningId,
+          conversationHistory: conversation,
         }),
       });
 
@@ -548,7 +566,21 @@ export default function ScreenPage() {
       }
 
       if (reportData && screeningId) {
-        await finalizeSession(screeningId, reportData, collectedToolCalls);
+        const nextConversation = [
+          ...conversation,
+          { role: 'user' as const, content: screeningQuery },
+          {
+            role: 'assistant' as const,
+            content: JSON.stringify(reportData),
+          },
+        ];
+        setConversation(nextConversation);
+        await finalizeSession(
+          screeningId,
+          reportData,
+          collectedToolCalls,
+          nextConversation
+        );
         await loadHistory();
       }
     } catch (err) {
@@ -560,6 +592,7 @@ export default function ScreenPage() {
               query: screeningQuery,
             },
             collectedToolCalls,
+            conversation,
             'failed'
           );
           await loadHistory();
@@ -588,12 +621,13 @@ export default function ScreenPage() {
       >
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900 mb-2">
-            Screening History
+            Screening Session History
           </h2>
           <button
             onClick={() => {
               setIsHistorySession(false);
               setActiveScreeningId(null);
+              setConversation([]);
               setQuery('');
               setSubmittedQuery('');
               setReport(null);
@@ -603,7 +637,7 @@ export default function ScreenPage() {
             }}
             className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
           >
-            New Query
+            New Session
           </button>
         </div>
 
@@ -612,7 +646,7 @@ export default function ScreenPage() {
             <div className="p-4 text-sm text-gray-500">Loading history...</div>
           ) : history.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
-              No screening history yet. Start with a new query.
+              No screening history yet. Start with a new session.
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
