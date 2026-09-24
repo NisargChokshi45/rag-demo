@@ -23,6 +23,59 @@ interface ReportData {
   context?: string[];
 }
 
+interface ScreeningMetadata {
+  toolCalls?: Array<{
+    toolName: string;
+    toolInput: Record<string, unknown>;
+  }>;
+  [key: string]: unknown;
+}
+
+function responseText(report: ReportData): string {
+  return [report.summary, report.reasoning, ...(report.context || [])]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+async function insertReportDetails(
+  client: ReturnType<typeof createServiceClient>,
+  screeningId: string,
+  report: ReportData
+) {
+  for (const assessment of report.assessments) {
+    const { data: assessmentData, error: assessmentError } = await client
+      .from('screening_assessments')
+      .insert({
+        screening_id: screeningId,
+        candidate_id: assessment.candidateId,
+        score: assessment.score,
+        evidence: assessment.evidence,
+        unknowns: assessment.unknowns,
+      })
+      .select()
+      .single();
+
+    if (assessmentError) throw assessmentError;
+
+    if (assessment.citations?.length) {
+      const { error: citationError } = await client
+        .from('screening_citations')
+        .insert(
+          assessment.citations.map((citation) => ({
+            screening_id: screeningId,
+            assessment_id: assessmentData.id,
+            candidate_id: citation.candidateId,
+            candidate_name: citation.candidateName,
+            content: citation.content,
+            tool: citation.tool,
+          }))
+        );
+
+      if (citationError) throw citationError;
+    }
+  }
+}
+
 // POST /api/screenings - Save a new screening session
 export async function POST(request: NextRequest) {
   try {
@@ -34,15 +87,19 @@ export async function POST(request: NextRequest) {
       jobId,
       query,
       report,
+      status = report ? 'completed' : 'running',
+      metadata = {},
     }: {
       jobId?: string;
       query: string;
-      report: ReportData;
+      report?: ReportData;
+      status?: 'running' | 'completed' | 'failed';
+      metadata?: ScreeningMetadata;
     } = body;
 
-    if (!query || !report) {
+    if (!query) {
       return NextResponse.json(
-        { error: 'Missing required fields: query, report' },
+        { error: 'Missing required field: query' },
         { status: 400 }
       );
     }
@@ -56,10 +113,14 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         job_id: jobId || null,
         query,
-        summary: report.summary,
-        report,
-        reasoning: report.reasoning,
-        context: report.context,
+        summary: report?.summary || null,
+        report: report || null,
+        reasoning: report?.reasoning || null,
+        context: report?.context || null,
+        status,
+        response_text: report ? responseText(report) : null,
+        metadata,
+        completed_at: report ? new Date().toISOString() : null,
       })
       .select()
       .single();
@@ -72,45 +133,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert assessments and citations
-    for (const assessment of report.assessments) {
-      const { data: assessmentData, error: assessmentError } = await client
-        .from('screening_assessments')
-        .insert({
-          screening_id: screening.id,
-          candidate_id: assessment.candidateId,
-          score: assessment.score,
-          evidence: assessment.evidence,
-          unknowns: assessment.unknowns,
-        })
-        .select()
-        .single();
-
-      if (assessmentError) {
-        console.error('Assessment insert error:', assessmentError);
-        continue;
-      }
-
-      // Insert citations if they exist
-      if (assessment.citations && assessment.citations.length > 0) {
-        const citations = assessment.citations.map((citation) => ({
-          screening_id: screening.id,
-          assessment_id: assessmentData.id,
-          candidate_id: citation.candidateId,
-          candidate_name: citation.candidateName,
-          content: citation.content,
-          tool: citation.tool,
-        }));
-
-        const { error: citationError } = await client
-          .from('screening_citations')
-          .insert(citations);
-
-        if (citationError) {
-          console.error('Citation insert error:', citationError);
-        }
-      }
-    }
+    if (report) await insertReportDetails(client, screening.id, report);
 
     return NextResponse.json({
       success: true,
@@ -136,7 +159,9 @@ export async function GET(request: NextRequest) {
 
     let query = client
       .from('screenings')
-      .select('id, query, summary, job_id, created_at, report')
+      .select(
+        'id, query, summary, job_id, created_at, report, status, metadata'
+      )
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 

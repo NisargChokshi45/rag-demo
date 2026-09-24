@@ -46,6 +46,13 @@ create table if not exists screenings (
   job_id uuid references jobs(id) on delete cascade,
   query text not null,
   summary text,
+  report jsonb,
+  reasoning text,
+  context text[],
+  status text not null default 'completed',
+  response_text text,
+  metadata jsonb not null default '{}'::jsonb,
+  completed_at timestamptz,
   created_at timestamptz default now()
 );
 
@@ -65,6 +72,21 @@ create index if not exists screenings_job_id_idx on screenings(job_id);
 create index if not exists screenings_created_at_idx on screenings(created_at);
 create index if not exists screening_assessments_screening_id_idx on screening_assessments(screening_id);
 create index if not exists screening_assessments_candidate_id_idx on screening_assessments(candidate_id);
+
+-- Resume excerpts supporting an assessment
+create table if not exists screening_citations (
+  id uuid primary key default gen_random_uuid(),
+  screening_id uuid references screenings(id) on delete cascade,
+  assessment_id uuid references screening_assessments(id) on delete cascade,
+  candidate_id uuid references candidates(id) on delete cascade,
+  candidate_name text not null,
+  content text not null,
+  tool text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists screening_citations_screening_id_idx on screening_citations(screening_id);
+create index if not exists screening_citations_assessment_id_idx on screening_citations(assessment_id);
 
 -- RPC function for vector search with similarity scoring
 create or replace function match_resume_chunks(

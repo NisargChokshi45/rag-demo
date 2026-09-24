@@ -49,6 +49,7 @@ interface ScreeningHistory {
   query: string;
   timestamp: number;
   report: ReportData | null;
+  status?: 'running' | 'completed' | 'failed';
 }
 
 interface ProgressMessage {
@@ -87,6 +88,7 @@ export default function ScreenPage() {
             query: s.query,
             timestamp: new Date(s.created_at).getTime(),
             report: s.report,
+            status: s.status,
           })
         );
         setHistory(formattedHistory);
@@ -137,60 +139,49 @@ export default function ScreenPage() {
     scrollToBottom();
   }, [toolCalls, report]);
 
-  const saveToHistory = async (q: string, r: ReportData | null) => {
-    if (!r) return;
-
-    try {
-      // Save to Supabase
-      const response = await fetch('/api/screenings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: selectedJobId || undefined,
-          query: q,
-          report: r,
-        }),
-      });
-
-      if (response.ok) {
-        const { screeningId } = await response.json();
-        const newEntry: ScreeningHistory = {
-          id: screeningId,
-          query: q,
-          timestamp: Date.now(),
-          report: r,
-        };
-        const updated = [newEntry, ...history];
-        setHistory(updated);
-        // Also save to localStorage as backup
-        localStorage.setItem('screeningHistory', JSON.stringify(updated));
-      } else {
-        // Fallback to localStorage if Supabase save fails
-        const newEntry: ScreeningHistory = {
-          id: Date.now().toString(),
-          query: q,
-          timestamp: Date.now(),
-          report: r,
-        };
-        const updated = [newEntry, ...history];
-        setHistory(updated);
-        localStorage.setItem('screeningHistory', JSON.stringify(updated));
-        console.warn(
-          'Failed to save to Supabase, saved to localStorage instead'
-        );
-      }
-    } catch (err) {
-      console.error('Error saving to history:', err);
-      // Fallback to localStorage
-      const newEntry: ScreeningHistory = {
-        id: Date.now().toString(),
+  const createSession = async (q: string) => {
+    const response = await fetch('/api/screenings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobId: selectedJobId || undefined,
         query: q,
-        timestamp: Date.now(),
-        report: r,
-      };
-      const updated = [newEntry, ...history];
-      setHistory(updated);
-      localStorage.setItem('screeningHistory', JSON.stringify(updated));
+        status: 'running',
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.screeningId) {
+      throw new Error(data.error || 'Unable to create screening session');
+    }
+
+    return data.screeningId as string;
+  };
+
+  const finalizeSession = async (
+    screeningId: string,
+    r: ReportData,
+    calls: ToolCall[],
+    status: 'completed' | 'failed' = 'completed'
+  ) => {
+    const response = await fetch(`/api/screenings/${screeningId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        report: status === 'completed' ? r : undefined,
+        status,
+        metadata: {
+          toolCalls: calls.map(({ toolName, toolInput }) => ({
+            toolName,
+            toolInput,
+          })),
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Unable to persist screening session');
     }
   };
 
@@ -280,7 +271,12 @@ export default function ScreenPage() {
     setReport(null);
     setProgress('Starting analysis...');
 
+    let screeningId: string | null = null;
+    let reportData: ReportData | null = null;
+    const collectedToolCalls: ToolCall[] = [];
+
     try {
+      screeningId = await createSession(screeningQuery);
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -302,7 +298,6 @@ export default function ScreenPage() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let reportData: ReportData | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -321,6 +316,7 @@ export default function ScreenPage() {
             const message: StreamMessage = JSON.parse(line);
 
             if (message.type === 'tool-call') {
+              collectedToolCalls.push(message);
               setToolCalls((prev) => [...prev, message]);
             } else if (message.type === 'report') {
               reportData = message.report;
@@ -334,10 +330,28 @@ export default function ScreenPage() {
         }
       }
 
-      if (reportData) {
-        saveToHistory(screeningQuery, reportData);
+      if (reportData && screeningId) {
+        await finalizeSession(screeningId, reportData, collectedToolCalls);
+        await loadHistory();
       }
     } catch (err) {
+      if (screeningId) {
+        try {
+          await finalizeSession(
+            screeningId,
+            reportData || {
+              query: screeningQuery,
+              assessments: [],
+              summary: '',
+            },
+            collectedToolCalls,
+            'failed'
+          );
+          await loadHistory();
+        } catch (persistError) {
+          console.error('Failed to persist screening failure:', persistError);
+        }
+      }
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);

@@ -104,9 +104,7 @@ export default function CandidatesPage() {
             'jobId'
           );
           setSelectedJobId(jobId || '');
-          const selectedJob = data.jobs?.find(
-            (job: Job) => job.id === jobId
-          );
+          const selectedJob = data.jobs?.find((job: Job) => job.id === jobId);
           setRoleFilter(selectedJob?.title || 'all');
         }
       } catch (err) {
