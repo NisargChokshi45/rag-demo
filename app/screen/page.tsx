@@ -441,6 +441,7 @@ export default function ScreenPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const clearHistory = async () => {
     // Delete all screenings from Supabase
     for (const item of history) {
