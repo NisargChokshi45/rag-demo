@@ -233,6 +233,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!FEATURE_FLAGS.SCREENING_DELETION_ENABLED) {
+      return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
+    }
+
     const { id } = await params;
     const userId = await getUserId();
     const client = createServiceClient();

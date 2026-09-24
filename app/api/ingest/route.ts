@@ -6,7 +6,12 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { parsePDF } from '@/lib/pdf';
 import { chunkText } from '@/lib/chunk';
 import { embedDocument } from '@/lib/embeddings';
-import { deleteCandidate, insertCandidate, insertChunks } from '@/lib/db';
+import {
+  deleteCandidate,
+  getJobById,
+  insertCandidate,
+  insertChunks,
+} from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
 
 interface IngestRequest {
@@ -73,20 +78,7 @@ export async function POST(request: NextRequest) {
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
 
-    // Simple role detection from content
-    let roleGuess = 'Unknown';
-    const lowerText = fullText.toLowerCase();
-    if (lowerText.includes('java')) roleGuess = 'Java Developer';
-    else if (lowerText.includes('python')) roleGuess = 'Python Developer';
-    else if (lowerText.includes('project manager'))
-      roleGuess = 'Project Manager';
-    else if (lowerText.includes('scrum master')) roleGuess = 'Scrum Master';
-    else if (lowerText.includes('business analyst'))
-      roleGuess = 'Business Analyst';
-    else if (lowerText.includes('qa')) roleGuess = 'QA Engineer';
-    else if (lowerText.includes('devops')) roleGuess = 'DevOps Engineer';
-    else if (lowerText.includes('hadoop')) roleGuess = 'Hadoop Developer';
-    else if (lowerText.includes('php')) roleGuess = 'PHP Developer';
+    const roleGuess = jobId ? (await getJobById(jobId)).title : 'Unknown';
 
     // Chunk text
     const textChunks = chunkText(fullText);

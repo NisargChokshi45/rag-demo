@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 interface UploadProgress {
@@ -43,39 +43,36 @@ export default function CandidatesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'indexed' | 'not-indexed'
   >('all');
   const [sortBy, setSortBy] = useState<'name' | 'role' | 'indexed'>('name');
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [hasLoadedCandidates, setHasLoadedCandidates] = useState(false);
+  const candidatesRequestId = useRef(0);
 
   const fetchCandidates = async () => {
+    if (selectedJobId === null) return;
+
+    const requestId = ++candidatesRequestId.current;
     const params = new URLSearchParams({
       status: statusFilter,
       sort: sortBy,
     });
-    const jobId = new URLSearchParams(window.location.search).get('jobId');
-    if (jobId) params.set('jobId', jobId);
+    if (selectedJobId) params.set('jobId', selectedJobId);
     if (debouncedSearchQuery.trim())
       params.set('search', debouncedSearchQuery.trim());
-    if (roleFilter !== 'all') params.set('role', roleFilter);
 
     try {
       const response = await fetch(`/api/candidates?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch candidates');
       const data = await response.json();
-      const roles = data.roles || [];
+      if (requestId !== candidatesRequestId.current) return;
       setCandidates(data.candidates || []);
-      setAvailableRoles(
-        roleFilter !== 'all' && !roles.includes(roleFilter)
-          ? [roleFilter, ...roles]
-          : roles
-      );
     } catch (err) {
+      if (requestId !== candidatesRequestId.current) return;
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
+      if (requestId !== candidatesRequestId.current) return;
       setLoading(false);
       setHasLoadedCandidates(true);
     }
@@ -91,21 +88,18 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     fetchCandidates();
-  }, [debouncedSearchQuery, roleFilter, sortBy, statusFilter]);
+  }, [debouncedSearchQuery, selectedJobId, sortBy, statusFilter]);
 
   useEffect(() => {
     const fetchJobs = async () => {
+      const jobId = new URLSearchParams(window.location.search).get('jobId');
+      setSelectedJobId(jobId || '');
+
       try {
         const response = await fetch('/api/jobs');
         const data = await response.json();
         if (response.ok) {
           setJobs(data.jobs || []);
-          const jobId = new URLSearchParams(window.location.search).get(
-            'jobId'
-          );
-          setSelectedJobId(jobId || '');
-          const selectedJob = data.jobs?.find((job: Job) => job.id === jobId);
-          setRoleFilter(selectedJob?.title || 'all');
         }
       } catch (err) {
         console.error('Failed to fetch jobs:', err);
@@ -115,6 +109,17 @@ export default function CandidatesPage() {
 
     fetchJobs();
   }, []);
+
+  const handleJobChange = (jobId: string) => {
+    setSelectedJobId(jobId);
+    const url = new URL(window.location.href);
+    if (jobId) {
+      url.searchParams.set('jobId', jobId);
+    } else {
+      url.searchParams.delete('jobId');
+    }
+    window.history.replaceState(null, '', url.toString());
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -468,14 +473,14 @@ export default function CandidatesPage() {
                 <label className="text-sm font-medium text-slate-700">
                   Role
                   <select
-                    value={roleFilter}
-                    onChange={(event) => setRoleFilter(event.target.value)}
+                    value={selectedJobId || ''}
+                    onChange={(event) => handleJobChange(event.target.value)}
                     className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   >
-                    <option value="all">All roles</option>
-                    {availableRoles.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
+                    <option value="">All roles</option>
+                    {jobs.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.title}
                       </option>
                     ))}
                   </select>

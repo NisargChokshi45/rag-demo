@@ -230,41 +230,11 @@ export async function listCandidates(
 ): Promise<any[]> {
   const client = createServiceClient();
 
-  let candidateIdsForJob: string[] | undefined;
-  if (options.jobId) {
-    const [
-      { data: assignedCandidates, error: assignedCandidatesError },
-      { data: assessments, error: assessmentError },
-    ] = await Promise.all([
-      client.from('candidates').select('id').eq('job_id', options.jobId),
-      client
-        .from('screening_assessments')
-        .select('candidate_id, screenings!inner(job_id)')
-        .eq('screenings.job_id', options.jobId),
-    ]);
-
-    if (assignedCandidatesError) throw assignedCandidatesError;
-    if (assessmentError) throw assessmentError;
-
-    candidateIdsForJob = Array.from(
-      new Set(
-        [...(assignedCandidates || []), ...(assessments || [])]
-          .map((candidate) =>
-            'candidate_id' in candidate ? candidate.candidate_id : candidate.id
-          )
-          .filter((candidateId): candidateId is string => Boolean(candidateId))
-      )
-    );
-  }
-
   let candidateQuery = client
     .from('candidates')
     .select('id, name, role_guess, original_filename');
 
-  if (candidateIdsForJob) {
-    if (candidateIdsForJob.length === 0) return [];
-    candidateQuery = candidateQuery.in('id', candidateIdsForJob);
-  }
+  if (options.jobId) candidateQuery = candidateQuery.eq('job_id', options.jobId);
 
   if (options.search?.trim()) {
     const search = options.search.trim().replace(/[%(),]/g, ' ');

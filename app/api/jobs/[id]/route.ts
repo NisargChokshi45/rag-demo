@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FEATURE_FLAGS } from '@/lib/config';
 import { deleteJob, updateJob } from '@/lib/db';
 
 interface RouteContext {
@@ -50,15 +51,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_: NextRequest, context: RouteContext) {
   try {
+    if (!FEATURE_FLAGS.JOB_DELETION_ENABLED) {
+      throw new Error('Not allowed');
+    }
+
     const { id } = await context.params;
     await deleteJob(id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to delete job';
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Unable to delete job',
+        error: message,
       },
-      { status: 500 }
+      { status: message === 'Not allowed' ? 403 : 500 }
     );
   }
 }

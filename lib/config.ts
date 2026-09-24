@@ -14,4 +14,8 @@ export const FEATURE_FLAGS = {
   USER_DATA_ISOLATION_ENABLED:
     process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' &&
     process.env.NEXT_PUBLIC_USER_DATA_ISOLATION === 'true',
+
+  // Public deletion is intentionally disabled while data is publicly managed.
+  JOB_DELETION_ENABLED: false,
+  SCREENING_DELETION_ENABLED: false,
 };
