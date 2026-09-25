@@ -142,10 +142,10 @@ export function createAgentTools(context: ToolContext) {
             return JSON.stringify({ candidateId, fullResume: fullText });
           }
 
-          if (context.fetchedCandidates.size >= 8) {
+          if (context.fetchedCandidates.size >= 2) {
             return JSON.stringify({
               error:
-                'Maximum candidate fetch limit reached (8). Cannot fetch more full resumes. Try searching for more specific qualifications.',
+                'Maximum candidate fetch limit reached (2). Use search results for other candidates to manage token usage.',
             });
           }
 

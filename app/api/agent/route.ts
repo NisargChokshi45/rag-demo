@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
       : '';
 
     const systemPrompt = jobContext
-      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nUse tools to search and fetch resumes. After gathering sufficient candidate data (typically 3-8 candidates), stop calling tools and provide your final assessment.`
-      : 'You are a resume screening assistant. Use tools to search and fetch resumes based on the criteria. After gathering sufficient data (typically 3-8 candidates), stop calling tools and provide your final assessment.';
+      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nIMPORTANT: To manage token usage, prefer search results over full resumes. Only fetch full resumes for the top 2 candidates who best match the job. Use search result snippets to assess other candidates. Search first, fetch sparingly.`
+      : 'You are a resume screening assistant. To manage token usage, prefer search results over full resumes. Only fetch full resumes for the top 2 candidates who best match requirements. Use search result snippets to assess other candidates. Search first, fetch sparingly.';
 
     const model = getChatModel(0.2);
 
