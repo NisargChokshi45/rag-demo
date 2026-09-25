@@ -32,7 +32,7 @@ check_warn() {
   echo -e "${YELLOW}⚠${NC} $1"
 }
 
-echo "1️⃣  Checking Environment Variables"
+echo "1. Checking Environment Variables"
 echo "───────────────────────────────────────────────────────────────"
 
 if [ -z "$GOOGLE_API_KEY" ]; then
@@ -50,7 +50,7 @@ else
 fi
 
 echo ""
-echo "2️⃣  Checking File Structure"
+echo "2. Checking File Structure"
 echo "───────────────────────────────────────────────────────────────"
 
 files=(
@@ -71,7 +71,7 @@ for file in "${files[@]}"; do
 done
 
 echo ""
-echo "3️⃣  Checking Models Configuration"
+echo "3. Checking Models Configuration"
 echo "───────────────────────────────────────────────────────────────"
 
 # Check Groq model in lib/models.ts
@@ -95,7 +95,7 @@ else
 fi
 
 echo ""
-echo "4️⃣  Checking Resumes Folder"
+echo "4. Checking Resumes Folder"
 echo "───────────────────────────────────────────────────────────────"
 
 if [ -d "resumes" ]; then
@@ -110,7 +110,7 @@ else
 fi
 
 echo ""
-echo "5️⃣  Checking Node Modules"
+echo "5. Checking Node Modules"
 echo "───────────────────────────────────────────────────────────────"
 
 if [ -d "node_modules/@langchain/groq" ]; then
@@ -126,7 +126,7 @@ else
 fi
 
 echo ""
-echo "6️⃣  Checking Database Configuration"
+echo "6. Checking Database Configuration"
 echo "───────────────────────────────────────────────────────────────"
 
 # Check for Supabase environment
@@ -137,7 +137,7 @@ else
 fi
 
 echo ""
-echo "7️⃣  Testing Dependencies"
+echo "7. Testing Dependencies"
 echo "───────────────────────────────────────────────────────────────"
 
 # Check if TypeScript is available

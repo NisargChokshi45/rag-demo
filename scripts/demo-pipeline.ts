@@ -57,7 +57,7 @@ async function runDemo() {
   }
 
   const resumePath = path.join(RESUMES_DIR, resumeFile);
-  console.log(`1️⃣  Loading resume: ${resumeFile}\n`);
+  console.log(`1. Loading resume: ${resumeFile}\n`);
 
   // Parse PDF
   const buffer = fs.readFileSync(resumePath);
@@ -75,13 +75,13 @@ async function runDemo() {
   console.log(`👤 Candidate: ${nameFromFile}\n`);
 
   // Chunk text
-  console.log(`2️⃣  Chunking text (800 chars, 100 overlap)...`);
+  console.log(`2. Chunking text (800 chars, 100 overlap)...`);
   const chunks = chunkText(fullText);
   console.log(`✓ Created ${chunks.length} chunks\n`);
   console.log(`   Sample chunk 0: "${chunks[0].substring(0, 80)}..."\n`);
 
   // Embed chunks
-  console.log(`3️⃣  Embedding ${chunks.length} chunks with Gemini API...`);
+  console.log(`3. Embedding ${chunks.length} chunks with Gemini API...`);
   const chunksWithEmbedding: ChunkRecord[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
@@ -105,7 +105,7 @@ async function runDemo() {
   console.log(`✓ All ${chunksWithEmbedding.length} chunks embedded\n`);
 
   // Simulate chat interactions
-  console.log(`4️⃣  Simulating chat queries (Groq will process results)...\n`);
+  console.log(`4. Simulating chat queries (Groq will process results)...\n`);
 
   const queries = [
     "What is the candidate's primary experience?",

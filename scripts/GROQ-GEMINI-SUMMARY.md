@@ -3,26 +3,26 @@
 Your resume screening application uses a **hybrid AI architecture**:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│              Your RAG Stack                              │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  Embeddings: 🔍 Gemini API (gemini-embedding-2)        │
-│  └─ Purpose: Convert text to 1536-dim vectors          │
-│  └─ Used during: Resume ingestion + query embedding     │
-│  └─ Cost: ~$0.02 per 1M tokens                         │
-│                                                          │
-│  Chat/Reasoning: 💬 Groq Llama 3.3 70B                 │
-│  └─ Purpose: Intelligent reasoning & reranking          │
-│  └─ Used during: Screening + candidate assessment       │
-│  └─ Cost: Free tier available                          │
-│                                                          │
-│  Vector DB: 🗄️ Supabase pgvector (HNSW)                 │
-│  └─ Purpose: Store & search embeddings                  │
-│  └─ Used: Semantic similarity search                    │
-│  └─ Cost: Included with Supabase                        │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              Your RAG Stack                         │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  Embeddings: 🔍 Gemini API (gemini-embedding-2)     │
+│  └─ Purpose: Convert text to 1536-dim vectors       │
+│  └─ Used during: Resume ingestion + query embedding │
+│  └─ Cost: ~$0.02 per 1M tokens                      │
+│                                                     │
+│  Chat/Reasoning: 💬 Groq Llama 3.3 70B              │
+│  └─ Purpose: Intelligent reasoning & reranking      │
+│  └─ Used during: Screening + candidate assessment   │
+│  └─ Cost: Free tier available                       │
+│                                                     │
+│  Vector DB: 🗄️ Supabase pgvector (HNSW)             │
+│  └─ Purpose: Store & search embeddings              │
+│  └─ Used: Semantic similarity search                │
+│  └─ Cost: Included with Supabase                    │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---

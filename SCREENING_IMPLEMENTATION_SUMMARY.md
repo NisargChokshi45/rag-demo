@@ -51,7 +51,7 @@ Enhanced component with:
 - **Auto-Save**: Saves screening to Supabase after completion
 - **Load History**: Fetch full screening details from API
 - **Delete History**: Remove individual screenings with API call
-- **Sidebar Improvements**: 
+- **Sidebar Improvements**:
   - Loading state while fetching history
   - Delete button (✕) on hover for each item
   - Timestamp formatting
@@ -145,16 +145,12 @@ Sidebar updates with new history item
 
 1. **Hybrid Storage**: Supabase primary + localStorage fallback
    - Rationale: Reliability when API fails, works offline
-   
 2. **JSONB for Report**: Store complete report as JSON object
    - Rationale: Flexible schema, easy to extend, avoids complex joins
-   
 3. **Denormalized Citations**: Store candidate_name in citations table
    - Rationale: Fast display without candidate lookup
-   
 4. **User-Scoped but Optional**: `user_id` nullable, auth optional
    - Rationale: Works with/without auth system
-
 5. **Cascade Delete**: Delete screening → delete assessments → delete citations
    - Rationale: Data integrity, simple cleanup logic
 
@@ -310,6 +306,6 @@ The system is ready for production deployment after running the database migrati
 
 ---
 
-**Implementation Date**: September 23, 2026  
-**Commit SHA**: [See git log for commit details]  
+**Implementation Date**: September 23, 2026
+**Commit SHA**: [See git log for commit details]
 **Status**: ✅ Complete and Ready for Deployment

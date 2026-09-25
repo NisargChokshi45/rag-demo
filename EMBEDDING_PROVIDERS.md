@@ -49,7 +49,7 @@ GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key_here
    # Switch to Groq
    EMBEDDING_PROVIDER=groq
    GROQ_API_KEY=your_key
-   
+
    # OR switch to Google
    EMBEDDING_PROVIDER=google
    GOOGLE_GENERATIVE_AI_API_KEY=your_key

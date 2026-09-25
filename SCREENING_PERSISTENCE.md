@@ -89,7 +89,7 @@ Save a new screening session.
 }
 ```
 
-**Authentication:** 
+**Authentication:**
 - Optional - if `AUTH_ENABLED=true`, session is saved for current user
 - If auth disabled, all screenings are saved globally
 

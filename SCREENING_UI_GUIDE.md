@@ -8,7 +8,7 @@ The screening page has been updated with persistent history management. This gui
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Screen Candidates                         │
+│                    Screen Candidates                        │
 │  Ask screening questions and get AI-powered assessments     │
 └─────────────────────────────────────────────────────────────┘
 
@@ -18,13 +18,13 @@ The screening page has been updated with persistent history management. This gui
 │ Screening      │ │ [Results Area - Shows query, loading, or │
 │ History        │ │  report with candidate assessments]      │
 │                │ │                                          │
-│ [New Session]    │ │                                          │
+│ [New Session]    │ │                                        │
 │                │ │                                          │
-│ ────────────   │ │ ────────────────────────────────────────│
+│ ────────────   │ │ ─────────────────────────────────────────│
 │ Query 1        │ │                                          │
-│ Sep 23, 3:45p  │ │ [Input Area with form]                  │
+│ Sep 23, 3:45p  │ │ [Input Area with form]                   │
 │ 5 candidates ✕ │ │                                          │
-│                │ │ [Screen Candidates Button]              │
+│                │ │ [Screen Candidates Button]               │
 │ Query 2        │ │                                          │
 │ Sep 23, 2:10p  │ │                                          │
 │ 3 candidates ✕ │ │                                          │
@@ -91,9 +91,9 @@ Example loading state:
 │ Find candidates with 5+ years Java experience  │
 └────────────────────────────────────────────────┘
 
-┌─ AI Assistant is thinking... ──────────────────┐
-│ ● ○ ○                                          │
-│                                                │
+┌─ AI Assistant is thinking... ─────────────────┐
+│ ● ○ ○                                         │
+│                                               │
 │ Retrieved 12 tool calls                       │
 │ ┌─────────────────────────────────────────┐   │
 │ │ search_chunks (candidate_1)             │   │
@@ -101,7 +101,7 @@ Example loading state:
 │ │ get_full_resume (candidate_1)           │   │
 │ │ search_chunks (candidate_3)             │   │
 │ └─────────────────────────────────────────┘   │
-└────────────────────────────────────────────────┘
+└───────────────────────────────────────────────┘
 ```
 
 #### After Query Completes
@@ -120,14 +120,14 @@ Results shown in this order:
 │                                                │
 │ ┌─ search_chunks ────────────────────────────┐ │
 │ │ {                                          │ │
-│ │   "query": "Java experience",             │ │
-│ │   "limit": 5                              │ │
+│ │   "query": "Java experience",              │ │
+│ │   "limit": 5                               │ │
 │ │ }                                          │ │
 │ └────────────────────────────────────────────┘ │
 │                                                │
 │ ┌─ get_full_resume ──────────────────────────┐ │
 │ │ {                                          │ │
-│ │   "candidateId": "uuid-1234..."           │ │
+│ │   "candidateId": "uuid-1234..."            │ │
 │ │ }                                          │ │
 │ └────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────┘
@@ -144,9 +144,9 @@ Results shown in this order:
 ##### 4. Thinking Process (Purple Box)
 ```
 ┌─ 🧠 Thinking Process ──────────────────────────┐
-│ I analyzed resumes focusing on Java experience│
-│ and years in the field. Candidate A stands out│
-│ with 7 years of direct Java development...    │
+│ I analyzed resumes focusing on Java experience │
+│ and years in the field. Candidate A stands out │
+│ with 7 years of direct Java development...     │
 └────────────────────────────────────────────────┘
 ```
 
@@ -154,24 +154,24 @@ Results shown in this order:
 ```
 ┌─ 📋 Context Used ──────────────────────────────┐
 │ • Java frameworks mentioned: Spring Boot, ...  │
-│ • AWS experience found in 2 candidates        │
-│ • Years of experience range: 3-10 years       │
+│ • AWS experience found in 2 candidates         │
+│ • Years of experience range: 3-10 years        │
 └────────────────────────────────────────────────┘
 ```
 
 ##### 6. Candidate Assessments
 ```
-┌────────────────────────────────────────────────┐
-│ Candidate Assessments                          │
-├────────────────────────────────────────────────┤
-│                                                │
+┌───────────────────────────────────────────────┐
+│ Candidate Assessments                         │
+├───────────────────────────────────────────────┤
+│                                               │
 │ ┌─ John Doe ────────────────────────────── 85 │
 │ │ /100                                        │
 │ │                                             │
 │ │ ✓ Evidence                                  │
-│ │   ✓ 7 years Java development              │
-│ │   ✓ Spring Boot framework expert           │
-│ │   ✓ Recent AWS project experience          │
+│ │   ✓ 7 years Java development                │
+│ │   ✓ Spring Boot framework expert            │
+│ │   ✓ Recent AWS project experience           │
 │ │                                             │
 │ │ ? Unknowns                                  │
 │ │   ? Database experience not mentioned       │
@@ -191,14 +191,14 @@ Results shown in this order:
 │ │   └─────────────────────────────────────┘   │
 │ │                                             │
 │ └────────────────────────────────────────────┘│
-│                                                │
-│ ┌─ Jane Smith ────────────────────────────78│
+│                                               │
+│ ┌─ Jane Smith ────────────────────────────78  │
 │ │ /100                                        │
 │ │ ...                                         │
 │ │                                             │
 │ └────────────────────────────────────────────┘│
-│                                                │
-└────────────────────────────────────────────────┘
+│                                               │
+└───────────────────────────────────────────────┘
 ```
 
 ### Input Form Area
@@ -213,21 +213,21 @@ Located at the bottom of the page, sticky to keep visible while scrolling:
 
 #### Query Input
 ```
-┌─────────────────────────────────────────────┐
-│ Ask screening questions (e.g., 'Find...     │
-│                                             │
-│ Press Shift+Enter for a new line.          │
-│ Press Enter to screen candidates.          │
-│                                             │
-│ ┌──────────────────────────────────────┐   │
-│ │                                      │   │
-│ │  [Multi-line text area]             │   │
-│ │                                      │   │
-│ └──────────────────────────────────────┘   │
-│                                             │
+┌───────────────────────────────────────────┐
+│ Ask screening questions (e.g., 'Find...   │
+│                                           │
+│ Press Shift+Enter for a new line.         |
+│ Press Enter to screen candidates.         │
+│                                           │
+│ ┌──────────────────────────────────────┐  │
+│ │                                      │  │
+│ │  [Multi-line text area]              │  │
+│ │                                      │  │
+│ └──────────────────────────────────────┘  │
+│                                           │
 │ [Screen Candidates] (blue, width: 100%)   │
-│                                             │
-└─────────────────────────────────────────────┘
+│                                           │
+└───────────────────────────────────────────┘
 ```
 
 #### Keyboard Shortcuts
@@ -266,10 +266,10 @@ Located at the bottom of the page, sticky to keep visible while scrolling:
 ### API Errors
 If Supabase is unavailable:
 ```
-┌─ Error ────────────────────────────────────────┐
-│ Failed to save screening                       │
+┌─ Error ───────────────────────────────────────┐
+│ Failed to save screening                      │
 │ (Falls back to localStorage automatically)    │
-└────────────────────────────────────────────────┘
+└───────────────────────────────────────────────┘
 ```
 
 ### Network Issues

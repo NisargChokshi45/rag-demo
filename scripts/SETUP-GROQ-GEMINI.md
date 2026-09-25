@@ -16,7 +16,7 @@ import { ChatGroq } from "@langchain/groq";
 
 export function getChatModel(temperature = 0) {
   const apiKey = process.env.GROQ_API_KEY;
-  
+
   return new ChatGroq({
     apiKey,
     model: process.env.GROQ_CHAT_MODEL || "llama-3.3-70b-versatile",
@@ -31,7 +31,7 @@ const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-
 
 async function embed(text: string, kind: "document" | "query"): Promise<number[]> {
   const apiKey = process.env.GOOGLE_API_KEY;
-  
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${encodeURIComponent(apiKey)}`,
     { /* ... */ }

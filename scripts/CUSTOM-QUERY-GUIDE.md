@@ -18,99 +18,99 @@ User Query
 │
 ▼
 
-┌─────────────────────────────────────────────────┐
-│ 1. EMBED QUERY SEMANTICALLY                     │
-│ ─────────────────────────────────────────────   │
-│ Input: "How many years of experience?"          │
-│                                                  │
-│ Format: task: search result | query: ...         │
-│ Output: 1536-dimensional vector                 │
-│         (captures semantic meaning, not just    │
-│          keywords)                              │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ 1. EMBED QUERY SEMANTICALLY                  │
+│ ─────────────────────────────────────────────│
+│ Input: "How many years of experience?"       │
+│                                              │
+│ Format: task: search result | query: ...     │
+│ Output: 1536-dimensional vector              │
+│         (captures semantic meaning, not just │
+│          keywords)                           │
+└──────────────────────────────────────────────┘
                      │
                      ▼
 
-┌─────────────────────────────────────────────────┐
-│ 2. VECTOR SIMILARITY SEARCH                     │
-│ ─────────────────────────────────────────────   │
-│ Algorithm: Cosine similarity                    │
-│                                                  │
-│ Resume Chunk 1 (Experience section)             │
-│   "8+ years of experience in ERP systems"       │
-│   Similarity: 94.2% ✓ (Strong match)            │
-│                                                  │
-│ Resume Chunk 2 (Skills section)                 │
-│   "SAP, Oracle, Salesforce implementation"      │
-│   Similarity: 78.5% ✓ (Good match)              │
-│                                                  │
-│ Resume Chunk 3 (Education)                      │
-│   "Bachelor's in Computer Science, 2015"        │
-│   Similarity: 45.1% (Weak match)                │
-│                                                  │
-│ Top 15 chunks retrieved (all > 40% similarity)  │
-└─────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│ 2. VECTOR SIMILARITY SEARCH                    │
+│ ───────────────────────────────────────────────│
+│ Algorithm: Cosine similarity                   │
+│                                                │
+│ Resume Chunk 1 (Experience section)            │
+│   "8+ years of experience in ERP systems"      │
+│   Similarity: 94.2% ✓ (Strong match)           │
+│                                                │
+│ Resume Chunk 2 (Skills section)                │
+│   "SAP, Oracle, Salesforce implementation"     │
+│   Similarity: 78.5% ✓ (Good match)             │
+│                                                │
+│ Resume Chunk 3 (Education)                     │
+│   "Bachelor's in Computer Science, 2015"       │
+│   Similarity: 45.1% (Weak match)               │
+│                                                │
+│ Top 15 chunks retrieved (all > 40% similarity) │
+└────────────────────────────────────────────────┘
                      │
                      ▼
 
-┌─────────────────────────────────────────────────┐
-│ 3. LLM RERANKING (CLAUDE)                       │
-│ ─────────────────────────────────────────────   │
-│ For each candidate's chunks:                    │
-│                                                  │
-│ Prompt: "Given query: 'How many years of       │
-│         experience?', rate these chunks:        │
-│                                                  │
-│         [top 3 chunks from vector search]       │
-│                                                  │
-│         Rate relevance 0-10:"                   │
-│                                                  │
-│ Claude Response: 9                              │
-│ (Expert human judgment, not just math)          │
-│                                                  │
-│ Output: Top 5 candidates reranked              │
-└─────────────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ 3. LLM RERANKING (CLAUDE)                 │
+│ ──────────────────────────────────────────│
+│ For each candidate's chunks:              │
+│                                           │
+│ Prompt: "Given query: 'How many years of  │
+│         experience?', rate these chunks:  │
+│                                           │
+│         [top 3 chunks from vector search] │
+│                                           │
+│         Rate relevance 0-10:"             │
+│                                           │
+│ Claude Response: 9                        |
+│ (Expert human judgment, not just math)    │
+│                                           │
+│ Output: Top 5 candidates reranked         │
+└───────────────────────────────────────────┘
                      │
                      ▼
 
-┌─────────────────────────────────────────────────┐
-│ 4. GROQ (LLAMA) ANALYZES TOP CHUNKS            │
-│ ─────────────────────────────────────────────   │
-│ Chunk 1 (94.2% similar):                        │
-│ "Results-driven Business Systems Analyst        │
-│  with 8+ years of experience in enterprise      │
-│  resource planning (ERP) systems..."            │
-│                                                  │
-│ Chunk 2 (78.5% similar):                        │
-│ "PROFESSIONAL EXPERIENCE                        │
-│  Senior Systems Analyst at TechCorp (2015-     │
-│  Present, 9 years)..."                          │
-│                                                  │
-│ Chunk 3 (72.1% similar):                        │
-│ "Technical expertise spanning 8+ years across   │
-│  multiple business domains..."                  │
-│                                                  │
-│ Groq/Llama's Analysis:                          │
-│ ✓ All chunks mention experience duration       │
-│ ✓ Consistent: 8-9 years mentioned              │
-│ ✓ Clear evidence in professional history       │
-│                                                  │
-│ Final Answer: "8-9 years of experience"        │
-│ Confidence: HIGH                                │
-└─────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│ 4. GROQ (LLAMA) ANALYZES TOP CHUNKS           |
+│ ──────────────────────────────────────────────│
+│ Chunk 1 (94.2% similar):                      │
+│ "Results-driven Business Systems Analyst      │
+│  with 8+ years of experience in enterprise    │
+│  resource planning (ERP) systems..."          |
+│                                               │
+│ Chunk 2 (78.5% similar):                      │
+│ "PROFESSIONAL EXPERIENCE                      │
+│  Senior Systems Analyst at TechCorp (2015-    |
+│  Present, 9 years)..."                        │
+│                                               │
+│ Chunk 3 (72.1% similar):                      │
+│ "Technical expertise spanning 8+ years across │
+│  multiple business domains..."                │
+│                                               │
+│ Groq/Llama's Analysis:                        │
+│ ✓ All chunks mention experience duration      │
+│ ✓ Consistent: 8-9 years mentioned             │
+│ ✓ Clear evidence in professional history      │
+│                                               │
+│ Final Answer: "8-9 years of experience"       │
+│ Confidence: HIGH                              │
+└───────────────────────────────────────────────┘
                      │
                      ▼
 
-┌─────────────────────────────────────────────────┐
-│ 5. OPTIONAL: FETCH FULL RESUME                  │
-│ ─────────────────────────────────────────────   │
-│ If chunks aren't sufficient:                    │
-│ - Claude can call get_full_resume tool         │
-│ - Analyzes complete resume if needed            │
-│ - More comprehensive answer                     │
-│ - Limited to 8 candidates per screening        │
-│   (for token efficiency)                        │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ 5. OPTIONAL: FETCH FULL RESUME          │
+│ ────────────────────────────────────────│
+│ If chunks aren't sufficient:            │
+│ - Claude can call get_full_resume tool  │
+│ - Analyzes complete resume if needed    │
+│ - More comprehensive answer             │
+│ - Limited to 8 candidates per screening │
+│   (for token efficiency)                │
+└─────────────────────────────────────────┘
                      │
                      ▼
 
@@ -229,32 +229,32 @@ Conclusion: SUCCESS with "8-9 years"
 async function searchChunks({ query }: { query: string }) {
   // Step 1: Embed query semantically
   const queryEmbedding = await embedQuery(query);
-  
+
   // Step 2: Find similar chunks (pgvector search)
   const chunks = await searchChunks(queryEmbedding, 15);
-  
+
   // Step 3: Group by candidate
   const chunksByCandidate = groupBy(chunks, 'candidate_id');
-  
+
   // Step 4: LLM reranking
   for (const [candidateId, data] of Object.entries(chunksByCandidate)) {
     const rerankerPrompt = `
       Query: "${query}"
-      
+
       Resume chunks:
       ${data.chunks.slice(0, 3).join('\n---\n')}
-      
+
       Rate relevance 0-10:
     `;
-    
-    const score = await claude.invoke(rerankerPrompt);
+
+  const score = await claude.invoke(rerankerPrompt);
     rerankedCandidates.push({
       candidateId,
       score,
       chunks: data.chunks.slice(0, 3)
     });
   }
-  
+
   // Step 5: Return top 5
   return rerankedCandidates.sort((a, b) => b.score - a.score).slice(0, 5);
 }
@@ -280,17 +280,17 @@ Candidate: Krishna Business Systems Analyst
 Relevance Score: 9/10
 
 Top Matching Sections:
-  1. "Results-driven Business Systems Analyst with 8+ years of 
-     experience in enterprise resource planning (ERP) systems, 
-     business process improvement, and cross-functional stakeholder 
+  1. "Results-driven Business Systems Analyst with 8+ years of
+     experience in enterprise resource planning (ERP) systems,
+     business process improvement, and cross-functional stakeholder
      management." (94.2% semantic match)
-  
+
   2. "PROFESSIONAL EXPERIENCE
-     Business Systems Analyst at TechCorp Solutions (2018-Present, 
+     Business Systems Analyst at TechCorp Solutions (2018-Present,
      9 years)" (88.7% semantic match)
-  
-  3. "Technical expertise spanning 8+ years across multiple 
-     business domains including finance, manufacturing, and retail." 
+
+  3. "Technical expertise spanning 8+ years across multiple
+     business domains including finance, manufacturing, and retail."
      (82.1% semantic match)
 
 Answer Extracted by Claude:

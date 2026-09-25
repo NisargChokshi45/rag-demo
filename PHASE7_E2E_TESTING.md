@@ -157,7 +157,7 @@ get_full_resume(candidate_id=<mahesh_uuid>)
 - [ ] Each has a score and brief evidence (e.g., "Project Manager with 6+ years, strong Agile background")
 - [ ] Tool trace shows `list_all_candidates()` was used
 
-**Key difference from naive RAG**: 
+**Key difference from naive RAG**:
 - **Without agents**: Vector search for "PM" might return only top 5 (naive RAG limitation)
 - **With agents**: `list_all_candidates()` + agentic loop finds all PMs, the agent reasons over the full pool
 

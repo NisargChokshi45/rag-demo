@@ -44,7 +44,7 @@ async function testCustomQuery() {
   console.log(`📋 Query: "${CUSTOM_QUERY}"\n`);
 
   // Step 1: Load and parse resume
-  console.log('Step 1️⃣  : Load & Parse Resume');
+  console.log('Step 1 : Load & Parse Resume');
   const resumeDir = path.join(process.cwd(), 'resumes');
   const resumeFile = fs.readdirSync(resumeDir).find((f) => f.endsWith('.pdf'));
 
@@ -68,20 +68,20 @@ async function testCustomQuery() {
   console.log(`   ✓ Text length: ${fullText.length} characters\n`);
 
   // Step 2: Chunk text
-  console.log('Step 2️⃣  : Chunk Text');
+  console.log('Step 2 : Chunk Text');
   const chunks = chunkText(fullText);
   console.log(
     `   ✓ Created ${chunks.length} chunks (800 chars, 100 overlap)\n`
   );
 
   // Step 3: Embed query
-  console.log('Step 3️⃣  : Embed Query');
+  console.log('Step 3 : Embed Query');
   console.log(`   Embedding: "${CUSTOM_QUERY}"`);
   const queryEmbedding = await embedQuery(CUSTOM_QUERY);
   console.log(`   ✓ Query embedded to ${queryEmbedding.length} dimensions\n`);
 
   // Step 4: Search & score chunks
-  console.log('Step 4️⃣  : Vector Similarity Search');
+  console.log('Step 4 : Vector Similarity Search');
   console.log(`   Scoring all ${chunks.length} chunks against query...\n`);
 
   const scoredChunks = [];
@@ -106,7 +106,7 @@ async function testCustomQuery() {
   console.log(`   ✓ Scoring complete\n`);
 
   // Step 5: Show top results
-  console.log('Step 5️⃣  : Top Matching Resume Sections');
+  console.log('Step 5 : Top Matching Resume Sections');
   console.log(`   (Sorted by vector similarity to query)\n`);
 
   const topChunks = scoredChunks.slice(0, 5);
@@ -119,7 +119,7 @@ async function testCustomQuery() {
   });
 
   // Step 6: Simulate Claude's interpretation
-  console.log('Step 6️⃣  : Claude Processes Top Chunks\n');
+  console.log('Step 6 : Claude Processes Top Chunks\n');
 
   console.log('   Claude reads the top 3 matching chunks and extracts:');
   console.log('   ---');
@@ -142,7 +142,7 @@ async function testCustomQuery() {
   console.log('   ---\n');
 
   // Step 7: Final answer
-  console.log("Step 7️⃣  : Claude's Answer");
+  console.log("Step 7 : Claude's Answer");
 
   // Extract all experience mentions from top chunks
   const allMatches = new Set<string>();
