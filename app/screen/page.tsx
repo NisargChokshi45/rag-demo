@@ -246,8 +246,19 @@ export default function ScreenPage() {
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
+  const initialScreeningIdRef = useRef<string | null>(null);
   const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const updateScreeningUrl = (screeningId: string | null) => {
+    const url = new URL(window.location.href);
+    if (screeningId) {
+      url.searchParams.set('screeningId', screeningId);
+    } else {
+      url.searchParams.delete('screeningId');
+    }
+    window.history.replaceState({}, '', url);
+  };
 
   // Load screening history from Supabase (or localStorage as fallback)
   const loadHistory = async () => {
@@ -291,6 +302,9 @@ export default function ScreenPage() {
   };
 
   useEffect(() => {
+    initialScreeningIdRef.current = new URLSearchParams(
+      window.location.search
+    ).get('screeningId');
     loadHistory();
     fetch('/api/jobs')
       .then(async (response) => {
@@ -371,8 +385,10 @@ export default function ScreenPage() {
   };
 
   const loadFromHistory = async (item: ScreeningHistory) => {
+    updateScreeningUrl(item.id);
     setIsHistorySession(true);
     setActiveScreeningId(item.id);
+    setIsLoading(item.status === 'running');
     setSelectedJobId(item.jobId || '');
     setQuery('');
     setSubmittedQuery(item.query);
@@ -382,12 +398,14 @@ export default function ScreenPage() {
     setConversation(item.metadata?.conversation || []);
     setError(null);
     setFeedback(item.feedback || null);
+    setProgress('');
 
     // Fetch full details from Supabase for better data integrity
     try {
       const response = await fetch(`/api/screenings/${item.id}`);
       if (response.ok) {
         const screening = await response.json();
+        setIsLoading(screening.status === 'running');
         setSelectedJobId(screening.job_id || '');
         setConversation(screening.metadata?.conversation || []);
         const report: ReportData = screening.report || {
@@ -419,12 +437,34 @@ export default function ScreenPage() {
       } else {
         // Fallback to local report data
         setReport(item.report);
+        setIsLoading(item.status === 'running');
       }
     } catch (err) {
       console.error('Error loading screening details:', err);
       setReport(item.report);
+      setIsLoading(item.status === 'running');
     }
   };
+
+  useEffect(() => {
+    const screeningId = initialScreeningIdRef.current;
+    if (
+      isLoadingHistory ||
+      !screeningId ||
+      activeScreeningId ||
+      history.length === 0
+    ) {
+      return;
+    }
+
+    const session = history.find((item) => item.id === screeningId);
+    initialScreeningIdRef.current = null;
+    if (session) {
+      void loadFromHistory(session);
+    } else {
+      setError('Screening session not found.');
+    }
+  }, [activeScreeningId, history, isLoadingHistory]);
 
   const deleteFromHistory = async (itemId: string) => {
     if (!window.confirm('Delete this screening session?')) return;
@@ -730,8 +770,17 @@ export default function ScreenPage() {
     try {
       if (!screeningId) {
         screeningId = await createSession(screeningQuery);
+        updateScreeningUrl(screeningId);
         setActiveScreeningId(screeningId);
       }
+      console.log('[SCREENING REQUEST SIZE]', {
+        queryCharacters: screeningQuery.length,
+        conversationMessages: conversation.length,
+        conversationCharacters: conversation.reduce(
+          (total, message) => total + message.content.length,
+          0
+        ),
+      });
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -884,6 +933,8 @@ export default function ScreenPage() {
             onClick={() => {
               setIsHistorySession(false);
               setActiveScreeningId(null);
+              updateScreeningUrl(null);
+              setIsLoading(false);
               setConversation([]);
               setQuery('');
               setSubmittedQuery('');
@@ -1063,13 +1114,14 @@ export default function ScreenPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                setSubmittedQuery(message.content);
-                                void submitQuery(message.content);
+                                if (!isLoading) {
+                                  setSubmittedQuery(message.content);
+                                  void submitQuery(message.content);
+                                }
                               }}
                               className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
                               aria-label="Retry query"
                               title="Retry"
-                              disabled={isLoading}
                             >
                               <Icon name="retry" />
                             </button>
@@ -1106,10 +1158,9 @@ export default function ScreenPage() {
                             <button
                               type="button"
                               onClick={retryQuery}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
                               aria-label="Retry screening query"
                               title="Retry"
-                              disabled={isLoading}
                             >
                               <Icon name="retry" />
                             </button>
@@ -1165,7 +1216,7 @@ export default function ScreenPage() {
                             if (nextQuery) void submitQuery(nextQuery);
                           }}
                           className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
-                          disabled={isLoading || !editingSubmittedQuery.trim()}
+                          disabled={!editingSubmittedQuery.trim()}
                         >
                           Save
                         </button>
@@ -1203,10 +1254,9 @@ export default function ScreenPage() {
                         <button
                           type="button"
                           onClick={retryQuery}
-                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
                           aria-label="Retry your query"
                           title="Retry"
-                          disabled={isLoading}
                         >
                           <Icon name="retry" />
                         </button>
@@ -1277,10 +1327,9 @@ export default function ScreenPage() {
                   <button
                     type="button"
                     onClick={retryQuery}
-                    className="rounded p-2 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
+                    className="rounded p-2 hover:bg-gray-100 hover:text-gray-900"
                     aria-label="Retry screening query"
                     title="Retry"
-                    disabled={isLoading}
                   >
                     <Icon name="retry" />
                   </button>

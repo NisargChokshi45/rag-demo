@@ -46,6 +46,15 @@ function getTextContent(content: unknown): string {
     .join('');
 }
 
+function logPayloadSize(label: string, value: unknown) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value) || '';
+
+  console.log(`[LLM SIZE] ${label}`, {
+    characters: text.length,
+    estimatedTokens: Math.ceil(text.length / 4),
+  });
+}
+
 function parseReportResponse(response: unknown): ScreeningReport {
   const content =
     response && typeof response === 'object' && 'content' in response
@@ -91,7 +100,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const toolContext = { fetchedCandidates: new Set<string>() };
+    const toolContext = { fetchedCandidates: new Set<string>(), jobId };
     const tools = createAgentTools(toolContext);
     const job = jobId ? await getJobById(jobId, true) : null;
     const jobContext = job
@@ -99,8 +108,8 @@ export async function POST(request: NextRequest) {
       : '';
 
     const systemPrompt = jobContext
-      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nUse the available tools to search for candidates and retrieve their full resumes when needed.`
-      : 'You are a resume screening assistant. Your job is to screen candidates based on the provided criteria. Use the available tools to search for candidates and retrieve their full resumes when needed.';
+      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nUse tools to search and fetch resumes. After gathering sufficient candidate data (typically 3-8 candidates), stop calling tools and provide your final assessment.`
+      : 'You are a resume screening assistant. Use tools to search and fetch resumes based on the criteria. After gathering sufficient data (typically 3-8 candidates), stop calling tools and provide your final assessment.';
 
     const model = getChatModel(0.2);
 
@@ -119,6 +128,8 @@ export async function POST(request: NextRequest) {
 
     const response = new ReadableStream<Uint8Array>({
       async start(controller) {
+        let modelPhase = 'initial agent stream';
+
         try {
           // Stream progress update
           controller.enqueue(
@@ -140,9 +151,19 @@ export async function POST(request: NextRequest) {
               new HumanMessage(query),
             ],
           };
+
+          logPayloadSize('agent input', input);
+          console.log('[LLM SIZE] conversation history', {
+            messages: conversationHistory.length,
+            characters: conversationHistory.reduce(
+              (total, message) => total + message.content.length,
+              0
+            ),
+          });
+
           const stream = await agent.streamEvents(input, {
             version: 'v2',
-            recursionLimit: 10,
+            recursionLimit: 25,
             ...(sessionId ? { configurable: { thread_id: sessionId } } : {}),
           });
 
@@ -179,16 +200,19 @@ export async function POST(request: NextRequest) {
                 result: null,
               });
             } else if (event.event === 'on_tool_end') {
+              const toolOutput = event.data?.output;
+              logPayloadSize(`tool result: ${event.name}`, toolOutput);
+
               if (toolCalls.length > 0) {
                 const lastToolCall = toolCalls[toolCalls.length - 1];
                 if (lastToolCall.toolName === event.name) {
-                  lastToolCall.result = event.data?.output;
+                  lastToolCall.result = toolOutput;
                   controller.enqueue(
                     encoder.encode(
                       JSON.stringify({
                         type: 'tool-result',
                         toolName: event.name,
-                        result: event.data?.output,
+                        result: toolOutput,
                       }) + '\n'
                     )
                   );
@@ -207,51 +231,78 @@ export async function POST(request: NextRequest) {
             )
           );
 
-          // Build enhanced context for the final report with full tool results
+          // Build enhanced context for the final report with truncated results to avoid token limits
+          const MAX_RESULT_LENGTH = 1500;
           const contextForReport = toolCalls
             .map((call, idx) => {
-              const resultStr =
+              let resultStr =
                 typeof call.result === 'string'
                   ? call.result
                   : JSON.stringify(call.result, null, 2);
-              return `[${idx + 1}] Tool: ${call.toolName}\nInput: ${JSON.stringify(call.toolInput)}\nResult:\n${resultStr}`;
+
+              // Truncate long results to manage token usage
+              if (resultStr.length > MAX_RESULT_LENGTH) {
+                resultStr =
+                  resultStr.substring(0, MAX_RESULT_LENGTH) +
+                  '\n[... truncated ...]';
+              }
+
+              return `[${idx + 1}] Tool: ${call.toolName}\nResult:\n${resultStr}`;
             })
             .join('\n\n---\n\n');
 
           const previousConversation = conversationHistory.length
-            ? `Previous conversation:
-${conversationHistory.map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`).join('\n\n')}
+            ? `Previous context:
+${conversationHistory
+  .slice(-4)
+  .map(
+    (message) =>
+      `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.substring(0, 300)}`
+  )
+  .join('\n\n')}
 
 `
             : '';
-          const reportPrompt = `Based on the search results and candidate information below, provide a comprehensive screening report.
+          const reportPrompt = `Screen candidates based on the search results below.
 
 Query: ${query}
-${jobContext ? `Job Criteria:\n${jobContext}` : ''}
+${jobContext ? `Job: ${jobContext}` : ''}
 ${previousConversation}
 
-Tool Calls and Results (these contain resume chunks and candidate information):
+Results:
 ${contextForReport}
 
-For each candidate assessment, include:
-1. ID, name, and relevance score (0-100). Use the candidate ID and name returned by the tools exactly.
-2. Evidence from the resume (key qualifications that match the query)
-3. Unknowns or gaps in the resume
-4. Citations: Include 1-3 relevant resume excerpts from the tool results (each 80-150 chars) that directly support the assessment. Include the tool name that provided each citation (search_chunks or get_full_resume). Every citation MUST also include the enclosing assessment's exact 'candidateId' and 'candidateName'; these fields are required even though they repeat the assessment.
+Generate a screening report with:
+- ID, name, and relevance score (0-100)
+- Evidence: key qualifications matching the query
+- Unknowns: resume gaps
+- Citations: 1-3 snippets from results supporting the assessment
+- Summary: how candidates were evaluated
+- Reasoning: key assessment steps
+- Context: strategies used
 
-Additionally, provide:
-- A summary of the screening explaining how candidates were evaluated
-- Key reasoning steps that guided the assessment (e.g., "Used vector search to find candidates with matching skills, then reranked by relevance")
-- Context items used (such as job criteria, search strategies, number of candidates evaluated, tools employed)
-
-Return only one valid JSON object matching this exact shape. Do not use markdown fences, headings, commentary, or tool calls. Use JSON strings and arrays exactly as shown:
-{"query":"string","assessments":[{"candidateId":"string","candidateName":"string","score":0,"evidence":["string"],"unknowns":["string"],"citations":[{"candidateId":"string","candidateName":"string","content":"string","tool":"search_chunks"}]}],"summary":"string","reasoning":"string","context":["string"]}
-Use only candidate IDs, names, and resume excerpts that appear in the tool results.
-Format citations as actual text snippets from the resume content shown in the tool results above. Each citation must include the exact candidateId and candidateName from its assessment.`;
+Return valid JSON only (no markdown/commentary):
+{"query":"string","assessments":[{"candidateId":"string","candidateName":"string","score":0,"evidence":["string"],"unknowns":["string"],"citations":[{"candidateId":"string","candidateName":"string","content":"string","tool":"search_chunks"}]}],"summary":"string","reasoning":"string","context":["string"]}`;
 
           // Generate final structured report with timeout
           // Groq does not support LangChain's synthetic `json` tool strategy.
           const model = getChatModel(0.3);
+          modelPhase = 'final report generation';
+          logPayloadSize('final report prompt', reportPrompt);
+          console.log('[LLM SIZE] report inputs', {
+            toolCalls: toolCalls.length,
+            totalRawResultCharacters: toolCalls.reduce((total, call) => {
+              const result =
+                typeof call.result === 'string'
+                  ? call.result
+                  : JSON.stringify(call.result) || '';
+              return total + result.length;
+            }, 0),
+            contextCharacters: contextForReport.length,
+            jobContextCharacters: jobContext.length,
+            previousConversationCharacters: previousConversation.length,
+          });
+
           const reportResponse = (await Promise.race([
             model.invoke(reportPrompt),
             new Promise((_, reject) =>
@@ -276,7 +327,7 @@ Format citations as actual text snippets from the resume content shown in the to
           );
           controller.close();
         } catch (error) {
-          console.error('Stream error:', error);
+          console.error(`[${modelPhase}] Stream error:`, error);
           controller.enqueue(
             encoder.encode(
               JSON.stringify({

@@ -93,7 +93,8 @@ create index if not exists screening_citations_assessment_id_idx on screening_ci
 -- RPC function for vector search with similarity scoring
 create or replace function match_resume_chunks(
   query_embedding vector,
-  match_count int default 10
+  match_count int default 10,
+  filter_job_id uuid default null
 )
 returns table (
   id uuid,
@@ -113,6 +114,8 @@ begin
     resume_chunks.embedding,
     (1 - (resume_chunks.embedding <=> query_embedding)) as similarity
   from resume_chunks
+  inner join candidates on resume_chunks.candidate_id = candidates.id
+  where filter_job_id is null or candidates.job_id = filter_job_id
   order by resume_chunks.embedding <=> query_embedding
   limit match_count;
 end;

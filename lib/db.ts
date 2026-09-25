@@ -190,7 +190,8 @@ export async function deleteCandidate(candidateId: string): Promise<void> {
 
 export async function searchChunks(
   queryEmbedding: number[],
-  matchCount: number
+  matchCount: number,
+  filterJobId?: string
 ): Promise<any[]> {
   const client = createServiceClient();
 
@@ -198,6 +199,7 @@ export async function searchChunks(
   const { data, error } = await client.rpc('match_resume_chunks', {
     query_embedding: queryEmbedding,
     match_count: matchCount,
+    filter_job_id: filterJobId || null,
   });
 
   if (error) throw error;
@@ -234,7 +236,8 @@ export async function listCandidates(
     .from('candidates')
     .select('id, name, role_guess, original_filename');
 
-  if (options.jobId) candidateQuery = candidateQuery.eq('job_id', options.jobId);
+  if (options.jobId)
+    candidateQuery = candidateQuery.eq('job_id', options.jobId);
 
   if (options.search?.trim()) {
     const search = options.search.trim().replace(/[%(),]/g, ' ');

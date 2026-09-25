@@ -2,10 +2,10 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { listCandidates, searchChunks, getFullResumeById } from './db';
 import { embedQuery } from './embeddings';
-import { getChatModel } from './models';
 
 interface ToolContext {
   fetchedCandidates: Set<string>;
+  jobId?: string;
 }
 
 export function createAgentTools(context: ToolContext) {
@@ -47,7 +47,7 @@ export function createAgentTools(context: ToolContext) {
       async ({ query }: { query: string }) => {
         try {
           const queryEmbedding = await embedQuery(query);
-          const chunks = await searchChunks(queryEmbedding, 15);
+          const chunks = await searchChunks(queryEmbedding, 15, context.jobId);
 
           if (chunks.length === 0) {
             return JSON.stringify({
@@ -58,8 +58,13 @@ export function createAgentTools(context: ToolContext) {
 
           const chunksByCandidate: Record<
             string,
-            { candidateName?: string; chunks: string[] }
+            {
+              candidateName?: string;
+              chunks: string[];
+              maxSimilarity: number;
+            }
           > = {};
+
           chunks.forEach(
             (chunk: {
               candidate_id: string;
@@ -67,50 +72,35 @@ export function createAgentTools(context: ToolContext) {
               similarity: number;
             }) => {
               if (!chunksByCandidate[chunk.candidate_id]) {
-                chunksByCandidate[chunk.candidate_id] = { chunks: [] };
+                chunksByCandidate[chunk.candidate_id] = {
+                  chunks: [],
+                  maxSimilarity: 0,
+                };
               }
-              chunksByCandidate[chunk.candidate_id].chunks.push(chunk.content);
+              const data = chunksByCandidate[chunk.candidate_id];
+              data.chunks.push(chunk.content);
+              data.maxSimilarity = Math.max(data.maxSimilarity, chunk.similarity);
             }
           );
 
-          const model = getChatModel(0);
           const candidates = await listCandidates();
           const candidateNames = new Map(
             candidates.map((candidate) => [candidate.id, candidate.name])
           );
-          const rerankedCandidates = [];
 
-          for (const [candidateId, data] of Object.entries(chunksByCandidate)) {
-            const chunkSummary = data.chunks.slice(0, 3).join('\n---\n');
-            const rerankerPrompt = `Given the search query: "${query}"
-
-Here are chunks from a resume:
-${chunkSummary}
-
-Rate how relevant this candidate is to the query on a scale of 0-10. Return only the number.`;
-
-            const response = await model.invoke(rerankerPrompt);
-            const score = Number.parseInt(String(response.content), 10) || 0;
-            rerankedCandidates.push({
+          const rankedCandidates = Object.entries(chunksByCandidate)
+            .map(([candidateId, data]) => ({
               candidateId,
               candidateName:
                 candidateNames.get(candidateId) || 'Unknown candidate',
-              score,
-              chunks: data.chunks.slice(0, 3),
-            });
-          }
-
-          const topCandidates = rerankedCandidates
-            .sort((a, b) => b.score - a.score)
+              relevanceScore: Math.round(data.maxSimilarity * 100),
+              topChunks: data.chunks.slice(0, 3),
+            }))
+            .sort((a, b) => b.relevanceScore - a.relevanceScore)
             .slice(0, 5);
 
           return JSON.stringify({
-            results: topCandidates.map((c) => ({
-              candidateId: c.candidateId,
-              candidateName: c.candidateName,
-              relevanceScore: c.score,
-              topChunks: c.chunks,
-            })),
+            results: rankedCandidates,
           });
         } catch (error) {
           return JSON.stringify({
@@ -125,7 +115,7 @@ Rate how relevant this candidate is to the query on a scale of 0-10. Return only
       {
         name: 'search_chunks',
         description:
-          'Search resume chunks using vector similarity and LLM reranking. Returns most relevant candidates with matching resume sections. ' +
+          'Search resume chunks using vector similarity. Returns most relevant candidates with matching resume sections. ' +
           'Use this to find candidates matching specific skills, experience, or requirements. ' +
           'After identifying relevant candidates, use get_full_resume to retrieve their complete resume text.',
         schema: z.object({
