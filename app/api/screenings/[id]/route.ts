@@ -122,7 +122,10 @@ export async function PATCH(
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
       feedback?: 'like' | 'dislike' | null;
-      messageFeedback?: { messageIndex: number; feedback: 'like' | 'dislike' | null };
+      messageFeedback?: {
+        messageIndex: number;
+        feedback: 'like' | 'dislike' | null;
+      };
       metadata?: Record<string, unknown>;
       toolCalls?: ToolCallRecord[];
       responseText?: string;

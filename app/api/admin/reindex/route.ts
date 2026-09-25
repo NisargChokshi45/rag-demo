@@ -87,9 +87,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(
-        `[REINDEX] Updated candidate job_id to: ${jobId}`
-      );
+      console.log(`[REINDEX] Updated candidate job_id to: ${jobId}`);
     }
 
     // Chunk the text

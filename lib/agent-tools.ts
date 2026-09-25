@@ -79,7 +79,10 @@ export function createAgentTools(context: ToolContext) {
               }
               const data = chunksByCandidate[chunk.candidate_id];
               data.chunks.push(chunk.content);
-              data.maxSimilarity = Math.max(data.maxSimilarity, chunk.similarity);
+              data.maxSimilarity = Math.max(
+                data.maxSimilarity,
+                chunk.similarity
+              );
             }
           );
 

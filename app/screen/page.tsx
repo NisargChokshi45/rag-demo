@@ -545,7 +545,8 @@ export default function ScreenPage() {
     }
 
     const currentFeedback = messageFeedback[messageIndex];
-    const feedbackToSave = currentFeedback === nextFeedback ? null : nextFeedback;
+    const feedbackToSave =
+      currentFeedback === nextFeedback ? null : nextFeedback;
     const previousFeedback = currentFeedback;
 
     setMessageFeedback((prev) => {

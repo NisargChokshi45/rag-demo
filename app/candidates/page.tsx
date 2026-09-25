@@ -310,7 +310,7 @@ export default function CandidatesPage() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
               Candidates on the Platform
@@ -318,12 +318,14 @@ export default function CandidatesPage() {
             <p className="mt-1 text-sm text-slate-500">
               {selectedJob
                 ? `Candidates for ${selectedJob.title}`
-                : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} ingested`}
+                : `${candidates.length} ${
+                    candidates.length === 1 ? 'candidate' : 'candidates'
+                  } ingested`}
             </p>
           </div>
 
           {candidates.length > 0 && (
-            <div className="flex flex-wrap gap-4 sm:justify-end">
+            <div className="flex flex-wrap justify-center gap-4">
               <button
                 onClick={() => setShowUploadModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
@@ -486,10 +488,7 @@ export default function CandidatesPage() {
 
         {!loading && hasLoadedCandidates && (
           <>
-            <section
-              className="mb-6"
-              aria-label="Candidate filters"
-            >
+            <section className="mb-6" aria-label="Candidate filters">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
                 <label className="min-w-0 flex-1 text-sm font-medium text-slate-700">
                   Search candidates
