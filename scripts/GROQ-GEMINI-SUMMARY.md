@@ -102,19 +102,19 @@ Final assessment with evidence
 
 ### Gemini (Embeddings Only)
 
-| When | What | Example |
-|------|------|---------|
-| **Upload** | Embed each resume chunk | 400 chunks × 50 tokens = 20K tokens |
-| **Query** | Embed screening question | "How many years?" × 10 tokens = 10 tokens |
-| **Cost** | ~$0.02 per 1M tokens | 30K tokens = ~$0.0006 |
+| When       | What                     | Example                                   |
+| ---------- | ------------------------ | ----------------------------------------- |
+| **Upload** | Embed each resume chunk  | 400 chunks × 50 tokens = 20K tokens       |
+| **Query**  | Embed screening question | "How many years?" × 10 tokens = 10 tokens |
+| **Cost**   | ~$0.02 per 1M tokens     | 30K tokens = ~$0.0006                     |
 
 ### Groq/Llama (Reasoning Only)
 
-| When | What | Example |
-|------|------|---------|
+| When       | What                  | Example                                 |
+| ---------- | --------------------- | --------------------------------------- |
 | **Rerank** | Score chunk relevance | 50 screening × 1000 tokens = 50K tokens |
-| **Reason** | Answer the question | Read chunks + extract answer |
-| **Cost** | Free tier or paid | 50K tokens = Free (within free tier) |
+| **Reason** | Answer the question   | Read chunks + extract answer            |
+| **Cost**   | Free tier or paid     | 50K tokens = Free (within free tier)    |
 
 **Total Cost: <$0.01** for entire pipeline (ingestion + 50 screenings)
 
@@ -179,19 +179,19 @@ Why: Understands context, not just keyword matching
 
 You now have:
 
-| File | Purpose |
-|------|---------|
-| `INDEX.md` | Overview of all demo files |
-| `README.md` | Complete technical guide |
-| `CUSTOM-QUERY-GUIDE.md` | How custom queries work |
-| `CUSTOM-QUERY-QUICK-REF.md` | Quick reference for your query |
-| `CONFIG-REFERENCE.md` | Tuning & configuration guide |
-| `SETUP-GROQ-GEMINI.md` | Your exact stack setup |
-| `demo-pipeline.html` | Visual interactive demo |
-| `demo-pipeline.ts` | Executable pipeline script |
-| `test-custom-query.ts` | Test your specific query |
-| `example-usage.ts` | Step-by-step learning |
-| `VERIFY-SETUP.sh` | Verify everything works |
+| File                                                     | Purpose                        |
+| -------------------------------------------------------- | ------------------------------ |
+| [INDEX.md](./INDEX.md)                                   | Overview of all demo files     |
+| [README.md](./README.md)                                 | Complete technical guide       |
+| [CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md)         | How custom queries work        |
+| [CUSTOM-QUERY-QUICK-REF.md](./CUSTOM-QUERY-QUICK-REF.md) | Quick reference for your query |
+| [CONFIG-REFERENCE.md](./CONFIG-REFERENCE.md)             | Tuning & configuration guide   |
+| [SETUP-GROQ-GEMINI.md](./SETUP-GROQ-GEMINI.md)           | Your exact stack setup         |
+| `demo-pipeline.html`                                     | Visual interactive demo        |
+| `demo-pipeline.ts`                                       | Executable pipeline script     |
+| `test-custom-query.ts`                                   | Test your specific query       |
+| `example-usage.ts`                                       | Step-by-step learning          |
+| `VERIFY-SETUP.sh`                                        | Verify everything works        |
 
 ---
 
@@ -238,11 +238,11 @@ You now have:
 ## 🎓 Learning Path
 
 1. **Start**: Open `scripts/demo-pipeline.html` (visual understanding)
-2. **Learn**: Read `CUSTOM-QUERY-QUICK-REF.md` (how your query works)
-3. **Explore**: Read `CUSTOM-QUERY-GUIDE.md` (detailed explanation)
+2. **Learn**: Read [CUSTOM-QUERY-QUICK-REF.md](./CUSTOM-QUERY-QUICK-REF.md) (how your query works)
+3. **Explore**: Read [CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md) (detailed explanation)
 4. **Try**: Run `pnpm tsx scripts/test-custom-query.ts` (real execution)
-5. **Understand**: Read `SETUP-GROQ-GEMINI.md` (your exact stack)
-6. **Deep Dive**: Read `CONFIG-REFERENCE.md` (tuning & optimization)
+5. **Understand**: Read [SETUP-GROQ-GEMINI.md](./SETUP-GROQ-GEMINI.md) (your exact stack)
+6. **Deep Dive**: Read [CONFIG-REFERENCE.md](./CONFIG-REFERENCE.md) (tuning & optimization)
 7. **Implement**: Use `/screen` page in the app (production usage)
 
 ---

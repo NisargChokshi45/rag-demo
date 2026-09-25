@@ -4,7 +4,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 
 ## What It Does
 
-1. **Upload**: Recruiters upload resume PDFs and job descriptions
+1. **Jobs**: Recruiters can create Jobs and upload candidate resume PDFs
 2. **Parse & Ingest**: PDFs are parsed, chunked, embedded, and indexed in Postgres (pgvector)
 3. **Screen**: Free-form questions about candidates are answered via an agent loop:
    - `list_all_candidates` - fetch full candidate pool for coverage
@@ -25,24 +25,11 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 - **Validation**: Zod (structured schema)
 - **Package Manager**: pnpm
 
-## Project Status
-
-🛠️ **Phases 1–6 Implemented** (runtime E2E validation remains)
-- Phase 1: Next.js + pnpm setup
-- Phase 2: Test data (25 sample resumes)
-- Phase 3: Ingestion pipeline (PDF → chunks → embeddings → DB)
-- Phase 4: Candidates page (listing ingested resumes)
-- Phase 5: Agent route (tool-calling loop with streaming)
-- Phase 6: Screen page UI (live tool trace, structured report)
-
-⏳ **Phase 7: E2E Testing** (blocked on credentials)
-📋 **Phase 8: Deployment** (documented, ready to deploy)
-
 ## Quick Start
 
 ### 1. Get Credentials
 
-Follow **CREDENTIALS_SETUP.md** to:
+Follow **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** to:
 - Create a Supabase project (free tier)
 - Get Google API key (free tier)
 - Create `.env.local` with four env vars
@@ -60,20 +47,20 @@ pnpm dev
 ```
 
 Visit:
-- **Upload**: http://localhost:3000/upload
+- **Jobs**: http://localhost:3000/jobs
 - **Candidates**: http://localhost:3000/candidates
 - **Screen**: http://localhost:3000/screen
 
 ### 3. Run E2E Tests
 
-Follow **PHASE7_E2E_TESTING.md** for three test queries:
+Follow **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for three test queries:
 1. **Direct skill match** (Java + AWS)
 2. **Fragmentation coverage** (full-resume fetch for Mahesh)
 3. **Shortlist** (all PMs/Scrum Masters via `list_all_candidates`)
 
 ### 4. Deploy
 
-Follow **PHASE8_DEPLOYMENT.md** to:
+Follow **[PHASE8_DEPLOYMENT.md](./PHASE8_DEPLOYMENT.md)** to:
 - Push to GitHub
 - Link Vercel project
 - Set production env vars
@@ -83,7 +70,7 @@ Follow **PHASE8_DEPLOYMENT.md** to:
 
 ```
 app/
-  upload/page.tsx             JD + resume uploader
+  jobs/page.tsx               Jobs + Resume uploader
   candidates/page.tsx         List ingested candidates
   screen/page.tsx             Chat UI with tool trace & report
   api/
@@ -147,13 +134,13 @@ TASKS.md                      Task checklist (Phases 0–8)
 
 ## Known Constraints & Workarounds
 
-| Constraint | Workaround |
-|---|---|
-| Vercel 4.5MB body limit | Signed upload URLs → Supabase Storage |
-| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as `vector(1536)` |
-| Free-tier rate limits | Batch embed calls with backoff, not `Promise.all` |
-| Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
-| Supabase free tier (500 MB DB) | 25 resumes = ~625 KB; 8+ resume fetches = ~200 KB; all OK |
+| Constraint                     | Workaround                                                     |
+| ------------------------------ | -------------------------------------------------------------- |
+| Vercel 4.5MB body limit        | Signed upload URLs → Supabase Storage                          |
+| Gemini Embedding 2 dims        | Request and validate 1536 dimensions; stored as `vector(1536)` |
+| Free-tier rate limits          | Batch embed calls with backoff, not `Promise.all`              |
+| Google/Groq free-tier limits   | Sequential embedding and reranking with retry/backoff          |
+| Supabase free tier (500 MB DB) | 25 resumes = ~625 KB; 8+ resume fetches = ~200 KB; all OK      |
 
 ## Security
 
@@ -166,12 +153,12 @@ TASKS.md                      Task checklist (Phases 0–8)
 
 ## Performance Targets
 
-| Operation | Target | Notes |
-|---|---|---|
-| Upload 5 PDFs | <30s | Parsing + chunking + batch embed |
-| Vector search | <2s | HNSW index on pgvector |
-| Full agent query (3 tools) | <5s | Streaming; includes Gemini latency |
-| Final structured report | <1s | `generateObject` over tool history |
+| Operation                  | Target | Notes                              |
+| -------------------------- | ------ | ---------------------------------- |
+| Upload 5 PDFs              | <30s   | Parsing + chunking + batch embed   |
+| Vector search              | <2s    | HNSW index on pgvector             |
+| Full agent query (3 tools) | <5s    | Streaming; includes Gemini latency |
+| Final structured report    | <1s    | `generateObject` over tool history |
 
 ## Troubleshooting
 
@@ -190,7 +177,7 @@ TASKS.md                      Task checklist (Phases 0–8)
 - Low: batch embedding failed (check `api/ingest` logs)
 - Expected: 20–30 chunks per resume
 
-See **PHASE7_E2E_TESTING.md** for detailed troubleshooting.
+See **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for detailed troubleshooting.
 
 ## Next Steps (Phase 9+)
 
@@ -202,20 +189,14 @@ See **PHASE7_E2E_TESTING.md** for detailed troubleshooting.
 - [ ] Resume comparison: side-by-side view of top candidates
 - [ ] Custom models: OpenAI, Claude, local LLMs
 
-## License
-
-MIT (or your choice)
-
 ## Support
 
 For questions or issues:
-1. Check **PHASE7_E2E_TESTING.md** troubleshooting section
+1. Check **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** troubleshooting section
 2. Review logs: `pnpm dev` or Vercel dashboard
 3. Verify credentials in `.env.local`
 4. Open an issue on GitHub
 
 ---
 
-**Build status**: ✅ Clean
-**Last updated**: 2026-09-19
-**Current phase**: ⏳ Awaiting credentials for Phase 7 E2E testing
+**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-19

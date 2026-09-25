@@ -5,7 +5,7 @@
 ### ✅ Complete (Dec 23, 2026)
 
 #### Core Auth Infrastructure
-- **Feature flag system** (`lib/config.ts`)
+- **Feature flag system** ([lib/config.ts](./lib//config.ts))
   - `NEXT_PUBLIC_AUTH_ENABLED` - Master toggle
   - `NEXT_PUBLIC_USER_DATA_ISOLATION` - Data filtering toggle
 
@@ -54,8 +54,8 @@
 - Pattern ready to apply to other routes: `POST /api/upload-url`, `POST /api/agent`, `GET /api/candidates`, etc.
 
 #### Documentation
-- `AUTH_SETUP.md` - Complete setup and configuration guide
-- `AUTH_IMPLEMENTATION.md` - This file
+- [AUTH_SETUP.md](./AUTH_SETUP.md) - Complete setup and configuration guide
+- [AUTH_IMPLEMENTATION.md](./AUTH_IMPLEMENTATION.md) - This file
 
 ---
 
@@ -289,7 +289,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 ## Support & Debugging
 
-See `AUTH_SETUP.md` for troubleshooting guide covering:
+See [AUTH_SETUP.md](./AUTH_SETUP.md) for troubleshooting guide covering:
 - "Unauthorized" errors
 - RLS policy issues
 - User data leakage

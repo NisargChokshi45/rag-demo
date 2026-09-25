@@ -151,13 +151,13 @@ No type errors = ready to deploy.
 **Tool trace empty**: Verify streaming is working (Network tab shows `/api/agent` streaming NDJSON)
 **No candidates**: Verify `schema.sql` was run in Supabase (check SQL editor for `candidates` table)
 
-See **PHASE7_E2E_TESTING.md** for detailed troubleshooting.
+See **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for detailed troubleshooting.
 
 ## Next Steps
 
-- **Full E2E tests**: Follow **PHASE7_E2E_TESTING.md** for comprehensive test suite
-- **Deploy**: Follow **PHASE8_DEPLOYMENT.md** to push to Vercel
-- **Documentation**: See **README.md** for architecture, **PLAN.md** for design constraints
+- **Full E2E tests**: Follow **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for comprehensive test suite
+- **Deploy**: Follow **[PHASE8_DEPLOYMENT.md](./PHASE8_DEPLOYMENT.md)** to push to Vercel
+- **Documentation**: See **[README.md](./README.md)** for architecture, **[PLAN.md](./PLAN.md)** for design constraints
 
 ---
 

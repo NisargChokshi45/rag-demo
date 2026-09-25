@@ -62,15 +62,15 @@ Step 5: Return
 
 ## 🎨 Query Types That Work
 
-| Query Type | Example | Works? |
-|-----------|---------|--------|
+| Query Type         | Example                      | Works?    |
+| ------------------ | ---------------------------- | --------- |
 | **Specific Facts** | "How many years experience?" | ✅ Perfect |
-| **Skills** | "What Java frameworks?" | ✅ Perfect |
-| **Numbers/Dates** | "When did they graduate?" | ✅ Perfect |
-| **Lists** | "Cloud platforms used?" | ✅ Perfect |
-| **Soft Skills** | "Leadership experience?" | ✅ Good |
-| **Inference** | "Good fit for role?" | ✅ Good |
-| **Comparative** | "Better at X or Y?" | ✅ Fair |
+| **Skills**         | "What Java frameworks?"      | ✅ Perfect |
+| **Numbers/Dates**  | "When did they graduate?"    | ✅ Perfect |
+| **Lists**          | "Cloud platforms used?"      | ✅ Perfect |
+| **Soft Skills**    | "Leadership experience?"     | ✅ Good    |
+| **Inference**      | "Good fit for role?"         | ✅ Good    |
+| **Comparative**    | "Better at X or Y?"          | ✅ Fair    |
 
 ---
 
@@ -226,12 +226,12 @@ A: Depends on resume quality:
 
 ## 📈 Performance
 
-| Metric | Value |
-|--------|-------|
-| Vector search time | <100ms |
-| LLM reranking time | 1-3 seconds |
-| Full pipeline time | 2-5 seconds per query |
-| Number of candidates handled | 5-10 in parallel |
+| Metric                       | Value                 |
+| ---------------------------- | --------------------- |
+| Vector search time           | <100ms                |
+| LLM reranking time           | 1-3 seconds           |
+| Full pipeline time           | 2-5 seconds per query |
+| Number of candidates handled | 5-10 in parallel      |
 
 ---
 
@@ -279,5 +279,5 @@ Your question "How many years of experience?" will return:
 
 **Next Steps:**
 - Try `/scripts/test-custom-query.ts` to see it in action
-- Read `CUSTOM-QUERY-GUIDE.md` for detailed explanation
+- Read [CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md) for detailed explanation
 - Use `/screen` page in the app to ask real queries

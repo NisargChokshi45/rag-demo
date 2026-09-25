@@ -3,31 +3,18 @@
 ## Current status
 
 **Build Status**: ✅ Production-build verified
-**Code Coverage**: ~95% implemented against PLAN.md
+**Code Coverage**: ~95% implemented against [PLAN.md](./PLAN.md)
 **Live Environment**: Agent has run successfully with real Groq calls (per session history Sep 25)
-**Deployment**: Ready for Vercel (repo already on GitHub)
-
-### Verified in this workspace:
-- [x] Next.js app scaffolded and dependencies installed (Node 24)
-- [x] Production build passes with `pnpm build`
-- [x] Core code for ingestion, retrieval, agent loop, and UI fully implemented
-- [x] Supabase project active with vector extension, 11 migrations applied, storage configured
-- [x] `.env.local` contains valid Supabase, Google, and Groq credentials
-- [x] Agent loop successfully executed with real database queries and Groq calls (Sep 25 session history)
-- [x] Job-scoped retrieval wired end-to-end (jobs table → jobId → match_resume_chunks filter)
-- [x] Per-message feedback persisted to database (screening_message_feedback table)
-- [x] Upload flow integrated into candidates page (signed URLs → ingestion → chunk storage)
 
 ### Not yet verified:
 - [ ] Full E2E of the three notebook test queries (query #1, #2, #3)
-- [ ] Production deployment smoke test on Vercel
 - [ ] Per-message feedback UI fully tested in live environment
 
 ---
 
 ## 0. Credentials Setup 📋 DOCUMENTED (verified for the current app)
 
-See **CREDENTIALS_SETUP.md** for the exact setup flow.
+See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 
 - [x] Confirm the required Supabase keys are present: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`
 - [x] Confirm `GOOGLE_API_KEY` is configured for Gemini Embedding 2 at 1536 dimensions
@@ -208,40 +195,6 @@ The three notebook test queries from PLAN Section 7.7 should be run in order:
 **Notes**:
 - These queries are designed to stress-test the three documented failure modes from PLAN Part 3: fragmentation (Q2), coverage (Q3), and direct matching (Q1).
 - Session history (Sep 25) confirms agent has run against live database with real candidates, so live infrastructure is ready.
-
----
-
-## 8. Deploy to Vercel
-
-**Repository Status**: ✅ Already on GitHub
-
-- [x] Repository pushed to GitHub: `origin git@github.com:NisargChokski45/rag-demo.git`
-- [x] `git status` clean (no uncommitted changes)
-
-**Vercel Deployment Steps**:
-
-- [ ] Link project in Vercel dashboard (if not already linked)
-- [ ] Set production environment variables in Vercel dashboard:
-  - `NEXT_PUBLIC_SUPABASE_URL` (public)
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
-  - `SUPABASE_SERVICE_ROLE_KEY` (secret, server-only)
-  - `GOOGLE_API_KEY` (secret)
-  - `GROQ_API_KEY` (secret)
-  - `GROQ_CHAT_MODEL` (optional, default: `mixtral-8x7b-32768`)
-- [ ] Trigger deployment (should auto-deploy on push to main)
-- [ ] Smoke-test production URL:
-  - Load `/jobs` → create a test job
-  - Load `/candidates` → upload 2 test PDFs
-  - Load `/screen` → select job → run Query #1 from E2E
-  - Observe tool trace and final report
-- [ ] Security verification:
-  - Inspect Network tab: confirm no env vars leaked in requests
-  - Check build output: `npm run build` shows no `SUPABASE_SERVICE_ROLE_KEY` in client bundles
-  - Verify `/api/debug` endpoint does not echo `SUPABASE_SERVICE_ROLE_KEY`
-
-**Known Considerations**:
-- Service-role key is used only in route handlers (`app/api/**`), not in client-side code
-- `.env.local` is gitignored and never shipped
 - Admin routes (`/api/admin/*`) currently have no auth protection; add Supabase RLS or middleware auth before production if needed
 
 ---

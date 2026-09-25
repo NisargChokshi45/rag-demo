@@ -210,6 +210,6 @@ Expected response:
 
 Once credentials are configured:
 
-1. Run Phase 7 E2E tests: see `PHASE7_E2E_TESTING.md`
-2. Deploy to Vercel: see `PHASE8_DEPLOYMENT.md`
+1. Run Phase 7 E2E tests: see [PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)
+2. Deploy to Vercel: see [PHASE8_DEPLOYMENT.md](./PHASE8_DEPLOYMENT.md)
 3. Share production URL with stakeholders

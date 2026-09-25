@@ -31,17 +31,17 @@ npm run dev           # Start development server
 
 ## 📚 Documentation Index
 
-| Document | Purpose | Read Time |
-|----------|---------|-----------|
-| **[SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md)** | Complete architecture, API reference, database schema | 15 min |
-| **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** | Production deployment, testing, troubleshooting | 10 min |
-| **[SCREENING_UI_GUIDE.md](./SCREENING_UI_GUIDE.md)** | User interface details, layouts, accessibility | 12 min |
-| **[SCREENING_IMPLEMENTATION_SUMMARY.md](./SCREENING_IMPLEMENTATION_SUMMARY.md)** | What was built, how it works, next steps | 15 min |
+| Document                                                                         | Purpose                                               | Read Time |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------- | --------- |
+| **[SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md)**                       | Complete architecture, API reference, database schema | 15 min    |
+| **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**                                 | Production deployment, testing, troubleshooting       | 10 min    |
+| **[SCREENING_UI_GUIDE.md](./SCREENING_UI_GUIDE.md)**                             | User interface details, layouts, accessibility        | 12 min    |
+| **[SCREENING_IMPLEMENTATION_SUMMARY.md](./SCREENING_IMPLEMENTATION_SUMMARY.md)** | What was built, how it works, next steps              | 15 min    |
 
 **👈 Start here if you have < 5 minutes** → Read this Quick Start
-**👈 Start here if you have 10 minutes** → Read DEPLOYMENT_GUIDE.md
-**👈 Start here if you need details** → Read SCREENING_PERSISTENCE.md
-**👈 Start here if you need UI details** → Read SCREENING_UI_GUIDE.md
+**👈 Start here if you have 10 minutes** → Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+**👈 Start here if you need details** → Read [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md)
+**👈 Start here if you need UI details** → Read [SCREENING_UI_GUIDE.md](./SCREENING_UI_GUIDE.md)
 
 ## 🚀 Deployment Checklist
 
@@ -98,11 +98,11 @@ curl -X DELETE http://localhost:3000/api/screenings/{id}
 - `app/api/screenings/route.ts` - POST/GET endpoints
 - `app/api/screenings/[id]/route.ts` - GET/:id/DELETE endpoints
 - `lib/screenings-api.ts` - Type-safe API client
-- `SCREENING_PERSISTENCE.md` - Architecture guide
-- `DEPLOYMENT_GUIDE.md` - Deployment guide
-- `SCREENING_UI_GUIDE.md` - UI documentation
-- `SCREENING_IMPLEMENTATION_SUMMARY.md` - Implementation overview
-- `SCREENING_QUICK_START.md` - This file
+- [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md) - Architecture guide
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Deployment guide
+- [SCREENING_UI_GUIDE.md](./SCREENING_UI_GUIDE.md) - UI documentation
+- [SCREENING_IMPLEMENTATION_SUMMARY.md](./SCREENING_IMPLEMENTATION_SUMMARY.md) - Implementation overview
+- [SCREENING_QUICK_START.md](./SCREENING_QUICK_START.md) - This file
 
 **Modified Files** (1 total):
 - `app/screen/page.tsx` - Enhanced with Supabase integration
@@ -195,13 +195,13 @@ For each screening, Supabase stores:
 ## 🎓 Learning Resources
 
 **To understand the implementation:**
-1. Start with SCREENING_IMPLEMENTATION_SUMMARY.md (overview)
-2. Read SCREENING_PERSISTENCE.md (architecture)
+1. Start with [SCREENING_IMPLEMENTATION_SUMMARY.md](./SCREENING_IMPLEMENTATION_SUMMARY.md) (overview)
+2. Read [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md) (architecture)
 3. Check lib/screenings-api.ts (client code)
 4. Review app/screen/page.tsx (UI integration)
 
 **To deploy to production:**
-1. Follow DEPLOYMENT_GUIDE.md step by step
+1. Follow [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) step by step
 2. Run the provided curl tests
 3. Monitor Supabase logs
 
@@ -224,10 +224,10 @@ This implementation is **production-ready** after:
 ## 📞 Need Help?
 
 See the relevant section in the documentation:
-- **Architecture questions** → SCREENING_PERSISTENCE.md
-- **Deployment issues** → DEPLOYMENT_GUIDE.md
-- **UI/UX questions** → SCREENING_UI_GUIDE.md
-- **Implementation details** → SCREENING_IMPLEMENTATION_SUMMARY.md
+- **Architecture questions** → [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md)
+- **Deployment issues** → [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- **UI/UX questions** → [SCREENING_UI_GUIDE.md](./SCREENING_UI_GUIDE.md)
+- **Implementation details** → [SCREENING_IMPLEMENTATION_SUMMARY.md](./SCREENING_IMPLEMENTATION_SUMMARY.md)
 
 ---
 

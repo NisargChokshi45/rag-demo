@@ -12,9 +12,9 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ---
 
-## PLAN.md Implementation Checklist
+## [PLAN.md](./PLAN.md) Implementation Checklist
 
-Derived directly from `PLAN.md`. Checked items are verified against current code (not against this document's own status labels below, which had drifted in places - see "Deviations" at the end of this section).
+Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against current code (not against this document's own status labels below, which had drifted in places - see "Deviations" at the end of this section).
 
 ### Build Order
 
@@ -76,7 +76,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 - [ ] Confirm Supabase service-role key never appears in client-side bundles
 - [ ] Re-run the three test queries against the deployed Vercel URL
 
-### Deviations from PLAN.md (intentional, not gaps)
+### Deviations from [PLAN.md](./PLAN.md) (intentional, not gaps)
 
 - **Jobs table + dropdown instead of session-storage JD.** PLAN.md explicitly said "no jobs table" and job description in `sessionStorage`. The implementation instead added a `jobs` table (`supabase/migrations/003_jobs.sql`) with `app/jobs/`, `GET`/`POST /api/jobs`, and a job-selection dropdown on `/screen`. No `sessionStorage` usage exists.
 - **Screening persistence added.** PLAN.md's MVP had no screening history; `screenings` + `screening_assessments` tables (`004_screenings.sql`) and `createScreening`/`getScreeningsByJob`/`getAssessmentsByCandidate` (`lib/db.ts`) were added beyond the MVP scope.
@@ -117,7 +117,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 - **Spec:**
   - Chunk size: 800 characters
   - Overlap: 100 characters
-  - No external dependencies (@langchain/textsplitters not used per PLAN.md design)
+  - No external dependencies (@langchain/textsplitters not used per [PLAN.md](./PLAN.md) design)
 
 #### ✅ Embedding Generation (Gemini)
 - **Status:** Implemented
@@ -163,7 +163,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 - **Files:** `app/api/agent/route.ts`, `lib/agent-tools.ts`, `lib/models.ts`
 - **Spec:**
   - Model: Groq `llama-3.3-70b-versatile` (or configurable via `GROQ_CHAT_MODEL`)
-  - Tool calling loop with 10-step recursion limit (per PLAN.md)
+  - Tool calling loop with 10-step recursion limit (per [PLAN.md](./PLAN.md))
   - Streaming events with `version: "v2"`
   - Temperature: 0.2 for agent reasoning
 
@@ -310,7 +310,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 2. Restart dev server
 3. Login page appears at `/login`
 
-**Documentation:** See `AUTH_SETUP.md` for complete setup guide
+**Documentation:** See [AUTH_SETUP.md](./AUTH_SETUP.md) for complete setup guide
 
 #### 📋 User Data Isolation (Requires Auth)
 - **Status:** Planned
@@ -528,7 +528,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 - **Status:** Known Limitation
 - **Reason:** MVP scope; auth is implemented (see Phase 2) but off by default via `NEXT_PUBLIC_AUTH_ENABLED`
 - **Impact:** Single shared candidate pool and jobs (no multi-tenancy) unless auth + `NEXT_PUBLIC_USER_DATA_ISOLATION` are both enabled
-- **Migration Path:** Enable the existing flags; see `AUTH_SETUP.md`. Per-user data isolation (RLS, user_id columns) is still Planned
+- **Migration Path:** Enable the existing flags; see [AUTH_SETUP.md](./AUTH_SETUP.md). Per-user data isolation (RLS, user_id columns) is still Planned
 
 ### ⚠️ No Streaming Resume Download
 - **Status:** Known Limitation
@@ -543,7 +543,7 @@ Derived directly from `PLAN.md`. Checked items are verified against current code
 
 ---
 
-*Verification checklist moved to "PLAN.md Implementation Checklist" near the top of this document.*
+*Verification checklist moved to "[PLAN.md](./PLAN.md) Implementation Checklist" near the top of this document.*
 
 ## Backlog (Long-term Ideas)
 

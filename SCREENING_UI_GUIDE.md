@@ -296,7 +296,7 @@ If Supabase is unavailable:
 
 ## Future UI Enhancements
 
-See SCREENING_PERSISTENCE.md for planned features that will affect UI:
+See [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md) for planned features that will affect UI:
 - Search bar in sidebar for finding past screenings
 - Filter buttons (by date, job, score, candidate)
 - Export/download screening results

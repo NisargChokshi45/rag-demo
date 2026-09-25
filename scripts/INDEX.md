@@ -64,7 +64,7 @@ pnpm tsx scripts/example-usage.ts
 
 ---
 
-### 4. **README.md** 📖 Full Documentation
+### 4. [README.md](./README.md) 📖 Full Documentation
 Comprehensive guide covering:
 - How the pipeline works (all 7 stages)
 - Code examples for each component
@@ -208,15 +208,15 @@ The demo shows exactly what happens when you:
 
 ## 🔧 Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| PDF Parsing | `unpdf` library |
-| Text Chunking | Custom (800 chars, overlap) |
-| Embeddings | Google Gemini API (1536-dim) |
-| Vector Search | Supabase pgvector (HNSW index) |
-| Database | Supabase PostgreSQL |
-| Chat/Assessment | Claude API via LangGraph |
-| Frontend | Next.js + React |
+| Component       | Technology                     |
+| --------------- | ------------------------------ |
+| PDF Parsing     | `unpdf` library                |
+| Text Chunking   | Custom (800 chars, overlap)    |
+| Embeddings      | Google Gemini API (1536-dim)   |
+| Vector Search   | Supabase pgvector (HNSW index) |
+| Database        | Supabase PostgreSQL            |
+| Chat/Assessment | Claude API via LangGraph       |
+| Frontend        | Next.js + React                |
 
 ---
 
@@ -260,10 +260,10 @@ export GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
 ## ❓ Questions?
 
 Refer to:
-- `scripts/README.md` - Comprehensive documentation
+- [scripts/README.md](./README.md) - Comprehensive documentation
 - `scripts/example-usage.ts` - Code examples for each step
 - `app/api/ingest/route.ts` - Real implementation
-- `PLAN.md` - Original project planning document
+- [`PLAN.md](./../PLAN.md) - Original project planning document
 
 ---
 

@@ -57,7 +57,7 @@ All routes go back to open access. No data loss.
 
 When you're ready for per-user data:
 
-1. Run schema migration (see `AUTH_SETUP.md`)
+1. Run schema migration (see [AUTH_SETUP.md](./AUTH_SETUP.md))
 2. Set `NEXT_PUBLIC_USER_DATA_ISOLATION=true`
 3. Each user only sees their own data
 
@@ -76,8 +76,8 @@ When you're ready for per-user data:
 - `app/api/auth/logout/route.ts` - Logout endpoint
 - `app/api/auth/signup/route.ts` - Signup endpoint
 - `middleware.ts` - Next.js middleware
-- `AUTH_SETUP.md` - Full setup guide
-- `AUTH_IMPLEMENTATION.md` - Technical details
+- [AUTH_SETUP.md](./AUTH_SETUP.md) - Full setup guide
+- [AUTH_IMPLEMENTATION.md](./AUTH_IMPLEMENTATION.md) - Technical details
 
 ### Updated Files:
 - `package.json` - Added `@supabase/ssr`
@@ -108,8 +108,8 @@ When you're ready for per-user data:
 
 ## Full Documentation
 
-- **Setup & Configuration:** See `AUTH_SETUP.md`
-- **Implementation Details:** See `AUTH_IMPLEMENTATION.md`
+- **Setup & Configuration:** See [AUTH_SETUP.md](./AUTH_SETUP.md)
+- **Implementation Details:** See [AUTH_IMPLEMENTATION.md](./AUTH_IMPLEMENTATION.md)
 - **Code Walkthrough:** See individual files with comments
 
 ---

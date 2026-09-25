@@ -158,7 +158,7 @@ CREATE INDEX screenings_query_idx ON screenings USING GIN (to_tsvector('english'
 
 ## Future Improvements
 
-See SCREENING_PERSISTENCE.md "Future Enhancements" section for planned features:
+See [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md) "Future Enhancements" section for planned features:
 - Full-text search on queries
 - Export/import history
 - Sharing with team members
@@ -168,7 +168,7 @@ See SCREENING_PERSISTENCE.md "Future Enhancements" section for planned features:
 ## Support
 
 For issues:
-1. Check SCREENING_PERSISTENCE.md Troubleshooting section
+1. Check [SCREENING_PERSISTENCE.md](./SCREENING_PERSISTENCE.md) Troubleshooting section
 2. Review browser console for errors
 3. Check Supabase logs for database issues
 4. Verify network requests in DevTools Network tab

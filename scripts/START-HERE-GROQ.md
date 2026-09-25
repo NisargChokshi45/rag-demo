@@ -91,17 +91,17 @@ Custom Query
 
 ## 📚 Documentation Map
 
-| Want to... | Read This |
-|-----------|-----------|
-| See a visual demo | `demo-pipeline.html` |
-| Understand the flow | `GROQ-GEMINI-SUMMARY.md` |
-| Learn about your query | `CUSTOM-QUERY-QUICK-REF.md` |
-| Deep dive into details | `CUSTOM-QUERY-GUIDE.md` |
-| Configure your setup | `SETUP-GROQ-GEMINI.md` |
-| Tune for performance | `CONFIG-REFERENCE.md` |
-| Run step-by-step examples | `example-usage.ts` |
-| Test a specific query | `test-custom-query.ts` |
-| See the full pipeline | `demo-pipeline.ts` |
+| Want to...                | Read This                                                |
+| ------------------------- | -------------------------------------------------------- |
+| See a visual demo         | `demo-pipeline.html`                                     |
+| Understand the flow       | [GROQ-GEMINI-SUMMARY.md](./GROQ-GEMINI-SUMMARY.md)       |
+| Learn about your query    | [CUSTOM-QUERY-QUICK-REF.md](./CUSTOM-QUERY-QUICK-REF.md) |
+| Deep dive into details    | [CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md)         |
+| Configure your setup      | [SETUP-GROQ-GEMINI.md](./SETUP-GROQ-GEMINI.md)           |
+| Tune for performance      | [CONFIG-REFERENCE.md](./CONFIG-REFERENCE.md)             |
+| Run step-by-step examples | `example-usage.ts`                                       |
+| Test a specific query     | `test-custom-query.ts`                                   |
+| See the full pipeline     | `demo-pipeline.ts`                                       |
 
 ---
 
@@ -199,13 +199,13 @@ Question: "How many years of experience?"
 
 ## 📊 Performance
 
-| Operation | Time | Cost |
-|-----------|------|------|
-| Upload resume | 30-60s | ~$0.0001 |
-| Embed query | <1s | ~$0.00001 |
-| Vector search | <100ms | Free |
-| Groq reasoning | 1-3s | Free* |
-| Total screening | 2-5s | ~$0.00002 |
+| Operation       | Time   | Cost      |
+| --------------- | ------ | --------- |
+| Upload resume   | 30-60s | ~$0.0001  |
+| Embed query     | <1s    | ~$0.00001 |
+| Vector search   | <100ms | Free      |
+| Groq reasoning  | 1-3s   | Free*     |
+| Total screening | 2-5s   | ~$0.00002 |
 
 *Free tier: 30 req/min. Paid tier available.
 
@@ -261,9 +261,9 @@ Check:
 ## 🎓 Learning Progression
 
 ### Day 1: Understand
-1. Read `GROQ-GEMINI-SUMMARY.md`
+1. Read [GROQ-GEMINI-SUMMARY.md](./GROQ-GEMINI-SUMMARY.md)
 2. Open `scripts/demo-pipeline.html` in browser
-3. Read `CUSTOM-QUERY-QUICK-REF.md`
+3. Read [CUSTOM-QUERY-QUICK-REF.md](./CUSTOM-QUERY-QUICK-REF.md)
 
 ### Day 2: Test
 1. Run `bash scripts/VERIFY-SETUP.sh`
@@ -277,7 +277,7 @@ Check:
 4. View assessments
 
 ### Day 4: Customize
-1. Read `CONFIG-REFERENCE.md`
+1. Read [CONFIG-REFERENCE.md](./CONFIG-REFERENCE.md)
 2. Adjust chunk size, models, etc.
 3. Monitor performance
 4. Optimize costs

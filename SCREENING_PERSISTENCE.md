@@ -316,6 +316,6 @@ To test the feature:
 
 ## Related Documentation
 
-- [[FEATURES.md]] - Overall feature list and status
+- [FEATURES.md](./FEATURES.md) - Overall feature list and status
 - [[lib/auth.ts]] - Authentication utilities
 - [[lib/supabase/server.ts]] - Supabase client setup
