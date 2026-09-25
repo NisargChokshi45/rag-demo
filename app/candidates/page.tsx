@@ -475,7 +475,7 @@ export default function CandidatesPage() {
                   <select
                     value={selectedJobId || ''}
                     onChange={(event) => handleJobChange(event.target.value)}
-                    className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="select-control mt-1 block w-full font-normal"
                   >
                     <option value="">All roles</option>
                     {jobs.map((job) => (
@@ -492,7 +492,7 @@ export default function CandidatesPage() {
                     onChange={(event) =>
                       setStatusFilter(event.target.value as typeof statusFilter)
                     }
-                    className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="select-control mt-1 block w-full font-normal"
                   >
                     <option value="all">All statuses</option>
                     <option value="indexed">Indexed</option>
@@ -506,7 +506,7 @@ export default function CandidatesPage() {
                     onChange={(event) =>
                       setSortBy(event.target.value as typeof sortBy)
                     }
-                    className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="select-control mt-1 block w-full font-normal"
                   >
                     <option value="name">Name</option>
                     <option value="role">Role</option>

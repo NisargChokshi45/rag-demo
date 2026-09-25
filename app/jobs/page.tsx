@@ -278,7 +278,7 @@ export default function JobsPage() {
                 onChange={(event) =>
                   setStatusFilter(event.target.value as typeof statusFilter)
                 }
-                className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="select-control mt-1 block w-full font-normal"
               >
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
@@ -292,7 +292,7 @@ export default function JobsPage() {
                 onChange={(event) =>
                   setSortBy(event.target.value as typeof sortBy)
                 }
-                className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="select-control mt-1 block w-full font-normal"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>

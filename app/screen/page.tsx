@@ -1390,7 +1390,7 @@ export default function ScreenPage() {
                   id="job"
                   value={selectedJobId}
                   onChange={(e) => setSelectedJobId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
+                  className="select-control w-full text-sm"
                   disabled={isLoading || isHistorySession}
                 >
                   <option value="">General screening criteria</option>
