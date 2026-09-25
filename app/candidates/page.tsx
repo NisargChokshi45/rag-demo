@@ -279,12 +279,14 @@ export default function CandidatesPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex items-center flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">Candidates</h1>
-            <p className="text-gray-600">
+            <h2 className="text-2xl font-bold text-slate-900">
+              Candidates on the Platform
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
               {selectedJob
                 ? `Candidates for ${selectedJob.title}`
                 : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} ingested`}

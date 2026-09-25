@@ -232,13 +232,11 @@ export default function JobsPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-600">
-              Hiring workspace
-            </p>
-            <h1 className="text-4xl font-bold text-slate-900">Jobs</h1>
-            <p className="mt-2 text-slate-600">
-              Manage roles and move directly to their candidates or screening
-              workspace.
+            <h2 className="text-2xl font-bold text-slate-900">
+              Jobs on the platform
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Showing {visibleJobs.length} of {jobs.length} jobs
             </p>
           </div>
           <button
@@ -251,15 +249,6 @@ export default function JobsPage() {
         </div>
 
         <section>
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Jobs on the platform
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Showing {visibleJobs.length} of {jobs.length} jobs
-            </p>
-          </div>
-
           <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:flex-row lg:items-end">
             <label className="min-w-0 flex-1 text-sm font-medium text-slate-700">
               Search jobs
@@ -341,13 +330,18 @@ export default function JobsPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-                      <span
-                        aria-label={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
-                        title={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          job.is_active ? 'bg-emerald-500' : 'bg-slate-400'
-                        }`}
-                      />
+                      <span className="relative flex h-2.5 w-2.5">
+                        {job.is_active && (
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        )}
+                        <span
+                          aria-label={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
+                          title={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
+                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                            job.is_active ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                        />
+                      </span>
                       {job.title}
                     </h3>
                     <div className="flex items-center gap-2">
