@@ -13,7 +13,7 @@ export function createAgentTools(context: ToolContext) {
     tool(
       async () => {
         try {
-          const candidates = await listCandidates();
+          const candidates = await listCandidates({ jobId: context.jobId });
           return JSON.stringify({
             candidates: candidates.map((c) => ({
               id: c.id,
