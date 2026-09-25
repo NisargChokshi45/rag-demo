@@ -32,10 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Set auth cookies
-    const response = NextResponse.json({
-      success: true,
-      user: data.user,
-    });
+    const response = NextResponse.json({ success: true, user: data.user });
 
     // Note: In a real implementation with SSR, you'd set cookies here
     // For now, the client will handle storing the session

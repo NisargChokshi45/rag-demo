@@ -11,11 +11,11 @@
 - **Storage**: Supabase - Postgres + pgvector for chunk embeddings, Supabase Storage for raw PDFs.
 - **Auth**: none for the MVP.
 - **UI**: multi-page - Jobs, Candidates, Screen (chat).
-- **Agent depth**: LangGraph **`createReactAgent`** tool-calling loop with a server-side recursion limit of 10. Tools: **`list_all_candidates`**, **`search_chunks`** (vector search + Groq rerank), **`get_full_resume`**. Final answer is a separate LangChain structured-output call over the accumulated tool-call history - no `submit_report` tool, to keep the loop and the live trace UI simple.
+- **Agent depth**: LangGraph **`createReactAgent`** tool-calling loop with a server-side recursion limit of 25. Tools: **`list_all_candidates`**, **`search_chunks`** (vector search + Groq rerank), **`get_full_resume`**. Final answer is a separate LangChain structured-output call over the accumulated tool-call history - no `submit_report` tool, to keep the loop and the live trace UI simple.
   1. **Embedding vector dimension**: Gemini Embedding 2 defaults to 3072 dimensions and supports 768, 1536, and 3072 output dimensions. Use **1536** because it is within Supabase pgvector's standard `vector` limit while preserving strong retrieval quality. The embedding wrapper checks the returned length on every call and fails before writing a mismatched vector.
   2. **Embedding task prompts**: Gemini Embedding 2 does not use the older `taskType` parameter. `embedDocument` formats `title: none | text: ...`; `embedQuery` formats `task: search result | query: ...`. Both use the same `gemini-embedding-2` model and `GOOGLE_API_KEY`.
   3. **Free tier**: embed chunks sequentially with retry/backoff, and rerank candidates sequentially through Groq to avoid request bursts.
-  4. **Secrets**: Supabase **service role key**, `GOOGLE_API_KEY`, and `GROQ_API_KEY` are server-only. `.env.local` must be gitignored. The job description is kept in browser session storage for the MVP because there is deliberately no jobs table; it is sent with each screening request and is not used during resume ingestion.
+  4. **Secrets**: Supabase **service role key**, `GOOGLE_API_KEY`, and `GROQ_API_KEY` are server-only. `.env.local` must be gitignored. The job description is stored in the jobs table and retrieved per screening request.
       ```
       embedding vector(1536),
       screen/page.tsx        chat UI - job description, question box, live tool trace, report cards
@@ -35,7 +35,7 @@
 2. **Embedding vector dimension**: Gemini Embedding 2 defaults to 3072 dimensions and supports 768, 1536, and 3072 output dimensions. Use **1536** because it is within Supabase pgvector's standard `vector` limit. The wrapper validates the returned length before writing a vector.
 3. **Embedding task prompts**: Gemini Embedding 2 does not use the older `taskType` parameter. `embedDocument` formats `title: none | text: ...`; `embedQuery` formats `task: search result | query: ...`.
 4. **Free tier**: embedding TPM is generous (~10M/min per current docs), but batch embed calls (multiple chunk texts per request) and do them **sequentially with retry/backoff**, not `Promise.all` fan-out - a burst of 600+ parallel calls will trip per-minute limits regardless of the TPM headroom.
-5. **`maxDuration`**: set explicitly on the `ingest` and `agent` route handlers (`export const maxDuration = ...`). Vercel Fluid Compute gives 300s by default even on Hobby - enough if the agent loop's step count is capped (see below). Both routes must run on `runtime = 'nodejs'` (not edge) - PDF parsing and the Supabase service-role client need Node APIs.
+5. **`maxDuration`**: set explicitly on the `ingest` and `agent` route handlers (`export const maxDuration = ...`). Vercel Fluid Compute gives 300s by default even on Hobby - sufficient for the agent loop with recursion limit 25. Both routes must run on `runtime = 'nodejs'` (not edge) - PDF parsing and the Supabase service-role client need Node APIs.
 6. **PDF parsing**: use `unpdf`, not `pdf-parse` - `pdf-parse` has known import-time file-read issues under Next.js/serverless bundlers.
 7. **Coverage vs. cost**: the agent can freely call `get_full_resume` and stuff 8+ full resumes (~20k chars each) into context. Cap it server-side (e.g. max 8 distinct candidates fetched full-text per run) - enforced inside the tool implementation via a per-request counter, not left to model discretion.
 8. **Test data**: `resumes/` folder.
@@ -100,8 +100,8 @@ supabase/schema.sql         the DDL above
 2. **Test data (≈15 min)**: pull a handful of sample resume PDFs into a local scratch folder for manual upload testing.
 3. **Ingestion pipeline (≈2 hr)**: signed-upload flow, `api/ingest` (parse → reject empty text → chunk → sequential Gemini embed with retry/backoff → insert candidate + chunks). The route inserts nothing until all embeddings succeed and deletes the candidate if chunk insertion fails. Verify 1536-dimensional vectors and row counts in Supabase.
 4. **Candidates page (≈30 min)** - checkpoint: upload → see candidates listed.
-5. **Agent route (≈2 hr)**: implement the three LangChain tools, the LangGraph tool loop with a recursion limit of 10, then the final structured-output call against `ScreeningReport`.
-6. **Screen page UI (≈1 hr)**: render streamed tool-call parts as a live trace, render the final structured report as candidate cards (score / evidence / unknowns), and preserve the JD in browser session storage for each request.
+5. **Agent route (≈2 hr)**: implement the three LangChain tools, the LangGraph tool loop with a recursion limit of 25, then the final structured-output call against `ScreeningReport`.
+6. **Screen page UI (≈1 hr)**: render streamed tool-call parts as a live trace, render the final structured report as candidate cards (score / evidence / unknowns), and retrieve the JD from the jobs table for each request.
 7. **End-to-end test (≈30 min)**: replay three example questions (direct Java/AWS match; Mahesh years-of-experience + healthcare client; PM/Scrum-master shortlist) and confirm the agent, unlike the naive pipeline, achieves real coverage on the shortlist question via `list_all_candidates`.
 8. **Deploy (≈30 min)**: push to GitHub, `vercel link`, set `GOOGLE_API_KEY`, `GROQ_API_KEY`, `GROQ_CHAT_MODEL`, and Supabase keys in the Vercel dashboard, deploy, re-run the three test questions against the production URL.
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { validateAuth } from '@/lib/auth';
 
 interface MigrationCheck {
   name: string;
@@ -10,6 +11,10 @@ interface MigrationCheck {
 // GET /api/admin/migrations - Check migration status
 export async function GET(_request: NextRequest) {
   try {
+    // Check authentication
+    const authError = await validateAuth();
+    if (authError) return authError;
+
     const client = createServiceClient();
     const checks: MigrationCheck[] = [];
 
@@ -69,6 +74,10 @@ export async function GET(_request: NextRequest) {
 // POST /api/admin/migrations/apply - Trigger migration check/application
 export async function POST(_request: NextRequest) {
   try {
+    // Check authentication
+    const authError = await validateAuth();
+    if (authError) return authError;
+
     const client = createServiceClient();
 
     // Try to verify the migration by querying screening_citations

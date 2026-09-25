@@ -4,11 +4,11 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 
 ## What It Does
 
-1. **Jobs**: Recruiters can create Jobs and upload candidate resume PDFs
+1. **Jobs**: Recruiters create Jobs and upload candidate resume PDFs (resumes stored globally, keyed by job)
 2. **Parse & Ingest**: PDFs are parsed, chunked, embedded, and indexed in Postgres (pgvector)
-3. **Screen**: Free-form questions about candidates are answered via an agent loop:
-   - `list_all_candidates` - fetch full candidate pool for coverage
-   - `search_chunks` - vector search + LLM reranking
+3. **Screen**: Free-form questions about candidates are answered via an agent loop (job-specific candidate pool):
+   - `list_all_candidates` - fetch candidates for this job
+   - `search_chunks` - vector search + LLM reranking (filtered by job)
    - `get_full_resume` - fetch full resume text to overcome fragmentation
 4. **Report**: Structured report with scored candidates, evidence quotes, and unknowns
 
@@ -105,11 +105,11 @@ TASKS.md                      Task checklist (Phases 0–8)
 ## Key Design Decisions
 
 ### 1. **LangGraph Tool-Calling Agent**
-- Transparent LangGraph `createReactAgent` loop with a recursion limit of 10
+- Transparent LangGraph `createReactAgent` loop with a recursion limit of 25
 | Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as `vector(1536)` |
 | Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
 - Traces streamed live to UI (every tool call visible)
-- Cap: 10 steps per query (Vercel's 300s timeout is sufficient)
+- Cap: 25 steps per query (Vercel's 300s timeout is sufficient)
 
 ### 2. **LLM Reranking Inside `search_chunks` Tool**
 - After vector search retrieves 15 chunks, Groq ranks top 5 by relevance
@@ -121,10 +121,10 @@ TASKS.md                      Task checklist (Phases 0–8)
 - Avoids chunking artifacts (dates split across chunks, etc.)
 - Simpler than adaptive chunking; trades compute for accuracy
 
-### 4. **No Per-Job Isolation (MVP Cut)**
-- All resumes in one global pool
-- Deliberate scope cut; flag for Phase 9 if needed
-- Query: "Filter by job ID: X" would require schema change
+### 4. **Job-Specific Candidate Filtering**
+- Candidates are filtered by job_id during screening (agent tools respect job scope)
+- All resumes indexed globally; queries filter to relevant job's pool
+- Enables multi-job workflows without candidate isolation overhead
 
 ### 5. **Supabase for Simplicity**
 - Postgres + pgvector cover the entire stack
@@ -150,6 +150,7 @@ TASKS.md                      Task checklist (Phases 0–8)
 - ✅ `.env.local` in `.gitignore` (never committed)
 - ✅ Supabase Storage bucket permissions: signed URLs only
 - ⚠️ MVP has no user auth (add via Supabase Auth if multi-tenant needed)
+- ⚠️ POST `/api/admin/reindex` has no authentication guard (add auth before production)
 
 ## Performance Targets
 
@@ -199,4 +200,4 @@ For questions or issues:
 
 ---
 
-**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-19
+**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-26

@@ -172,7 +172,7 @@ export function createAgentTools(context: ToolContext) {
       {
         name: 'get_full_resume',
         description:
-          'Retrieve the complete resume text for a specific candidate by ID. Use this after search_chunks identifies relevant candidates to examine their full background. Limited to 8 fetches per screening to manage token usage.',
+          'Retrieve the complete resume text for a specific candidate by ID. Use this after search_chunks identifies relevant candidates to examine their full background. Limited to 2 fetches per screening to manage token usage.',
         schema: z.object({
           candidateId: z
             .string()

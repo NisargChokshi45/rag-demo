@@ -32,10 +32,7 @@ export async function GET(
     if (signedUrlError) throw signedUrlError;
 
     const resume = await getFullResumeById(id);
-    return NextResponse.json({
-      resume,
-      pdfUrl: signedUrl.signedUrl,
-    });
+    return NextResponse.json({ resume, pdfUrl: signedUrl.signedUrl });
   } catch (error) {
     return NextResponse.json(
       {

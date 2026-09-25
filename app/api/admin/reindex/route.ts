@@ -7,6 +7,7 @@ import { chunkText } from '@/lib/chunk';
 import { embedDocument } from '@/lib/embeddings';
 import { insertChunks } from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
+import { validateAuth } from '@/lib/auth';
 
 interface ReindexRequest {
   candidateId: string;
@@ -19,6 +20,10 @@ async function delay(ms: number) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const authError = await validateAuth();
+    if (authError) return authError;
+
     const { candidateId, jobId }: ReindexRequest = await request.json();
 
     if (!candidateId) {
