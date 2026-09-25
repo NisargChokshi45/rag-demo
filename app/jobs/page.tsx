@@ -68,6 +68,35 @@ function ScreenIcon() {
   );
 }
 
+function GridIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 fill-none stroke-current stroke-2"
+    >
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 fill-none stroke-current stroke-2"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [title, setTitle] = useState('');
@@ -249,7 +278,7 @@ export default function JobsPage() {
         </div>
 
         <section>
-          <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:flex-row lg:items-end">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
             <label className="min-w-0 flex-1 text-sm font-medium text-slate-700">
               Search jobs
               <input
@@ -293,17 +322,26 @@ export default function JobsPage() {
               role="group"
               aria-label="Job view"
             >
-              {(['grid', 'list'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode(mode)}
-                  aria-pressed={viewMode === mode}
-                  className={`rounded px-3 py-2 text-sm font-medium capitalize ${viewMode === mode ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  {mode}
-                </button>
-              ))}
+              <button
+                key="grid"
+                type="button"
+                onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Grid view"
+                className={`rounded p-2 ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <GridIcon />
+              </button>
+              <button
+                key="list"
+                type="button"
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                aria-label="List view"
+                className={`rounded p-2 ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <ListIcon />
+              </button>
             </div>
           </div>
 
