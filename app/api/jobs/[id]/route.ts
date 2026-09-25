@@ -52,7 +52,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_: NextRequest, context: RouteContext) {
   try {
     if (!FEATURE_FLAGS.JOB_DELETION_ENABLED) {
-      throw new Error('Not allowed');
+      throw new Error('Deletion is disabled in public access');
     }
 
     const { id } = await context.params;
