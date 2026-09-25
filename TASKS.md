@@ -7,7 +7,7 @@
 **Live Environment**: Agent has run successfully with real Groq calls (per session history Sep 25)
 
 ### Not yet verified:
-- [ ] Full E2E of the three notebook test queries (query #1, #2, #3)
+- [ ] Full E2E of the test queries (query #1, #2, #3)
 - [ ] Per-message feedback UI fully tested in live environment
 
 ---
@@ -64,7 +64,7 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 **Live Verification**: ✅ Partial (agent logs confirm real ingestion occurred Sep 25)
 
 - [x] Ingestion endpoint tested with real PDFs (session history shows successful Groq calls with get_full_resume returning resume text)
-- [ ] Chunk count ballpark vs. notebook's 666/25 ratio (sample set uploaded, not counted yet)
+- [ ] Chunk count ballpark vs. 666/25 ratio (sample set uploaded, not counted yet)
 - [ ] Rollback behavior tested on chunk insertion failure
 - [x] 1536-dim embeddings validated by the wrapper on every call
 
@@ -95,7 +95,7 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 - [ ] Test upload of 3-5 resume PDFs through the UI
 - [ ] Confirm candidates appear in list with correct name, role, and chunk count
 - [ ] Test filtering by jobId (if switching between jobs)
-- [ ] Verify chunk counts are in expected ballpark (25 resumes → ~666 chunks in notebook; test set ratio TBD)
+- [ ] Verify chunk counts are in expected ballpark (25 resumes → ~666 chunks; test set ratio TBD)
 
 **Deviations from PLAN**:
 - **Upload merged into candidates page** (not a separate `app/upload/page.tsx`). The PLAN anticipated a dedicated page; implementation chose to co-locate upload with candidate listing for UX simplicity.
@@ -170,11 +170,11 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 
 ---
 
-## 7. End-to-End Validation Against PLAN's Notebook Queries
+## 7. End-to-End Validation Against PLAN's Queries
 
 **Prerequisite**: Sample resumes uploaded and indexed (resume_chunks table populated)
 
-The three notebook test queries from PLAN Section 7.7 should be run in order:
+The three test queries from PLAN Section 7.7 should be run in order:
 
 - [ ] **Query #1**: "Find candidates with strong Java and AWS experience"
   - Expected: Agent identifies 1–2 specific candidates by name
@@ -209,7 +209,7 @@ The three notebook test queries from PLAN Section 7.7 should be run in order:
 - [x] Chunk size 800 with 100-char overlap (constants verified in chunk.ts)
 - [x] 11 migrations applied successfully to Supabase
 - [ ] Sample resumes ingested and chunk counts in expected ballpark
-- [ ] Three notebook queries pass end-to-end
+- [ ] Three queries pass end-to-end
 - [ ] Production deployment smoke-tested on Vercel
 
 ---
@@ -280,7 +280,7 @@ These deviations were made for better product fit or to address discovered const
 
 - [ ] Remove empty `/app/upload` directory (obsoleted by candidates-page upload)
 - [ ] Add auth protection to admin routes (`/api/admin/*`) — currently open
-- [ ] Test full E2E with notebook's three test queries
+- [ ] Test full E2E with three test queries
 - [ ] Verify chunk count ratio for sample set (target: ~26 chunks/resume)
 - [ ] Smoke-test on Vercel with production credentials
 
@@ -290,7 +290,7 @@ These deviations were made for better product fit or to address discovered const
 
 **Immediate** (required before production):
 1. **Cleanup**: Delete empty `/app/upload` directory (no longer used)
-2. **E2E Testing**: Run the three notebook test queries against `/screen`:
+2. **E2E Testing**: Run the three test queries against `/screen`:
    - Query #1 (direct match)
    - Query #2 (fragmentation test)
    - Query #3 (coverage test with list_all_candidates)

@@ -12,7 +12,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
    - `get_full_resume` - fetch full resume text to overcome fragmentation
 4. **Report**: Structured report with scored candidates, evidence quotes, and unknowns
 
-**Key insight from the notebook**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → Three fixes (full-resume fetch, agent loop, LLM reranking) → shipped in production.
+**Key insight**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → Three fixes (full-resume fetch, agent loop, LLM reranking) → shipped in production.
 
 ## Tech Stack
 

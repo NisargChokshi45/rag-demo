@@ -50,7 +50,7 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 - [ ] Job description in browser session storage - **deviation**, see below
 
 **7. End-to-end test**
-- [ ] Replayed the three notebook example queries against `/screen` - not verified this session
+- [ ] Replayed the three example queries against `/screen` - not verified this session
 
 **8. Deploy**
 - [ ] Pushed to GitHub / `vercel link` / env vars set in Vercel dashboard - not verifiable from code
@@ -71,7 +71,7 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 ### Verification (replaces the old "Verification Checklist (Before Production)" section below)
 
 - [ ] Ingest sample resumes; confirm `resume_chunks` row count is in a reasonable ratio to resume count
-- [ ] Run the three notebook example queries against `/screen` and confirm correct behavior
+- [ ] Run the example queries against `/screen` and confirm correct behavior
 - [ ] `next build` passes locally with no type errors - not re-run this session against current working tree (auth and other files changed since the last known-good build)
 - [ ] Confirm Supabase service-role key never appears in client-side bundles
 - [ ] Re-run the three test queries against the deployed Vercel URL

@@ -118,7 +118,7 @@ Expected:
 - Then searches over the full pool (not just top-k)
 - Final report shows **8+ PM/Scrum Masters** (e.g., adelina, avinash, murali, rajan, ravi, srivatsan, etc.)
 
-**Why this is special**: Naive RAG (vector search only) would return top-5 matches. Agentic RAG uses `list_all_candidates` to get the full pool, then the agent reasons over all of them. This is the key innovation from the notebook.
+**Why this is special**: Naive RAG (vector search only) would return top-5 matches. Agentic RAG uses `list_all_candidates` to get the full pool, then the agent reasons over all of them. This is the key innovation.
 
 ## 4. Check the Build (1 min)
 
