@@ -7,10 +7,17 @@
  *   npx ts-node scripts/reindex-candidates.ts <jobId>  # Reindex candidates for specific job
  */
 
-import { createServiceClient } from '../lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { chunkText } from '../lib/chunk';
 import { embedDocument } from '../lib/embeddings';
 import { insertChunks } from '../lib/db';
+
+function createServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

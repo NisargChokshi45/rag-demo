@@ -11,6 +11,7 @@
     "db:cleanup": "bash scripts/supabase-remote.sh cleanup",
     "db:seed": "bash scripts/supabase-remote.sh seed",
     "db:migrate": "bash scripts/apply-migrations.sh",
+    "reindex": "ts-node --project tsconfig.scripts.json scripts/reindex-candidates.ts",
     "format": "prettier --write \"./**/*.{ts,tsx,json,css}\"",
     "format:check": "prettier --check \"./**/*.{ts,tsx,json,css}\""
   },
@@ -40,6 +41,8 @@
     "postcss": "^8.5.28",
     "prettier": "^3.9.8",
     "tailwindcss": "^3.4.19",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
     "typescript": "^5.9.3"
   }
 }
