@@ -242,7 +242,12 @@ export default function ScreenPage() {
     chunks: string[];
     tool: Citation['tool'];
   } | null>(null);
-  const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
+  const [messageFeedback, setMessageFeedback] = useState<
+    Record<number, 'like' | 'dislike'>
+  >({});
+  const [currentReportIndex, setCurrentReportIndex] = useState<number | null>(
+    null
+  );
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
@@ -391,23 +396,25 @@ export default function ScreenPage() {
     setIsLoading(item.status === 'running');
     setSelectedJobId(item.jobId || '');
     setQuery('');
-    setSubmittedQuery(item.query);
     setIsEditingSubmittedQuery(false);
     setEditingSubmittedQuery('');
     setToolCalls([]);
     setConversation(item.metadata?.conversation || []);
     setError(null);
-    setFeedback(item.feedback || null);
     setProgress('');
+    setMessageFeedback({});
+    setCurrentReportIndex(null);
 
     // Fetch full details from Supabase for better data integrity
     try {
       const response = await fetch(`/api/screenings/${item.id}`);
       if (response.ok) {
         const screening = await response.json();
+        const conv = screening.metadata?.conversation || [];
+        setConversation(conv);
         setIsLoading(screening.status === 'running');
         setSelectedJobId(screening.job_id || '');
-        setConversation(screening.metadata?.conversation || []);
+
         const report: ReportData = screening.report || {
           query: screening.query,
           summary: screening.summary,
@@ -433,16 +440,33 @@ export default function ScreenPage() {
           }))
         );
         setReport(report);
-        setFeedback(screening.feedback || null);
+
+        if (conv.length > 0 && conv[conv.length - 1].role === 'assistant') {
+          setCurrentReportIndex(conv.length - 1);
+          setSubmittedQuery(conv[conv.length - 2]?.content || item.query);
+        } else {
+          setSubmittedQuery(item.query);
+        }
+
+        if (screening.screening_message_feedback?.length) {
+          const feedbackMap: Record<number, 'like' | 'dislike'> = {};
+          screening.screening_message_feedback.forEach(
+            (fb: { message_index: number; feedback: 'like' | 'dislike' }) => {
+              feedbackMap[fb.message_index] = fb.feedback;
+            }
+          );
+          setMessageFeedback(feedbackMap);
+        }
       } else {
-        // Fallback to local report data
         setReport(item.report);
         setIsLoading(item.status === 'running');
+        setSubmittedQuery(item.query);
       }
     } catch (err) {
       console.error('Error loading screening details:', err);
       setReport(item.report);
       setIsLoading(item.status === 'running');
+      setSubmittedQuery(item.query);
     }
   };
 
@@ -511,36 +535,44 @@ export default function ScreenPage() {
     void submitQuery(submittedQuery);
   };
 
-  const handleFeedback = async (nextFeedback: 'like' | 'dislike') => {
+  const handleFeedback = async (
+    messageIndex: number,
+    nextFeedback: 'like' | 'dislike'
+  ) => {
     if (!activeScreeningId) {
       setError('Feedback is unavailable until the screening is saved.');
       return;
     }
 
-    const feedbackToSave = feedback === nextFeedback ? null : nextFeedback;
-    const previousFeedback = feedback;
-    setFeedback(feedbackToSave);
-    setHistory((previousHistory) =>
-      previousHistory.map((item) =>
-        item.id === activeScreeningId
-          ? { ...item, feedback: feedbackToSave }
-          : item
-      )
-    );
+    const currentFeedback = messageFeedback[messageIndex];
+    const feedbackToSave = currentFeedback === nextFeedback ? null : nextFeedback;
+    const previousFeedback = currentFeedback;
+
+    setMessageFeedback((prev) => {
+      const next = { ...prev };
+      if (feedbackToSave === null) {
+        delete next[messageIndex];
+      } else {
+        next[messageIndex] = feedbackToSave;
+      }
+      return next;
+    });
 
     const result = await updateScreeningFeedback(
       activeScreeningId,
+      messageIndex,
       feedbackToSave
     );
     if (!result.success) {
-      setFeedback(previousFeedback);
-      setHistory((previousHistory) =>
-        previousHistory.map((item) =>
-          item.id === activeScreeningId
-            ? { ...item, feedback: previousFeedback }
-            : item
-        )
-      );
+      setMessageFeedback((prev) => {
+        const next = { ...prev };
+        if (previousFeedback === undefined) {
+          delete next[messageIndex];
+        } else {
+          next[messageIndex] = previousFeedback;
+        }
+        return next;
+      });
       setError(result.error || 'Failed to save feedback');
     }
   };
@@ -760,7 +792,7 @@ export default function ScreenPage() {
     setError(null);
     setToolCalls([]);
     setReport(null);
-    setFeedback(null);
+    setCurrentReportIndex(null);
     setProgress('Starting analysis...');
 
     let screeningId: string | null = activeScreeningId;
@@ -874,6 +906,7 @@ export default function ScreenPage() {
           },
         ];
         setConversation(nextConversation);
+        setCurrentReportIndex(nextConversation.length - 1);
         await finalizeSession(
           screeningId,
           reportData,
@@ -911,10 +944,8 @@ export default function ScreenPage() {
   };
 
   const previousConversation =
-    report &&
-    conversation.at(-2)?.role === 'user' &&
-    conversation.at(-2)?.content === submittedQuery
-      ? conversation.slice(0, -2)
+    currentReportIndex !== null
+      ? conversation.slice(0, currentReportIndex - 1)
       : conversation;
 
   return (
@@ -940,7 +971,8 @@ export default function ScreenPage() {
               setSubmittedQuery('');
               setReport(null);
               setToolCalls([]);
-              setFeedback(null);
+              setMessageFeedback({});
+              setCurrentReportIndex(null);
               setError(null);
             }}
             className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -1130,7 +1162,12 @@ export default function ScreenPage() {
                           <>
                             <button
                               type="button"
-                              onClick={() => copyText(message.content)}
+                              onClick={() =>
+                                copyText(
+                                  getConversationPreview(message) ||
+                                    message.content
+                                )
+                              }
                               className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
                               aria-label="Copy agent response"
                               title="Copy"
@@ -1139,8 +1176,8 @@ export default function ScreenPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void handleFeedback('like')}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              onClick={() => void handleFeedback(index, 'like')}
+                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'like' ? 'bg-green-100 text-green-700' : ''}`}
                               aria-label="Like agent response"
                               title="Like"
                             >
@@ -1148,8 +1185,10 @@ export default function ScreenPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void handleFeedback('dislike')}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              onClick={() =>
+                                void handleFeedback(index, 'dislike')
+                              }
+                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
                               aria-label="Dislike agent response"
                               title="Dislike"
                             >
@@ -1157,8 +1196,16 @@ export default function ScreenPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={retryQuery}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              onClick={() => {
+                                if (!isLoading) {
+                                  void submitQuery(
+                                    conversation[index - 1]?.content ||
+                                      submittedQuery
+                                  );
+                                }
+                              }}
+                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                              disabled={isLoading}
                               aria-label="Retry screening query"
                               title="Retry"
                             >
@@ -1306,30 +1353,75 @@ export default function ScreenPage() {
                   >
                     <Icon name="copy" />
                   </button>
+                  {currentReportIndex !== null ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleFeedback(currentReportIndex, 'like')
+                        }
+                        className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${messageFeedback[currentReportIndex] === 'like' ? 'bg-green-100 text-green-700' : ''}`}
+                        aria-label="Like agent response"
+                        title="Like"
+                      >
+                        <Icon name="like" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleFeedback(currentReportIndex, 'dislike')
+                        }
+                        className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${messageFeedback[currentReportIndex] === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
+                        aria-label="Dislike agent response"
+                        title="Dislike"
+                      >
+                        <Icon name="dislike" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setError(
+                            'Feedback is unavailable until the screening is saved.'
+                          )
+                        }
+                        className="rounded p-2 hover:bg-gray-100 hover:text-gray-900 opacity-40"
+                        aria-label="Like agent response (unavailable)"
+                        title="Like"
+                      >
+                        <Icon name="like" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setError(
+                            'Feedback is unavailable until the screening is saved.'
+                          )
+                        }
+                        className="rounded p-2 hover:bg-gray-100 hover:text-gray-900 opacity-40"
+                        aria-label="Dislike agent response (unavailable)"
+                        title="Dislike"
+                      >
+                        <Icon name="dislike" />
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={() => void handleFeedback('like')}
-                    className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'like' ? 'bg-green-100 text-green-700' : ''}`}
-                    aria-label="Like agent response"
-                    title="Like"
-                  >
-                    <Icon name="like" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleFeedback('dislike')}
-                    className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${feedback === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
-                    aria-label="Dislike agent response"
-                    title="Dislike"
-                  >
-                    <Icon name="dislike" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={retryQuery}
+                    onClick={() => {
+                      if (currentReportIndex !== null) {
+                        void submitQuery(
+                          conversation[currentReportIndex - 1]?.content ||
+                            submittedQuery
+                        );
+                      }
+                    }}
                     className="rounded p-2 hover:bg-gray-100 hover:text-gray-900"
                     aria-label="Retry screening query"
                     title="Retry"
+                    disabled={isLoading || currentReportIndex === null}
                   >
                     <Icon name="retry" />
                   </button>

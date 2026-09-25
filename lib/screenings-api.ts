@@ -47,6 +47,10 @@ export interface Screening {
       tool: 'search_chunks' | 'get_full_resume';
     }>;
   }>;
+  screening_message_feedback?: Array<{
+    message_index: number;
+    feedback: 'like' | 'dislike';
+  }>;
 }
 
 /**
@@ -143,17 +147,18 @@ export async function fetchScreening(id: string): Promise<{
 }
 
 /**
- * Save feedback for a screening response
+ * Save feedback for a screening message response
  */
 export async function updateScreeningFeedback(
   id: string,
+  messageIndex: number,
   feedback: 'like' | 'dislike' | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`/api/screenings/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feedback }),
+      body: JSON.stringify({ messageFeedback: { messageIndex, feedback } }),
     });
 
     const data = await response.json();

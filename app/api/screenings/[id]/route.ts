@@ -73,6 +73,10 @@ export async function GET(
             content,
             tool
           )
+        ),
+        screening_message_feedback(
+          message_index,
+          feedback
         )
       `
       )
@@ -118,6 +122,7 @@ export async function PATCH(
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
       feedback?: 'like' | 'dislike' | null;
+      messageFeedback?: { messageIndex: number; feedback: 'like' | 'dislike' | null };
       metadata?: Record<string, unknown>;
       toolCalls?: ToolCallRecord[];
       responseText?: string;
@@ -179,6 +184,38 @@ export async function PATCH(
         { error: 'Failed to update screening' },
         { status: 500 }
       );
+    }
+
+    if (body.messageFeedback !== undefined) {
+      const { messageIndex, feedback } = body.messageFeedback;
+      if (feedback === null) {
+        const { error: deleteError } = await client
+          .from('screening_message_feedback')
+          .delete()
+          .eq('screening_id', id)
+          .eq('message_index', messageIndex);
+        if (deleteError) {
+          console.error('Message feedback delete error:', deleteError);
+          return NextResponse.json(
+            { error: 'Failed to delete message feedback' },
+            { status: 500 }
+          );
+        }
+      } else {
+        const { error: upsertError } = await client
+          .from('screening_message_feedback')
+          .upsert(
+            { screening_id: id, message_index: messageIndex, feedback },
+            { onConflict: 'screening_id,message_index' }
+          );
+        if (upsertError) {
+          console.error('Message feedback upsert error:', upsertError);
+          return NextResponse.json(
+            { error: 'Failed to save message feedback' },
+            { status: 500 }
+          );
+        }
+      }
     }
 
     if (body.report?.assessments) {
