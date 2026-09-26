@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
 
     const toolContext = { fetchedCandidates: new Set<string>(), jobId };
     const tools = createAgentTools(toolContext);
-    const job = jobId ? await getJobById(jobId, true) : null;
+    const job = jobId ? await getJobById(jobId, false) : null;
     const jobContext = job
-      ? `Job title: ${job.title}\nDescription: ${job.description}\nExperience: ${job.experience}\nRequired skills: ${job.skills.join(', ')}`
+      ? `${job.title} | Experience: ${job.experience} | Skills: ${job.skills.join(', ')}`
       : '';
 
     const systemPrompt = jobContext
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
           );
 
           // Build enhanced context for the final report with truncated results to avoid token limits
-          const MAX_RESULT_LENGTH = 1500;
+          const MAX_RESULT_LENGTH = 800;
           const contextForReport = toolCalls
             .map((call, idx) => {
               let resultStr =
@@ -254,10 +254,10 @@ export async function POST(request: NextRequest) {
           const previousConversation = conversationHistory.length
             ? `Previous context:
 ${conversationHistory
-  .slice(-4)
+  .slice(-2)
   .map(
     (message) =>
-      `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.substring(0, 300)}`
+      `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.substring(0, 200)}`
   )
   .join('\n\n')}
 
