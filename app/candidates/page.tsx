@@ -210,10 +210,10 @@ export default function CandidatesPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                  ...p,
-                  status: 'done',
-                  progress: 100,
-                }
+                    ...p,
+                    status: 'done',
+                    progress: 100,
+                  }
                 : p
             )
           );
@@ -223,11 +223,11 @@ export default function CandidatesPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                  ...p,
-                  status: 'error',
-                  error:
-                    error instanceof Error ? error.message : 'Unknown error',
-                }
+                    ...p,
+                    status: 'error',
+                    error:
+                      error instanceof Error ? error.message : 'Unknown error',
+                  }
                 : p
             )
           );
@@ -347,8 +347,9 @@ export default function CandidatesPage() {
             <p className="mt-1 text-sm text-slate-500">
               {selectedJob
                 ? `Candidates for ${selectedJob.title}`
-                : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'
-                } ingested`}
+                : `${candidates.length} ${
+                    candidates.length === 1 ? 'candidate' : 'candidates'
+                  } ingested`}
             </p>
           </div>
 
@@ -413,10 +414,11 @@ export default function CandidatesPage() {
                   Upload Resumes (PDF)
                 </label>
                 <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${isUploading
-                    ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-                    : 'border-gray-300 hover:border-blue-400 cursor-pointer'
-                    }`}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
+                    isUploading
+                      ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                      : 'border-gray-300 hover:border-blue-400 cursor-pointer'
+                  }`}
                 >
                   <input
                     type="file"
@@ -429,10 +431,11 @@ export default function CandidatesPage() {
                   />
                   <label
                     htmlFor="resume-input"
-                    className={`block ${isUploading
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-gray-600 hover:text-blue-600 cursor-pointer'
-                      }`}
+                    className={`block ${
+                      isUploading
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-600 hover:text-blue-600 cursor-pointer'
+                    }`}
                   >
                     <div className="text-3xl mb-2">📄</div>
                     <p className="font-medium">Click to select PDF files</p>
@@ -637,10 +640,11 @@ export default function CandidatesPage() {
                 {candidates.map((candidate) => (
                   <div
                     key={candidate.id}
-                    className={`rounded-lg shadow-sm transition hover:shadow-md ${viewMode === 'list'
-                      ? 'flex items-center gap-4 p-4'
-                      : 'p-6'
-                      } ${candidate.chunk_count === 0 ? 'border border-amber-200 bg-amber-50' : 'border border-slate-200 bg-white'}`}
+                    className={`rounded-lg shadow-sm transition hover:shadow-md ${
+                      viewMode === 'list'
+                        ? 'flex items-center gap-4 p-4'
+                        : 'p-6'
+                    } ${candidate.chunk_count === 0 ? 'border border-amber-200 bg-amber-50' : 'border border-slate-200 bg-white'}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-4">
@@ -700,11 +704,12 @@ export default function CandidatesPage() {
                             candidate.needsRescore !== true ||
                             rescoreLoading.has(candidate.id)
                           }
-                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true ||
+                          className={`rounded px-3 py-2 text-sm font-medium ${
+                            candidate.needsRescore !== true ||
                             rescoreLoading.has(candidate.id)
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                            }`}
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          }`}
                         >
                           {rescoreLoading.has(candidate.id) ? (
                             <span className="inline-flex items-center gap-2">

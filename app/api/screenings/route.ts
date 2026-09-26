@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
     let query = client
       .from('screenings')
       .select(
-        'id, query, summary, job_id, created_at, report, status, metadata, tool_calls, feedback'
+        'id, query, name, summary, job_id, created_at, report, status, metadata, tool_calls, feedback'
       )
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);

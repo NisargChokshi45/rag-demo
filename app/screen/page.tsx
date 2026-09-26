@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { updateScreeningFeedback } from '@/lib/screenings-api';
+import { TrashIcon } from '../icons';
 
 type IconName =
   | 'copy'
@@ -140,6 +141,7 @@ interface ReportMessage {
 interface ScreeningHistory {
   id: string;
   query: string;
+  name?: string | null;
   jobId?: string | null;
   timestamp: number;
   report: ReportData | null;
@@ -255,6 +257,9 @@ export default function ScreenPage() {
   );
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingSessionName, setEditingSessionName] = useState('');
+  const [isEditingSession, setIsEditingSession] = useState(false);
   const initialScreeningIdRef = useRef<string | null>(null);
   const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -280,6 +285,7 @@ export default function ScreenPage() {
           (s: any) => ({
             id: s.id,
             query: s.query,
+            name: s.name,
             jobId: s.job_id,
             timestamp: new Date(s.created_at).getTime(),
             report: s.report,
@@ -504,10 +510,14 @@ export default function ScreenPage() {
       });
 
       if (response.ok) {
-        setHistory((prev) => prev.filter((item) => item.id !== deletingSessionId));
+        setHistory((prev) =>
+          prev.filter((item) => item.id !== deletingSessionId)
+        );
         localStorage.setItem(
           'screeningHistory',
-          JSON.stringify(history.filter((item) => item.id !== deletingSessionId))
+          JSON.stringify(
+            history.filter((item) => item.id !== deletingSessionId)
+          )
         );
         setDeletingSessionId(null);
       } else {
@@ -521,6 +531,48 @@ export default function ScreenPage() {
       );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleEditSession = async () => {
+    if (!editingSessionId || !editingSessionName.trim()) return;
+    setIsEditingSession(true);
+    try {
+      const response = await fetch(`/api/screenings/${editingSessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingSessionName.trim() }),
+      });
+
+      if (response.ok) {
+        setHistory((prev) =>
+          prev.map((item) =>
+            item.id === editingSessionId
+              ? { ...item, name: editingSessionName.trim() }
+              : item
+          )
+        );
+        localStorage.setItem(
+          'screeningHistory',
+          JSON.stringify(
+            history.map((item) =>
+              item.id === editingSessionId
+                ? { ...item, name: editingSessionName.trim() }
+                : item
+            )
+          )
+        );
+        setEditingSessionId(null);
+        setEditingSessionName('');
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to update screening');
+      }
+    } catch (err) {
+      console.error('Error updating screening:', err);
+      setError(err instanceof Error ? err.message : 'Error updating screening');
+    } finally {
+      setIsEditingSession(false);
     }
   };
 
@@ -598,7 +650,6 @@ export default function ScreenPage() {
       if (!response.ok) throw new Error(data.error || 'Unable to load resume');
       setResume({ name: candidateName, pdfUrl: data.pdfUrl });
       setInspector('resume');
-      setInspectorCollapsed(false);
     } catch (resumeError) {
       setError(
         resumeError instanceof Error
@@ -654,7 +705,6 @@ export default function ScreenPage() {
       tool: citation.tool,
     });
     setInspector('chunks');
-    setInspectorCollapsed(false);
   };
 
   const startInspectorResize = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -1017,7 +1067,7 @@ export default function ScreenPage() {
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </p>
                     <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
-                      {item.query}
+                      {item.name || item.query}
                     </p>
                     {item.report && item.report.assessments && (
                       <p className="text-xs text-gray-400 mt-1">
@@ -1025,18 +1075,47 @@ export default function ScreenPage() {
                       </p>
                     )}
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDeleteError(null);
-                      setDeletingSessionId(item.id);
-                    }}
-                    disabled={process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE === 'true'}
-                    className="flex-shrink-0 text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
-                    title="Delete screening"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditingSessionId(item.id);
+                        setEditingSessionName(item.name || item.query);
+                      }}
+                      className="text-gray-400 hover:text-blue-600 transition p-1 opacity-0 group-hover:opacity-100"
+                      title="Edit screening name"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        className="block h-4 w-4 shrink-0"
+                      >
+                        <path d="m4 20 4.5-1 9.7-9.7a2.1 2.1 0 0 0-3-3L5.5 16 4 20Zm9.8-12.8 3 3" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDeleteError(null);
+                        setDeletingSessionId(item.id);
+                      }}
+                      disabled={
+                        process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE ===
+                        'true'
+                      }
+                      className="text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                      title="Delete screening"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1623,7 +1702,8 @@ export default function ScreenPage() {
               Delete this screening session?
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              This will permanently delete this screening session and its results.
+              This will permanently delete this screening session and its
+              results.
             </p>
             {deleteError && (
               <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -1646,6 +1726,62 @@ export default function ScreenPage() {
                 className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:bg-slate-400"
               >
                 {isDeleting ? 'Deleting...' : 'Delete session'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingSessionId && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-session-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2
+              id="edit-session-title"
+              className="text-xl font-semibold text-slate-900"
+            >
+              Edit screening session name
+            </h2>
+            <div className="mt-4">
+              <label
+                htmlFor="session-name"
+                className="block text-sm font-medium text-slate-700 mb-2"
+              >
+                Session name
+              </label>
+              <input
+                id="session-name"
+                type="text"
+                value={editingSessionName}
+                onChange={(e) => setEditingSessionName(e.target.value)}
+                placeholder="Enter a name for this session"
+                className="w-full rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                autoFocus
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSessionId(null);
+                  setEditingSessionName('');
+                }}
+                disabled={isEditingSession}
+                className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEditSession}
+                disabled={isEditingSession || !editingSessionName.trim()}
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-400"
+              >
+                {isEditingSession ? 'Saving...' : 'Save name'}
               </button>
             </div>
           </div>

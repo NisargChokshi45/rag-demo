@@ -47,6 +47,7 @@ export async function GET(
         `
         id,
         query,
+        name,
         summary,
         job_id,
         created_at,
@@ -129,6 +130,7 @@ export async function PATCH(
       metadata?: Record<string, unknown>;
       toolCalls?: ToolCallRecord[];
       responseText?: string;
+      name?: string;
     };
     const client = createServiceClient();
     const { data: screening, error: screeningError } = await client
@@ -172,6 +174,7 @@ export async function PATCH(
       ...(body.feedback !== undefined ? { feedback: body.feedback } : {}),
       ...(body.metadata ? { metadata: body.metadata } : {}),
       ...(body.toolCalls ? { tool_calls: body.toolCalls } : {}),
+      ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.status === 'completed'
         ? { completed_at: new Date().toISOString() }
         : {}),
@@ -274,7 +277,10 @@ export async function DELETE(
 ) {
   try {
     if (!FEATURE_FLAGS.SCREENING_DELETION_ENABLED) {
-      return NextResponse.json({ error: 'Deletion is disabled in public access' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Deletion is disabled in public access' },
+        { status: 403 }
+      );
     }
 
     const { id } = await params;
