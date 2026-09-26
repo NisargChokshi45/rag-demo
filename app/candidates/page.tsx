@@ -16,6 +16,7 @@ interface Candidate {
   role_guess: string;
   original_filename: string;
   chunk_count: number;
+  score?: number | null;
 }
 
 interface Job {
@@ -75,7 +76,7 @@ export default function CandidatesPage() {
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'indexed' | 'not-indexed'
   >('all');
-  const [sortBy, setSortBy] = useState<'name' | 'role' | 'indexed'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'role' | 'indexed' | 'score'>('name');
   const [hasLoadedCandidates, setHasLoadedCandidates] = useState(false);
   const candidatesRequestId = useRef(0);
 
@@ -85,7 +86,7 @@ export default function CandidatesPage() {
     const requestId = ++candidatesRequestId.current;
     const params = new URLSearchParams({
       status: statusFilter,
-      sort: sortBy,
+      sort: sortBy === 'score' ? 'name' : sortBy,
     });
     if (selectedJobId) params.set('jobId', selectedJobId);
     if (debouncedSearchQuery.trim())
@@ -94,9 +95,15 @@ export default function CandidatesPage() {
     try {
       const response = await fetch(`/api/candidates?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch candidates');
-      const data = await response.json();
+      let data = await response.json();
       if (requestId !== candidatesRequestId.current) return;
-      setCandidates(data.candidates || []);
+
+      let candidates = data.candidates || [];
+      if (sortBy === 'score') {
+        candidates.sort((a: Candidate, b: Candidate) => (b.score ?? -1) - (a.score ?? -1));
+      }
+
+      setCandidates(candidates);
     } catch (err) {
       if (requestId !== candidatesRequestId.current) return;
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -549,6 +556,7 @@ export default function CandidatesPage() {
                     <option value="name">Name</option>
                     <option value="role">Role</option>
                     <option value="indexed">Indexing status</option>
+                    <option value="score">Job match score</option>
                   </select>
                 </label>
                 <div
@@ -626,13 +634,20 @@ export default function CandidatesPage() {
                             {candidate.original_filename}
                           </p>
                         </div>
-                        <span
-                          className={`whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${candidate.chunk_count === 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
-                        >
-                          {candidate.chunk_count === 0
-                            ? 'Not Indexed'
-                            : 'Indexed'}
-                        </span>
+                        <div className="flex flex-col gap-2 items-end">
+                          <span
+                            className={`whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${candidate.chunk_count === 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
+                          >
+                            {candidate.chunk_count === 0
+                              ? 'Not Indexed'
+                              : 'Indexed'}
+                          </span>
+                          {candidate.score !== null && candidate.score !== undefined && (
+                            <span className="whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700">
+                              Score: {candidate.score}%
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
                         <button

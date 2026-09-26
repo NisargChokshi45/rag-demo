@@ -21,6 +21,7 @@ create table if not exists candidates (
   storage_path text not null,
   original_filename text not null,
   full_text text not null,
+  score int default null,
   created_at timestamptz default now()
 );
 

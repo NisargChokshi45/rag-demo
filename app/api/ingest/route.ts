@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { parsePDF } from '@/lib/pdf';
 import { chunkText } from '@/lib/chunk';
 import { embedDocument } from '@/lib/embeddings';
+import { calculateCandidateScore } from '@/lib/scoring';
 import {
   deleteCandidate,
   getJobById,
@@ -140,6 +141,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Calculate score if jobId is provided
+    let score: number | null = null;
+    if (jobId) {
+      try {
+        const job = await getJobById(jobId);
+        console.log(`[INGEST] Calculating score for ${nameFromFile}...`);
+        score = await calculateCandidateScore({
+          resumeText: fullText,
+          jobDescription: job.description,
+          jobExperience: job.experience,
+          jobSkills: job.skills,
+        });
+        console.log(`[INGEST] ✓ Score calculated: ${score}`);
+      } catch (error) {
+        console.error(
+          `[INGEST] Warning: Failed to calculate score: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    }
+
     // Insert only after parsing and embedding have completed successfully.
     const candidateId = await insertCandidate(
       nameFromFile,
@@ -147,7 +168,8 @@ export async function POST(request: NextRequest) {
       storagePath,
       filename,
       fullText,
-      jobId
+      jobId,
+      score
     );
 
     try {
@@ -166,6 +188,7 @@ export async function POST(request: NextRequest) {
       candidateId,
       name: nameFromFile,
       role: roleGuess,
+      score: score ?? null,
       chunkCount: textChunks.length,
       textLength: fullText.length,
     });

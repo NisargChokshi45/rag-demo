@@ -138,7 +138,8 @@ export async function insertCandidate(
   storagePath: string,
   originalFilename: string,
   fullText: string,
-  jobId?: string
+  jobId?: string,
+  score?: number | null
 ): Promise<string> {
   const client = createServiceClient();
 
@@ -152,6 +153,7 @@ export async function insertCandidate(
         original_filename: originalFilename,
         full_text: fullText,
         job_id: jobId || null,
+        score: score ?? null,
       },
     ])
     .select('id')
@@ -234,7 +236,7 @@ export async function listCandidates(
 
   let candidateQuery = client
     .from('candidates')
-    .select('id, name, role_guess, original_filename');
+    .select('id, name, role_guess, original_filename, score');
 
   if (options.jobId)
     candidateQuery = candidateQuery.eq('job_id', options.jobId);
