@@ -81,7 +81,7 @@ export default function CandidatesPage() {
     'name'
   );
   const [hasLoadedCandidates, setHasLoadedCandidates] = useState(false);
-  const [rescoreLoading, setRescoreLoading] = useState<string | null>(null);
+  const [rescoreLoading, setRescoreLoading] = useState<Set<string>>(new Set());
   const candidatesRequestId = useRef(0);
 
   const fetchCandidates = async () => {
@@ -321,7 +321,7 @@ export default function CandidatesPage() {
   };
 
   const rescoreCandidate = async (candidate: Candidate) => {
-    setRescoreLoading(candidate.id);
+    setRescoreLoading((prev) => new Set([...prev, candidate.id]));
     try {
       const response = await fetch(`/api/candidates/${candidate.id}`, {
         method: 'POST',
@@ -356,7 +356,11 @@ export default function CandidatesPage() {
         err instanceof Error ? err.message : 'Failed to rescore candidate'
       );
     } finally {
-      setRescoreLoading(null);
+      setRescoreLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(candidate.id);
+        return next;
+      });
     }
   };
 
@@ -719,14 +723,14 @@ export default function CandidatesPage() {
                           onClick={() => rescoreCandidate(candidate)}
                           disabled={
                             candidate.needsRescore !== true ||
-                            rescoreLoading === candidate.id
+                            rescoreLoading.has(candidate.id)
                           }
-                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true || rescoreLoading === candidate.id
+                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true || rescoreLoading.has(candidate.id)
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                               : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
                             }`}
                         >
-                          {rescoreLoading === candidate.id ? (
+                          {rescoreLoading.has(candidate.id) ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"></span>
                               Rescoring...
