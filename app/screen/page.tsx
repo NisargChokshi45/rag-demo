@@ -231,7 +231,6 @@ export default function ScreenPage() {
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [inspector, setInspector] = useState<'resume' | 'chunks' | null>(null);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [resume, setResume] = useState<{
     name: string;
     pdfUrl: string;
@@ -1548,97 +1547,63 @@ export default function ScreenPage() {
       {inspector && (
         <aside
           id="search-chunks"
-          style={{ width: inspectorCollapsed ? 48 : inspectorWidth }}
-          className={`fixed right-0 top-20 z-20 flex h-[calc(100vh-5rem)] max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200 ${inspectorCollapsed ? 'w-12' : ''}`}
+          style={{ width: inspectorWidth }}
+          className="fixed right-0 top-20 z-20 flex h-[calc(100vh-5rem)] max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200"
         >
-          {!inspectorCollapsed && (
-            <div
-              onMouseDown={startInspectorResize}
-              className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
-              title="Resize panel"
-            />
-          )}
+          <div
+            onMouseDown={startInspectorResize}
+            className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
+            title="Resize panel"
+          />
           <div className="flex min-w-0 flex-1 flex-col">
-            <div
-              className={`flex border-b border-gray-200 ${
-                inspectorCollapsed
-                  ? 'flex-col items-center gap-2 p-2'
-                  : 'items-center justify-between gap-2 p-4'
-              }`}
-            >
-              {!inspectorCollapsed && (
-                <h2 className="min-w-0 truncate font-semibold text-gray-900">
-                  {inspector === 'chunks'
-                    ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
-                    : `Resume: ${resume?.name || 'Candidate'}`}
-                </h2>
-              )}
-              <div
-                className={`flex items-center gap-1 ${
-                  inspectorCollapsed ? 'flex-col' : 'ml-auto'
-                }`}
+            <div className="flex items-center justify-between gap-2 border-b border-gray-200 p-4">
+              <h2 className="min-w-0 truncate font-semibold text-gray-900">
+                {inspector === 'chunks'
+                  ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
+                  : `Resume: ${resume?.name || 'Candidate'}`}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspector(null);
+                  setResume(null);
+                  setSelectedSearchChunks(null);
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Close sidebar"
+                title="Close sidebar"
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setInspectorCollapsed((collapsed) => !collapsed)
-                  }
-                  className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                  aria-expanded={!inspectorCollapsed}
-                  aria-label={
-                    inspectorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-                  }
-                  title={
-                    inspectorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-                  }
-                >
-                  {inspectorCollapsed ? '>' : '<'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInspector(null);
-                    setResume(null);
-                    setSelectedSearchChunks(null);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  aria-label="Close sidebar"
-                  title="Close sidebar"
-                >
-                  <Icon name="close" />
-                </button>
-              </div>
+                <Icon name="close" />
+              </button>
             </div>
-            {!inspectorCollapsed && (
-              <div className="flex-1 overflow-y-auto p-4">
-                {inspector === 'chunks' && selectedSearchChunks ? (
-                  <div className="space-y-4 text-sm text-gray-700">
-                    <p className="rounded bg-gray-50 p-3 text-gray-600">
-                      Tool: {selectedSearchChunks.tool}
-                    </p>
-                    <p className="rounded bg-gray-50 p-3 text-gray-600">
-                      Search: {selectedSearchChunks.query}
-                    </p>
-                    {selectedSearchChunks.chunks.map((chunk, index) => (
-                      <article
-                        key={`search-chunk-${index}`}
-                        className="rounded border border-gray-200 p-3 leading-relaxed"
-                      >
-                        {chunk}
-                      </article>
-                    ))}
-                  </div>
-                ) : resume ? (
-                  <iframe
-                    src={resume.pdfUrl}
-                    title={`Resume PDF: ${resume.name}`}
-                    className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
-                  />
-                ) : (
-                  <p className="text-sm text-gray-500">Loading resume...</p>
-                )}
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto p-4">
+              {inspector === 'chunks' && selectedSearchChunks ? (
+                <div className="space-y-4 text-sm text-gray-700">
+                  <p className="rounded bg-gray-50 p-3 text-gray-600">
+                    Tool: {selectedSearchChunks.tool}
+                  </p>
+                  <p className="rounded bg-gray-50 p-3 text-gray-600">
+                    Search: {selectedSearchChunks.query}
+                  </p>
+                  {selectedSearchChunks.chunks.map((chunk, index) => (
+                    <article
+                      key={`search-chunk-${index}`}
+                      className="rounded border border-gray-200 p-3 leading-relaxed"
+                    >
+                      {chunk}
+                    </article>
+                  ))}
+                </div>
+              ) : resume ? (
+                <iframe
+                  src={resume.pdfUrl}
+                  title={`Resume PDF: ${resume.name}`}
+                  className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
+                />
+              ) : (
+                <p className="text-sm text-gray-500">Loading resume...</p>
+              )}
+            </div>
           </div>
         </aside>
       )}
