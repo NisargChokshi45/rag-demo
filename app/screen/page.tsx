@@ -16,7 +16,7 @@ type IconName =
   | 'citation'
   | 'close';
 
-function Icon({ name }: { name: IconName }) {
+function Icon({ name, size = 'default' }: { name: IconName; size?: 'default' | 'lg' }) {
   const paths = {
     copy: (
       <>
@@ -63,18 +63,21 @@ function Icon({ name }: { name: IconName }) {
     close: <path d="m6 6 12 12M18 6 6 18" />,
   }[name];
 
+  const sizeClasses = size === 'lg' ? 'h-6 w-6' : 'h-4 w-4';
+  const dimensions = size === 'lg' ? { width: '24', height: '24' } : { width: '16', height: '16' };
+
   return (
     <svg
       viewBox="0 0 24 24"
-      width="16"
-      height="16"
+      width={dimensions.width}
+      height={dimensions.height}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="block h-4 w-4 shrink-0"
+      className={`block shrink-0 ${sizeClasses}`}
     >
       {paths}
     </svg>
@@ -1174,7 +1177,7 @@ export default function ScreenPage() {
                         aria-label="Assistant"
                         title="Assistant"
                       >
-                        <Icon name="assistant" />
+                        <Icon name="assistant" size="lg" />
                       </span>
                     )}
                     <div
@@ -1315,7 +1318,7 @@ export default function ScreenPage() {
                         aria-label="User"
                         title="User"
                       >
-                        <Icon name="user" />
+                        <Icon name="user" size="lg" />
                       </span>
                     )}
                   </div>
@@ -1410,7 +1413,7 @@ export default function ScreenPage() {
                   aria-label="User"
                   title="User"
                 >
-                  <Icon name="user" />
+                  <Icon name="user" size="lg" />
                 </span>
               </div>
             )}
@@ -1431,7 +1434,7 @@ export default function ScreenPage() {
                     aria-label="Assistant"
                     title="Assistant"
                   >
-                    <Icon name="assistant" />
+                    <Icon name="assistant" size="lg" />
                   </span>
                   {renderReport(report, 'current-report')}
                 </div>
