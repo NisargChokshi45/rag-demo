@@ -274,7 +274,7 @@ export async function DELETE(
 ) {
   try {
     if (!FEATURE_FLAGS.SCREENING_DELETION_ENABLED) {
-      return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
+      return NextResponse.json({ error: 'Deletion is disabled in public access' }, { status: 403 });
     }
 
     const { id } = await params;

@@ -251,6 +251,11 @@ export default function ScreenPage() {
   const [inspectorWidth, setInspectorWidth] = useState(380);
   const [progress, setProgress] = useState<string>('');
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
+    null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const initialScreeningIdRef = useRef<string | null>(null);
   const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -490,26 +495,33 @@ export default function ScreenPage() {
     }
   }, [activeScreeningId, history, isLoadingHistory]);
 
-  const deleteFromHistory = async (itemId: string) => {
-    if (!window.confirm('Delete this screening session?')) return;
-
+  const handleDeleteSession = async () => {
+    if (!deletingSessionId) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      const response = await fetch(`/api/screenings/${itemId}`, {
+      const response = await fetch(`/api/screenings/${deletingSessionId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        setHistory((prev) => prev.filter((item) => item.id !== itemId));
+        setHistory((prev) => prev.filter((item) => item.id !== deletingSessionId));
         localStorage.setItem(
           'screeningHistory',
-          JSON.stringify(history.filter((item) => item.id !== itemId))
+          JSON.stringify(history.filter((item) => item.id !== deletingSessionId))
         );
+        setDeletingSessionId(null);
       } else {
-        window.alert('Failed to delete screening');
+        const data = await response.json();
+        setDeleteError(data.error || 'Failed to delete screening');
       }
     } catch (err) {
       console.error('Error deleting screening:', err);
-      window.alert('Error deleting screening');
+      setDeleteError(
+        err instanceof Error ? err.message : 'Error deleting screening'
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -976,8 +988,9 @@ export default function ScreenPage() {
               setCurrentReportIndex(null);
               setError(null);
             }}
-            className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
           >
+            <span className="text-lg leading-none">+</span>
             New Session
           </button>
         </div>
@@ -1016,9 +1029,11 @@ export default function ScreenPage() {
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      deleteFromHistory(item.id);
+                      setDeleteError(null);
+                      setDeletingSessionId(item.id);
                     }}
-                    className="flex-shrink-0 text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100"
+                    disabled={process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE === 'true'}
+                    className="flex-shrink-0 text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
                     title="Delete screening"
                   >
                     ✕
@@ -1626,6 +1641,50 @@ export default function ScreenPage() {
             )}
           </div>
         </aside>
+      )}
+
+      {deletingSessionId && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-session-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2
+              id="delete-session-title"
+              className="text-xl font-semibold text-slate-900"
+            >
+              Delete this screening session?
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This will permanently delete this screening session and its results.
+            </p>
+            {deleteError && (
+              <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+                {deleteError}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingSessionId(null)}
+                disabled={isDeleting}
+                className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSession}
+                disabled={isDeleting}
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:bg-slate-400"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete session'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

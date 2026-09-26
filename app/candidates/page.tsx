@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { GridIcon, ListIcon, ScreenIcon } from '../icons';
 
 interface UploadProgress {
   filename: string;
@@ -23,35 +24,6 @@ interface Candidate {
 interface Job {
   id: string;
   title: string;
-}
-
-function GridIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-
-function ListIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
 }
 
 export default function CandidatesPage() {
@@ -383,9 +355,10 @@ export default function CandidatesPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <button
               onClick={() => setShowUploadModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
             >
-              Upload More
+              <span className="text-lg leading-none">+</span>
+              Upload Resumes
             </button>
             {candidates.length > 0 ? (
               <Link
@@ -394,16 +367,18 @@ export default function CandidatesPage() {
                     ? `/screen?jobId=${encodeURIComponent(selectedJobId)}`
                     : '/screen'
                 }
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                className="inline-flex items-center gap-1.5 bg-green-600 text-white rounded-lg px-2.5 py-1.5 text-sm font-medium text-green-700 hover:bg-green-700"
               >
+                <ScreenIcon />
                 Screen Candidates
               </Link>
             ) : (
               <button
                 type="button"
                 disabled
-                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 bg-gray-300 text-gray-500 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-400 cursor-not-allowed"
               >
+                <ScreenIcon />
                 Screen Candidates
               </button>
             )}
@@ -725,9 +700,10 @@ export default function CandidatesPage() {
                             candidate.needsRescore !== true ||
                             rescoreLoading.has(candidate.id)
                           }
-                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true || rescoreLoading.has(candidate.id)
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true ||
+                            rescoreLoading.has(candidate.id)
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
                             }`}
                         >
                           {rescoreLoading.has(candidate.id) ? (

@@ -1,7 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  EditIcon,
+  GridIcon,
+  ListIcon,
+  ScreenIcon,
+  TrashIcon,
+  UsersIcon,
+} from '../icons';
 
 interface Job {
   id: string;
@@ -13,87 +21,68 @@ interface Job {
   created_at: string;
 }
 
-function EditIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
+function SkillsDisplay({ skills }: { skills: string[] }) {
+  const [visibleCount, setVisibleCount] = useState(skills.length);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const checkedRef = useRef(false);
 
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v5M14 11v5" />
-    </svg>
-  );
-}
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || checkedRef.current) return;
 
-function UsersIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
+    const checkOverflow = () => {
+      const children = Array.from(container.querySelectorAll('span'));
+      if (children.length === 0) return;
 
-function ScreenIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.35-4.35M11 8v6M8 11h6" />
-    </svg>
-  );
-}
+      const firstChildTop = children[0].getBoundingClientRect().top;
+      let lastFitIndex = children.length - 1;
 
-function GridIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
+      for (let i = 0; i < children.length; i++) {
+        const childTop = children[i].getBoundingClientRect().top;
+        if (childTop > firstChildTop) {
+          lastFitIndex = i - 1;
+          break;
+        }
+      }
 
-function ListIcon() {
+      if (lastFitIndex < children.length - 1) {
+        setVisibleCount(Math.max(1, lastFitIndex));
+        checkedRef.current = true;
+      } else {
+        checkedRef.current = true;
+      }
+    };
+
+    checkOverflow();
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [skills.length]);
+
+  if (skills.length === 0) return null;
+
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 fill-none stroke-current stroke-2"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
+    <div ref={containerRef} className="mt-3 flex flex-wrap gap-2 items-center">
+      {skills.slice(0, visibleCount).map((skill) => (
+        <span
+          key={skill}
+          className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+        >
+          {skill}
+        </span>
+      ))}
+      {visibleCount < skills.length && (
+        <span
+          title={skills.slice(visibleCount).join(', ')}
+          className="rounded-full bg-slate-200 px-2.5 py-1 text-xs text-slate-600 cursor-help hover:bg-slate-300 transition-colors"
+        >
+          +{skills.length - visibleCount} more
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -271,8 +260,9 @@ export default function JobsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
+            <span className="text-lg leading-none">+</span>
             Add Job
           </button>
         </div>
@@ -410,16 +400,7 @@ export default function JobsPage() {
                   <p className="mt-3 text-sm font-medium text-slate-700">
                     {job.experience}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {job.skills.map((skill) => (
-                      <span
-                        key={skill}
-                        className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  <SkillsDisplay skills={job.skills} />
                   <div className="mt-5 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
                     <div className="flex min-w-0 flex-wrap gap-3">
                       <Link
@@ -510,7 +491,8 @@ export default function JobsPage() {
                       onChange={(event) => setIsActive(event.target.checked)}
                       className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
-                    {isActive ? 'Active job' : 'Inactive job'}
+                    Actively Hiring
+                    {/* {isActive ? 'Actively Hiring' : 'Inactive job'} */}
                   </label>
                 )}
                 <div>
@@ -569,8 +551,9 @@ export default function JobsPage() {
                     <button
                       type="button"
                       onClick={addSkill}
-                      className="rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                      className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                     >
+                      <span className="text-lg leading-none">+</span>
                       Add
                     </button>
                   </div>
