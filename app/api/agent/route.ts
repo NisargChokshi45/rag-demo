@@ -2,11 +2,9 @@ export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createReactAgent } from '@langchain/langgraph/prebuilt';
-import { AIMessage, HumanMessage } from '@langchain/core/messages';
-import { createAgentTools } from '@/lib/agent-tools';
+import { getJobById, listCandidates, searchChunks, getFullResumeById } from '@/lib/db';
+import { embedQuery } from '@/lib/embeddings';
 import { getChatModel } from '@/lib/models';
-import { getJobById } from '@/lib/db';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
 import { ScreeningReportSchema, type ScreeningReport } from '@/lib/schema';
 
@@ -92,6 +90,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'sessionId is required for conversation tracking' },
+        { status: 400 }
+      );
+    }
+
+    logPayloadSize('screening input', { query, jobId, sessionId });
+    console.log('[LLM SIZE] screening session', {
+      sessionId,
+      conversationHistoryMessages: conversationHistory.length,
+      conversationHistoryCharacters: conversationHistory.reduce(
+        (total, message) => total + message.content.length,
+        0
+      ),
+    });
+
     const envCheck = validateEnv('server');
     if (!envCheck.valid) {
       return NextResponse.json(
@@ -100,38 +115,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const toolContext = { fetchedCandidates: new Set<string>(), jobId };
-    const tools = createAgentTools(toolContext);
-    const job = jobId ? await getJobById(jobId, false) : null;
-    const jobContext = job
-      ? `${job.title} | Experience: ${job.experience} | Skills: ${job.skills.join(', ')}`
-      : '';
-
-    const systemPrompt = jobContext
-      ? `You are a resume screening assistant. Screen candidates against this job:\n\n${jobContext}\n\nIMPORTANT: To manage token usage, prefer search results over full resumes. Only fetch full resumes for the top 2 candidates who best match the job. Use search result snippets to assess other candidates. Search first, fetch sparingly.`
-      : 'You are a resume screening assistant. To manage token usage, prefer search results over full resumes. Only fetch full resumes for the top 2 candidates who best match requirements. Use search result snippets to assess other candidates. Search first, fetch sparingly.';
-
-    const model = getChatModel(0.2);
-
-    const agent = createReactAgent({
-      llm: model,
-      tools,
-      messageModifier: systemPrompt,
-    });
-
     const encoder = new TextEncoder();
     const toolCalls: Array<{
       toolName: string;
       toolInput: Record<string, unknown>;
       result: unknown;
     }> = [];
+    const fetchedCandidates = new Set<string>();
 
     const response = new ReadableStream<Uint8Array>({
       async start(controller) {
-        let modelPhase = 'initial agent stream';
+        let phase = 'initialization';
 
         try {
-          // Stream progress update
+          console.log(`[SESSION] ${sessionId} - Starting analysis for query: "${query.substring(0, 50)}..."`);
+
           controller.enqueue(
             encoder.encode(
               JSON.stringify({
@@ -141,87 +139,212 @@ export async function POST(request: NextRequest) {
             )
           );
 
-          const input = {
-            messages: [
-              ...conversationHistory.map((message) =>
-                message.role === 'user'
-                  ? new HumanMessage(message.content)
-                  : new AIMessage(message.content)
-              ),
-              new HumanMessage(query),
-            ],
-          };
+          // Get job context
+          const job = jobId ? await getJobById(jobId, false) : null;
+          const jobContext = job
+            ? `${job.title} | Experience: ${job.experience} | Skills: ${job.skills.join(', ')}`
+            : '';
 
-          logPayloadSize('agent input', input);
-          console.log('[LLM SIZE] conversation history', {
-            messages: conversationHistory.length,
-            characters: conversationHistory.reduce(
-              (total, message) => total + message.content.length,
-              0
-            ),
-          });
+          // ===== STEP 1: Search candidates =====
+          phase = 'search_chunks';
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'progress',
+                message: 'Searching candidates...',
+              }) + '\n'
+            )
+          );
 
-          const stream = await agent.streamEvents(input, {
-            version: 'v2',
-            recursionLimit: 25,
-            ...(sessionId ? { configurable: { thread_id: sessionId } } : {}),
-          });
+          const queryEmbedding = await embedQuery(query);
+          const chunks = await searchChunks(queryEmbedding, 15, jobId);
 
-          let toolCount = 0;
-          for await (const event of stream) {
-            if (event.event === 'on_tool_start') {
-              toolCount++;
-              const toolName = event.name;
-              const toolInput = event.data?.input || {};
+          // Rerank chunks by candidate similarity
+          interface ChunkData {
+            candidateName?: string;
+            chunks: string[];
+            maxSimilarity: number;
+          }
+          const chunksByCandidate: Record<string, ChunkData> = {};
 
-              // Send progress update
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({
-                    type: 'progress',
-                    message: `Searching for candidates (${toolCount})...`,
-                  }) + '\n'
-                )
+          chunks.forEach(
+            (chunk: {
+              candidate_id: string;
+              content: string;
+              similarity: number;
+            }) => {
+              if (!chunksByCandidate[chunk.candidate_id]) {
+                chunksByCandidate[chunk.candidate_id] = {
+                  chunks: [],
+                  maxSimilarity: 0,
+                };
+              }
+              const data = chunksByCandidate[chunk.candidate_id];
+              data.chunks.push(chunk.content);
+              data.maxSimilarity = Math.max(
+                data.maxSimilarity,
+                chunk.similarity
               );
+            }
+          );
 
-              const toolMessage = {
-                type: 'tool-call',
-                toolName,
-                toolInput,
-              };
+          const allCandidates = await listCandidates();
+          const candidateNames = new Map(
+            allCandidates.map((candidate) => [candidate.id, candidate.name])
+          );
 
-              controller.enqueue(
-                encoder.encode(JSON.stringify(toolMessage) + '\n')
-              );
+          // OPTION 2: Skill-based reranking for job-specific screening
+          const rankedCandidates = Object.entries(chunksByCandidate)
+            .map(([candidateId, data]) => {
+              let relevanceScore = Math.round(data.maxSimilarity * 100);
 
-              toolCalls.push({
-                toolName,
-                toolInput: toolInput as Record<string, unknown>,
-                result: null,
-              });
-            } else if (event.event === 'on_tool_end') {
-              const toolOutput = event.data?.output;
-              logPayloadSize(`tool result: ${event.name}`, toolOutput);
+              // Boost score if chunks mention required job skills
+              if (job?.skills && job.skills.length > 0) {
+                const chunkText = data.chunks.join(' ').toLowerCase();
+                const mentionedSkills = job.skills.filter((skill) =>
+                  chunkText.includes(skill.toLowerCase())
+                );
 
-              if (toolCalls.length > 0) {
-                const lastToolCall = toolCalls[toolCalls.length - 1];
-                if (lastToolCall.toolName === event.name) {
-                  lastToolCall.result = toolOutput;
-                  controller.enqueue(
-                    encoder.encode(
-                      JSON.stringify({
-                        type: 'tool-result',
-                        toolName: event.name,
-                        result: toolOutput,
-                      }) + '\n'
-                    )
+                if (mentionedSkills.length > 0) {
+                  // Boost by 3 points per matched skill (max +15 for 5 skills)
+                  const skillBoost = Math.min(
+                    15,
+                    mentionedSkills.length * 3
+                  );
+                  relevanceScore = Math.min(100, relevanceScore + skillBoost);
+
+                  console.log(
+                    `[SKILL BOOST] ${sessionId} - ${candidateNames.get(candidateId) || candidateId}: matched ${mentionedSkills.join(', ')} (+${skillBoost} points)`
                   );
                 }
+              }
+
+              return {
+                candidateId,
+                candidateName:
+                  candidateNames.get(candidateId) || 'Unknown candidate',
+                relevanceScore,
+                topChunks: data.chunks.slice(0, 3),
+              };
+            })
+            .sort((a, b) => b.relevanceScore - a.relevanceScore)
+            .slice(0, 5);
+
+          const searchResult = {
+            results: rankedCandidates,
+          };
+
+          logPayloadSize('search_chunks result', searchResult);
+
+          // Stream search tool call and result
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'tool-call',
+                toolName: 'search_chunks',
+                toolInput: { query },
+              }) + '\n'
+            )
+          );
+
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'tool-result',
+                toolName: 'search_chunks',
+                result: searchResult,
+              }) + '\n'
+            )
+          );
+
+          toolCalls.push({
+            toolName: 'search_chunks',
+            toolInput: { query } as Record<string, unknown>,
+            result: searchResult,
+          });
+
+          console.log(
+            `[SESSION] ${sessionId} - search_chunks: found ${rankedCandidates.length} candidates`
+          );
+
+          // ===== STEP 2: Select top 1-3 candidates =====
+          const topCandidates = rankedCandidates.slice(0, 3);
+
+          // ===== STEP 3: Fetch full resumes for top candidates =====
+          if (topCandidates.length > 0) {
+            phase = 'get_full_resume';
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  type: 'progress',
+                  message: 'Fetching detailed profiles...',
+                }) + '\n'
+              )
+            );
+
+            for (const candidate of topCandidates) {
+              if (fetchedCandidates.size >= 3) {
+                console.log('[FETCH CAP] Reached max 3 candidates');
+                break;
+              }
+
+              try {
+                fetchedCandidates.add(candidate.candidateId);
+                const fullResume = await getFullResumeById(
+                  candidate.candidateId
+                );
+
+                logPayloadSize(
+                  `get_full_resume: ${candidate.candidateId}`,
+                  fullResume
+                );
+
+                // Stream full resume tool call and result
+                controller.enqueue(
+                  encoder.encode(
+                    JSON.stringify({
+                      type: 'tool-call',
+                      toolName: 'get_full_resume',
+                      toolInput: { candidateId: candidate.candidateId },
+                    }) + '\n'
+                  )
+                );
+
+                controller.enqueue(
+                  encoder.encode(
+                    JSON.stringify({
+                      type: 'tool-result',
+                      toolName: 'get_full_resume',
+                      result: {
+                        candidateId: candidate.candidateId,
+                        fullResume,
+                      },
+                    }) + '\n'
+                  )
+                );
+
+                toolCalls.push({
+                  toolName: 'get_full_resume',
+                  toolInput: {
+                    candidateId: candidate.candidateId,
+                  } as Record<string, unknown>,
+                  result: { candidateId: candidate.candidateId, fullResume },
+                });
+
+                console.log(
+                  `[SESSION] ${sessionId} - get_full_resume: fetched ${candidate.candidateName}`
+                );
+              } catch (error) {
+                console.error(
+                  `[SESSION] ${sessionId} - Error fetching resume for ${candidate.candidateId}:`,
+                  error
+                );
               }
             }
           }
 
-          // Progress: generating report
+          // ===== STEP 4: Generate final report =====
+          phase = 'final report generation';
           controller.enqueue(
             encoder.encode(
               JSON.stringify({
@@ -240,33 +363,55 @@ export async function POST(request: NextRequest) {
                   ? call.result
                   : JSON.stringify(call.result, null, 2);
 
-              // Truncate long results to manage token usage
               if (resultStr.length > MAX_RESULT_LENGTH) {
                 resultStr =
-                  resultStr.substring(0, MAX_RESULT_LENGTH) +
-                  '\n[... truncated ...]';
+                  resultStr.substring(0, MAX_RESULT_LENGTH / 2) +
+                  '\n[... truncated (kept key info only) ...]';
               }
 
               return `[${idx + 1}] Tool: ${call.toolName}\nResult:\n${resultStr}`;
             })
             .join('\n\n---\n\n');
 
+          // Build job description for report (OPTION 3: minimal, token-efficient)
+          const MAX_JOB_DESC_LENGTH = 300;
+          let jobDescription = '';
+          if (job) {
+            const baseDesc = `Title: ${job.title}`;
+            const skillsDesc =
+              job.skills && job.skills.length > 0
+                ? `\nKey Skills: ${job.skills.slice(0, 5).join(', ')}`
+                : '';
+            const expDesc = job.experience
+              ? `\nExperience Required: ${job.experience}`
+              : '';
+            const fullDesc = (baseDesc + skillsDesc + expDesc).substring(
+              0,
+              MAX_JOB_DESC_LENGTH
+            );
+
+            jobDescription = `Job Details:
+${fullDesc}`;
+          }
+
+          // Build conversation context if history exists
           const previousConversation = conversationHistory.length
-            ? `Previous context:
+            ? `Previous screening context:
 ${conversationHistory
   .slice(-2)
   .map(
     (message) =>
-      `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.substring(0, 200)}`
+      `${message.role === 'user' ? 'User asked' : 'Assistant found'}: ${message.content.substring(0, 200)}`
   )
   .join('\n\n')}
 
 `
             : '';
-          const reportPrompt = `Screen candidates based on the search results below.
+
+          const reportPrompt = `Screen candidates based on the search and resume data below.
 
 Query: ${query}
-${jobContext ? `Job: ${jobContext}` : ''}
+${jobDescription}
 ${previousConversation}
 
 Results:
@@ -286,25 +431,20 @@ IMPORTANT: For citations, only use tool values "search_chunks" or "get_full_resu
 Return valid JSON only (no markdown/commentary):
 {"query":"string","assessments":[{"candidateId":"string","candidateName":"string","score":0,"evidence":["string"],"unknowns":["string"],"citations":[{"candidateId":"string","candidateName":"string","content":"string","tool":"search_chunks"}]}],"summary":"string","reasoning":"string","context":["string"]}`;
 
-          // Generate final structured report with timeout
-          // Groq does not support LangChain's synthetic `json` tool strategy.
-          const model = getChatModel(0.3);
-          modelPhase = 'final report generation';
           logPayloadSize('final report prompt', reportPrompt);
           console.log('[LLM SIZE] report inputs', {
+            sessionId,
             toolCalls: toolCalls.length,
-            totalRawResultCharacters: toolCalls.reduce((total, call) => {
-              const result =
-                typeof call.result === 'string'
-                  ? call.result
-                  : JSON.stringify(call.result) || '';
-              return total + result.length;
-            }, 0),
             contextCharacters: contextForReport.length,
             jobContextCharacters: jobContext.length,
-            previousConversationCharacters: previousConversation.length,
+            conversationHistoryMessages: conversationHistory.length,
+            conversationHistoryCharacters: conversationHistory.reduce(
+              (total, msg) => total + msg.content.length,
+              0
+            ),
           });
 
+          const model = getChatModel(0.3);
           const reportResponse = (await Promise.race([
             model.invoke(reportPrompt),
             new Promise((_, reject) =>
@@ -314,7 +454,12 @@ Return valid JSON only (no markdown/commentary):
               )
             ),
           ])) as unknown;
+
           const report = parseReportResponse(reportResponse);
+
+          console.log(
+            `[SESSION] ${sessionId} - Report generated: ${report.assessments?.length || 0} assessments`
+          );
 
           const reportMessage = {
             type: 'report',
@@ -329,7 +474,7 @@ Return valid JSON only (no markdown/commentary):
           );
           controller.close();
         } catch (error) {
-          console.error(`[${modelPhase}] Stream error:`, error);
+          console.error(`[SESSION] ${sessionId} [${phase}] Stream error:`, error);
           controller.enqueue(
             encoder.encode(
               JSON.stringify({
@@ -351,7 +496,7 @@ Return valid JSON only (no markdown/commentary):
       },
     });
   } catch (error) {
-    console.error('Route error:', error);
+    console.error('[ROUTE ERROR] Request error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

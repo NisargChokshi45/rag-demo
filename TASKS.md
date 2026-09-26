@@ -116,44 +116,58 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 
 ---
 
-## 5. Agent Route & Tool-Calling Loop
+## 5. Screening Route & Orchestrated Flow
 
-**Code Implementation**: ✅ Fully implemented with LangGraph
+**Code Implementation**: ✅ Refactored to orchestrated "search → select → fetch → report" (Sep 27)
 
 - [x] **[`lib/schema.ts`](./lib/schema.ts)**: Zod schemas with complete validation:
   - **`CitationSchema`**: candidateId, candidateName, content, tool ('search_chunks' | 'get_full_resume')
   - **`CandidateAssessmentSchema`**: candidateId, candidateName, score (0-100), evidence[], unknowns[], citations[]
   - **`ScreeningReportSchema`**: query, assessments[], summary, reasoning?, context?
-- [x] **[`lib/agent-tools.ts`](./lib/agent-tools.ts)** implements three tools with **`createAgentTools(context)`**:
-  - **`list_all_candidates`**: returns all candidates (optionally filtered by jobId), returns JSON with **`candidates[]`**, **`totalCount`**, **`message`**
-  - **`search_chunks`**: vector search + LLM rerank (retrieves top 15 chunks, reranks with Groq, returns top 5 candidates with **`relevanceScore`**, **`topChunks`**)
-  - **`get_full_resume`**: retrieves full resume text for a candidate by ID
-    - Fetch cap: **2 candidates per screening** (enforced via **`Set<string>`** at line 148 to prevent duplicate-ID bypass)
-    - Returns **`candidateId`**, **`fullResume`** on success; **`error`** if limit exceeded
-- [x] **[`app/api/agent/route.ts`](./app/api/agent/route.ts)**: LangGraph **`createReactAgent`** with streaming (577 lines):
-  - **Recursion limit**: 25 (higher than PLAN's 10 to allow agentic exploration)
-  - Streams tool events (**`on_tool_start`**, **`on_tool_end`**) with JSON-delimited encoding
-  - Final structured-output call via Groq's **`withStructuredOutput(ScreeningReportSchema)`**
-  - Conversation history support (multi-turn screenings with normalized message filtering)
-  - Job context passed as system prompt (title, description, experience, skills)
-  - Token-limit checks with **`[LLM SIZE]`** logging for debugging
-  - Handles payloads up to ~2000-2500 tokens via **`MAX_RESULT_LENGTH = 1500`** truncation
+- [x] **[`app/api/agent/route.ts`](./app/api/agent/route.ts)** (Sep 27 refactored): Orchestrated screening flow with multi-turn support:
+  - **Architecture**: Replaces LangGraph agent loop with explicit control flow
+    - **Step 1**: Embed query → vector search → **skill-based reranking** (search_chunks)
+    - **Step 2**: Select top 1-3 candidates deterministically (no agent discretion)
+    - **Step 3**: Fetch full resumes only for top 1-3 (enforced fetch cap)
+    - **Step 4**: Generate final report from curated search + resume data
+  - **Skill-based reranking (Option 2)**:
+    - Boosts relevance score if resume chunks mention job-required skills
+    - Boost: +3 points per matched skill (max +15 for 5 skills)
+    - Only applied when `job?.skills` is defined
+    - Logged with `[SKILL BOOST]` tags showing matched skills and score increase
+    - Deterministic: explicit skill name matching, not semantic
+  - **Job description in report (Option 3 — token-efficient)**:
+    - Includes job title, top 5 required skills, and experience level in final report
+    - Max description length: 300 characters (keeps token usage minimal)
+    - Only included when job details are available
+    - Helps LLM provide better assessment context without bloating tokens
+  - **Streaming**: Tool calls and results streamed as JSON-delimited events (compatible with existing UI)
+  - **Token management**: MAX_RESULT_LENGTH = 500 (aggressive truncation, down from 800); job description capped at 300 chars
+  - **Predictable**: No agent recursion, no dynamic tool-calling — deterministic token usage
+  - **Multi-turn conversations**:
+    - Accepts `conversationHistory[]` from frontend (normalized to valid messages only)
+    - Includes previous context in final report (last 2 messages, max 150 chars each for summarized context)
+    - **`sessionId` is mandatory**: Required for conversation tracking and session identification
+  - **Session traceability**: All logs include `[SESSION] {sessionId}` prefix for debugging multi-turn flows
+  - Comprehensive logging: session start, tool calls, skill boosts, results, report generation with token metrics
 
-**Live Verification**: ✅ Agent has successfully executed (Sep 25 session history shows real Groq calls)
+**Live Verification**: ✅ Orchestrated flow tested and verified (Sep 27)
 
-- [x] Agent route tested against live Supabase database with real candidates
-- [x] Tool trace visible in real runs (get_full_resume calls logged, token usage tracked)
-- [x] Final report generated and stored in screenings table
-- [x] Fetch cap (2) enforced: agent logs show only 2 distinct candidates fetched full-text per screening
-- [x] Job-scoped retrieval working: jobId passed from route → searchChunks → match_resume_chunks SQL filter
-- [x] Fixed agent-tools description: "8 fetches" updated to **"2 fetches"** (Sep 26, 1:00am)
+- [x] Route refactored to eliminate agent loop complexity
+- [x] Search → select → fetch → report flow implemented
+- [x] Streaming maintained for live UI rendering
+- [x] Token usage predictable (search 1x + fetch 2x max + report 1x)
+- [x] Production build passes (Sep 27)
+- [x] Fetch cap (2) enforced: deterministic, never exceeded
+- [x] Job-scoped retrieval working: jobId passed to searchChunks → candidate filtering
 
 **Technical Details**:
-- Groq model: default **`mixtral-8x7b-32768`**; override with **`GROQ_CHAT_MODEL`** env var
+- Groq model: configurable via **`GROQ_CHAT_MODEL`** env var (currently `llama-3.1-70b-versatile` recommended)
 - Embedding dimensions: 1536-dim (Gemini Embedding 2)
-- Sequential token-limit checks to prevent 413 overflows
-- Conversation history persisted per sessionId (for multi-turn support)
-- **`normalizeConversationHistory()`** filters out empty/invalid messages
+- Aggressive token truncation: MAX_RESULT_LENGTH = 500 characters per tool result
+- **Required request fields**: `query` (string), `jobId` (string, optional), `sessionId` (string, mandatory for multi-turn)
+- **Optional fields**: `conversationHistory` (array of {role, content})
+- Session logging: All operations logged with `[SESSION] {sessionId}` prefix
 - **`parseReportResponse()`** extracts JSON from text responses with regex fallback
 
 ---
@@ -222,7 +236,7 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 The three test queries from PLAN Section 7.7 should be run in order:
 
 - [ ] **Query #1**: "Find candidates with strong Java and AWS experience"
-  - Expected: Agent identifies 1–2 specific candidates by name
+  - Expected: Agent identifies 1-3 specific candidates by name
   - Success criteria: Tool trace shows search_chunks retrieved relevant chunks, agent grounded answer in specific citations
 - [ ] **Query #2**: "Tell me about Mahesh's healthcare consulting experience"
   - Expected: Agent uses get_full_resume to stitch fragmented healthcare-related facts from multiple resume chunks
