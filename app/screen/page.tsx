@@ -663,7 +663,7 @@ export default function ScreenPage() {
     const startWidth = inspectorWidth;
     const onMove = (moveEvent: MouseEvent) => {
       setInspectorWidth(
-        Math.min(560, Math.max(280, startWidth + startX - moveEvent.clientX))
+        Math.min(700, Math.max(280, startWidth + startX - moveEvent.clientX))
       );
     };
     const onUp = () => {
