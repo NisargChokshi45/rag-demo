@@ -1,2 +1,5 @@
-Use "nvm use 24".
-Never run "git commit" command.
+- Use "nvm use 24".
+- The development server is already up and running. Do not run it yourself.
+- Never run "git commit" command.
+- Never create arficats.
+- Never store markdowns in scratchpad under the root .claude folder.

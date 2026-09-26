@@ -76,7 +76,7 @@ Step 5: Return
 
 ## 🔧 Implementation Details
 
-### In the Code (lib/agent-tools.ts + lib/models.ts)
+### In the Code ([`lib/agent-tools.ts`](../lib/agent-tools.ts) + [`lib/models.ts`](../lib/models.ts))
 
 ```typescript
 // 1. Your custom query comes in
@@ -201,26 +201,26 @@ pnpm tsx scripts/test-custom-query.ts
 ## ❓ FAQ
 
 **Q: Can it handle typos in my query?**
-A: Yes. "How many yeares of experiense?" still works because vector embeddings capture meaning, not exact spelling.
+- **A:** Yes. "How many yeares of experiense?" still works because vector embeddings capture meaning, not exact spelling.
 
 **Q: What if the answer is in the full resume but not in top chunks?**
-A: Claude can call `get_full_resume` to search the complete document.
+- **A:** Claude can call `get_full_resume` to search the complete document.
 
 **Q: How long can my query be?**
-A: Anything reasonable. Works best with clear, specific questions.
+- **A:** Anything reasonable. Works best with clear, specific questions.
 
 **Q: Can it compare candidates ("Who has more Java experience?")?**
-A: Yes, score both candidates independently, then compare results.
+- **A:** Yes, score both candidates independently, then compare results.
 
 **Q: What if the resume doesn't have the info?**
-A: Claude will say "Not found" with 0% confidence. You can then search for other candidates.
+- **A:** Claude will say "Not found" with 0% confidence. You can then search for other candidates.
 
 **Q: How accurate are the answers?**
-A: Depends on resume quality:
-- Explicit facts (dates, years): 95%+
-- Technical skills: 90%+
-- Soft skills: 80%+
-- Inference: 70%+
+- **A:** Depends on resume quality:
+  - Explicit facts (dates, years): 95%+
+  - Technical skills: 90%+
+  - Soft skills: 80%+
+  - Inference: 70%+
 
 ---
 
@@ -278,6 +278,6 @@ Your question "How many years of experience?" will return:
 ---
 
 **Next Steps:**
-- Try `/scripts/test-custom-query.ts` to see it in action
-- Read [CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md) for detailed explanation
-- Use `/screen` page in the app to ask real queries
+- Try **[`/scripts/test-custom-query.ts`](./test-custom-query.ts)** to see it in action
+- Read **[CUSTOM-QUERY-GUIDE.md](./CUSTOM-QUERY-GUIDE.md)** for detailed explanation
+- Use **`/screen`** page in the app to ask real queries

@@ -354,12 +354,12 @@ All these queries will be:
 
 ## 📊 Performance Characteristics
 
-| Query Type | Accuracy | Speed | Effort |
-|-----------|----------|-------|--------|
-| Explicit facts (years, dates) | Very High | Fast | 1 vector search |
-| Technical skills | High | Fast | 1-2 vector searches |
-| Soft skills/Culture fit | Medium-High | Medium | May need full resume |
-| Comparative (vs job requirements) | High | Medium | Full resume recommended |
+| Query Type                        | Accuracy    | Speed  | Effort                  |
+| --------------------------------- | ----------- | ------ | ----------------------- |
+| Explicit facts (years, dates)     | Very High   | Fast   | 1 vector search         |
+| Technical skills                  | High        | Fast   | 1-2 vector searches     |
+| Soft skills/Culture fit           | Medium-High | Medium | May need full resume    |
+| Comparative (vs job requirements) | High        | Medium | Full resume recommended |
 
 ---
 
@@ -372,13 +372,13 @@ When you ask a custom query on the screening page:
    - Click "Assess Candidates"
 
 2. **Backend** (LangGraph Agent with Groq)
-   - Calls `search_chunks` tool with your query
+   - Calls **`search_chunks`** tool with your query
    - Gets top candidates + matching resume sections
    - Scores each candidate using Groq/Llama reasoning
    - Returns results
 
 3. **Optional**
-   - If Groq needs more info: calls `get_full_resume`
+   - If Groq needs more info: calls **`get_full_resume`**
    - Analyzes complete resume
    - Provides comprehensive assessment
 
@@ -427,4 +427,4 @@ This will:
 
 ---
 
-**Key Takeaway:** The pipeline handles ANY custom query—specific facts, skills, soft skills, requirements matching. It combines vector search's semantic understanding with Claude's reasoning to find accurate answers buried in resumes.
+**Key Takeaway:** The pipeline handles ANY custom query-specific facts, skills, soft skills, requirements matching. It combines vector search's semantic understanding with Claude's reasoning to find accurate answers buried in resumes.

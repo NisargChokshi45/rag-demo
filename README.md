@@ -1,15 +1,15 @@
 # Agentic Resume Screening RAG - TypeScript MVP
 
-A production-ready Next.js application that uses an agentic RAG (Retrieval-Augmented Generation) loop to screen resumes against job descriptions. Features real-time tool tracing, LLM-based reranking, and grounded structured reports.
+A production-ready Next.js application that uses an agentic RAG (Retrieval-Augmented Generation) loop to screen resumes against job descriptions and custom screening questions. Features real-time tool tracing, LLM-based reranking, and grounded structured reports.
 
 ## What It Does
 
 1. **Jobs**: Recruiters create Jobs and upload candidate resume PDFs (resumes stored globally, keyed by job)
 2. **Parse & Ingest**: PDFs are parsed, chunked, embedded, and indexed in Postgres (pgvector)
 3. **Screen**: Free-form questions about candidates are answered via an agent loop (job-specific candidate pool):
-   - `list_all_candidates` - fetch candidates for this job
-   - `search_chunks` - vector search + LLM reranking (filtered by job)
-   - `get_full_resume` - fetch full resume text to overcome fragmentation
+   - **`list_all_candidates`** - fetch candidates for this job
+   - **`search_chunks`** - vector search + LLM reranking (filtered by job)
+   - **`get_full_resume`** - fetch full resume text to overcome fragmentation
 4. **Report**: Structured report with scored candidates, evidence quotes, and unknowns
 
 **Key insight**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → Three fixes (full-resume fetch, agent loop, LLM reranking) → shipped in production.
@@ -17,7 +17,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router, TypeScript)
-- **Models**: Gemini Embedding 2 via `GOOGLE_API_KEY` (1536-dim vectors), Groq via `GROQ_API_KEY` (chat, tool calling, reranking, and reports)
+- **Models**: Gemini Embedding 2 via **`GOOGLE_API_KEY`** (1536-dim vectors), Groq via **`GROQ_API_KEY`** (chat, tool calling, reranking, and reports)
 - **Database**: Supabase (Postgres + pgvector for embeddings)
 - **Storage**: Supabase Storage (raw PDFs)
 - **Agent framework**: LangChain + LangGraph
@@ -32,7 +32,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 Follow **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** to:
 - Create a Supabase project (free tier)
 - Get Google API key (free tier)
-- Create `.env.local` with four env vars
+- Create **`.env.local`** with four env vars
 
 ### 2. Install & Run
 
@@ -56,7 +56,7 @@ Visit:
 Follow **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for three test queries:
 1. **Direct skill match** (Java + AWS)
 2. **Fragmentation coverage** (full-resume fetch for Mahesh)
-3. **Shortlist** (all PMs/Scrum Masters via `list_all_candidates`)
+3. **Shortlist** (all PMs/Scrum Masters via **`list_all_candidates`**)
 
 ### 4. Deploy
 
@@ -105,8 +105,8 @@ TASKS.md                      Task checklist (Phases 0–8)
 ## Key Design Decisions
 
 ### 1. **LangGraph Tool-Calling Agent**
-- Transparent LangGraph `createReactAgent` loop with a recursion limit of 25
-| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as `vector(1536)` |
+- Transparent LangGraph **`createReactAgent`** loop with a recursion limit of 25
+| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as **`vector(1536)`** |
 | Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
 - Traces streamed live to UI (every tool call visible)
 - Cap: 25 steps per query (Vercel's 300s timeout is sufficient)
@@ -117,7 +117,7 @@ TASKS.md                      Task checklist (Phases 0–8)
 - Cost: ~1 extra generate call per query
 
 ### 3. **Full-Resume Fetch Over Re-Chunking**
-- `get_full_resume` fetches full resume text (up to 8 candidates per query)
+- **`get_full_resume`** fetches full resume text (capped at 2 candidates per screening)
 - Avoids chunking artifacts (dates split across chunks, etc.)
 - Simpler than adaptive chunking; trades compute for accuracy
 
@@ -137,8 +137,8 @@ TASKS.md                      Task checklist (Phases 0–8)
 | Constraint                     | Workaround                                                     |
 | ------------------------------ | -------------------------------------------------------------- |
 | Vercel 4.5MB body limit        | Signed upload URLs → Supabase Storage                          |
-| Gemini Embedding 2 dims        | Request and validate 1536 dimensions; stored as `vector(1536)` |
-| Free-tier rate limits          | Batch embed calls with backoff, not `Promise.all`              |
+| Gemini Embedding 2 dims        | Request and validate 1536 dimensions; stored as **`vector(1536)`** |
+| Free-tier rate limits          | Batch embed calls with backoff, not **`Promise.all`**              |
 | Google/Groq free-tier limits   | Sequential embedding and reranking with retry/backoff          |
 | Supabase free tier (500 MB DB) | 25 resumes = ~625 KB; 8+ resume fetches = ~200 KB; all OK      |
 
@@ -146,11 +146,12 @@ TASKS.md                      Task checklist (Phases 0–8)
 
 - ✅ Service-role key stored server-only (route handlers)
 - ✅ Google API key stored server-only (no client-side JS)
-- ✅ Public keys (`NEXT_PUBLIC_*`) only in browser
-- ✅ `.env.local` in `.gitignore` (never committed)
+- ✅ Public keys (**`NEXT_PUBLIC_*`**) only in browser
+- ✅ **`.env.local`** in **`.gitignore`** (never committed)
 - ✅ Supabase Storage bucket permissions: signed URLs only
+- ✅ POST **`/api/admin/reindex`** protected with **`validateAuth()`** middleware
+- ✅ React hydration mismatch errors fixed (mounted guards + suppressHydrationWarning on html root)
 - ⚠️ MVP has no user auth (add via Supabase Auth if multi-tenant needed)
-- ⚠️ POST `/api/admin/reindex` has no authentication guard (add auth before production)
 
 ## Performance Targets
 
@@ -159,23 +160,23 @@ TASKS.md                      Task checklist (Phases 0–8)
 | Upload 5 PDFs              | <30s   | Parsing + chunking + batch embed   |
 | Vector search              | <2s    | HNSW index on pgvector             |
 | Full agent query (3 tools) | <5s    | Streaming; includes Gemini latency |
-| Final structured report    | <1s    | `generateObject` over tool history |
+| Final structured report    | <1s    | **`generateObject`** over tool history |
 
 ## Troubleshooting
 
 **Upload fails**:
-- Check `.env.local` has valid Supabase URL/keys
-- Verify `resumes` Storage bucket exists and is public
+- Check **`.env.local`** has valid Supabase URL/keys
+- Verify **`resumes`** Storage bucket exists and is public
 - Check Google API quota
 
 **Agent query hangs**:
-- Verify `GOOGLE_API_KEY` is for Gemini (not Google Cloud)
+- Verify **`GOOGLE_API_KEY`** is for Gemini (not Google Cloud)
 - Check free-tier quota (15 req/min; wait if hit)
-- Review logs: `pnpm dev` console or Vercel logs on production
+- Review logs: **`pnpm dev`** console or Vercel logs on production
 
 **Chunk count too high/low**:
 - High: chunkSize param wrong (should be 800)
-- Low: batch embedding failed (check `api/ingest` logs)
+- Low: batch embedding failed (check **`api/ingest`** logs)
 - Expected: 20–30 chunks per resume
 
 See **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for detailed troubleshooting.
@@ -194,10 +195,10 @@ See **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for detailed troublesho
 
 For questions or issues:
 1. Check **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** troubleshooting section
-2. Review logs: `pnpm dev` or Vercel dashboard
-3. Verify credentials in `.env.local`
+2. Review logs: **`pnpm dev`** or Vercel dashboard
+3. Verify credentials in **`.env.local`**
 4. Open an issue on GitHub
 
 ---
 
-**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-26
+**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-26 (UI polish + hydration fixes completed)

@@ -4,7 +4,7 @@ This guide explains how to customize the RAG pipeline components.
 
 ## 1. Chunking Strategy
 
-**File:** `lib/chunk.ts`
+**File:** **[`lib/chunk.ts`](../lib/chunk.ts)**
 
 ```typescript
 const CHUNK_SIZE = 800;      // Characters per chunk
@@ -40,18 +40,18 @@ const OVERLAP = 0;
 
 ### When to Adjust
 
-| Scenario | Setting | Why |
-|----------|---------|-----|
-| Long resumes (3-4 pages) | Increase chunk size to 1200-1500 | Better context retention |
-| Short resumes (1 page) | Keep at 800 or reduce to 600 | Avoid redundancy |
-| Budget-conscious | Increase chunk size | Fewer embedding API calls |
-| High accuracy needed | Reduce chunk size to 400-600 | More focused chunks |
+| Scenario                 | Setting                          | Why                       |
+| ------------------------ | -------------------------------- | ------------------------- |
+| Long resumes (3-4 pages) | Increase chunk size to 1200-1500 | Better context retention  |
+| Short resumes (1 page)   | Keep at 800 or reduce to 600     | Avoid redundancy          |
+| Budget-conscious         | Increase chunk size              | Fewer embedding API calls |
+| High accuracy needed     | Reduce chunk size to 400-600     | More focused chunks       |
 
 ---
 
 ## 2. Embedding Configuration
 
-**File:** `lib/embeddings.ts`
+**File:** **[`lib/embeddings.ts`](../lib/embeddings.ts)**
 
 ```typescript
 export const EMBEDDING_DIMENSIONS = 1536;
@@ -70,11 +70,11 @@ export GOOGLE_API_KEY="your-key-here"
 
 ### Available Gemini Models
 
-| Model | Dimensions | Speed | Cost | Quality |
-|-------|-----------|-------|------|---------|
-| `gemini-embedding-2` | 768 | Fastest | Cheapest | Good |
-| `gemini-embedding-001` | 1536 | Fast | Standard | Better |
-| `gemini-embedding-004` | 1536 | Fast | Standard | Best |
+| Model                      | Dimensions | Speed   | Cost     | Quality |
+| -------------------------- | ---------- | ------- | -------- | ------- |
+| **`gemini-embedding-2`**   | 768        | Fastest | Cheapest | Good    |
+| **`gemini-embedding-001`** | 1536       | Fast    | Standard | Better  |
+| **`gemini-embedding-004`** | 1536       | Fast    | Standard | Best    |
 
 ### Embedding Input Format
 
@@ -107,7 +107,7 @@ Cost estimate:
 
 ## 3. Similarity Search Parameters
 
-**File:** `app/api/screening/route.ts` (or wherever search is called)
+**File:** **[`app/api/screening/route.ts`](../app/api/screenings/route.ts)** (or wherever search is called)
 
 ### Key Parameters
 
@@ -138,11 +138,11 @@ const SIMILARITY_THRESHOLD = 0.6;
 ### Why Cosine Similarity?
 
 Vector similarity score ranges from -1 to +1:
-- `1.0` = identical vectors (perfect match)
-- `0.8` = very similar (excellent candidate)
-- `0.6` = similar (good candidate)
-- `0.4` = loosely related (fair candidate)
-- `0.0` = orthogonal (unrelated)
+- **`1.0`** = identical vectors (perfect match)
+- **`0.8`** = very similar (excellent candidate)
+- **`0.6`** = similar (good candidate)
+- **`0.4`** = loosely related (fair candidate)
+- **`0.0`** = orthogonal (unrelated)
 
 ---
 
@@ -176,14 +176,14 @@ WITH (m = 32, ef_construction = 300)
 ```
 
 **Cost/Performance Trade-off:**
-- Higher `m` and `ef_construction` = Better accuracy, More memory
+- Higher **`m`** and **`ef_construction`** = Better accuracy, More memory
 - Lower values = Faster, Less memory
 
 ---
 
 ## 5. LangGraph Agent Configuration
 
-**File:** `app/api/screening/route.ts`
+**File:** **[`app/api/screening/route.ts`](../app/api/screenings/route.ts)**
 
 ### Agent Parameters
 
@@ -232,7 +232,7 @@ const TOOLS = [
 
 ## 6. API Rate Limiting
 
-**File:** `app/api/ingest/route.ts`
+**File:** **[`app/api/ingest/route.ts`](../app/api/ingest/route.ts)**
 
 ### Gemini Embedding API Limits
 
@@ -263,17 +263,17 @@ const BATCH_DELAY = 100;
 
 ### Cost vs Speed
 
-| Config | Speed | API Calls | Cost |
-|--------|-------|-----------|------|
-| Aggressive (BATCH_DELAY=100) | Fast | Fewer retries | Lowest |
-| Moderate (BATCH_DELAY=500) | Normal | Balanced | Low |
-| Conservative (BATCH_DELAY=1000) | Slow | More retries | Higher |
+| Config                                | Speed  | API Calls     | Cost   |
+| ------------------------------------- | ------ | ------------- | ------ |
+| Aggressive (**`BATCH_DELAY=100`**)    | Fast   | Fewer retries | Lowest |
+| Moderate (**`BATCH_DELAY=500`**)      | Normal | Balanced      | Low    |
+| Conservative (**`BATCH_DELAY=1000`**) | Slow   | More retries  | Higher |
 
 ---
 
 ## 7. Feature Flags
 
-**File:** `lib/config.ts`
+**File:** **[`lib/config.ts`](../lib/config.ts)**
 
 ```typescript
 export const FEATURE_FLAGS = {
@@ -400,8 +400,8 @@ REINDEX INDEX CONCURRENTLY resume_chunks_embedding_idx;
 ### Bottleneck 3: LLM Processing
 **Problem:** Slow screening assessments
 **Solution:**
-- Reduce TOP_K chunks (fewer to process)
-- Reduce MAX_TOKENS output
+- Reduce **`TOP_K`** chunks (fewer to process)
+- Reduce **`MAX_TOKENS`** output
 - Use faster model
 
 ```typescript
@@ -460,15 +460,15 @@ Process fewer resumes at a time
 
 ## Quick Reference Cheat Sheet
 
-| Config | File | Change | Effect |
-|--------|------|--------|--------|
-| Chunk size | `lib/chunk.ts` | CHUNK_SIZE | API calls, relevance |
-| Embedding model | `.env` | GEMINI_EMBEDDING_MODEL | Quality, speed, cost |
-| Search depth | `app/api/screening` | TOP_K | Recall vs speed |
-| Retry attempts | `app/api/ingest` | MAX_RETRIES | Reliability vs time |
-| Index quality | Supabase | m, ef_construction | Accuracy vs memory |
-| Assessment model | `app/api/screening` | MODEL | Quality vs cost |
-| Rate limiting | `app/api/ingest` | BATCH_DELAY | Speed vs quota |
+| Config           | File                                              | Change                 | Effect               |
+| ---------------- | ------------------------------------------------- | ---------------------- | -------------------- |
+| Chunk size       | **[`lib/chunk.ts`](../lib/chunk.ts)**             | **`CHUNK_SIZE`**             | API calls, relevance |
+| Embedding model  | **`.env`**                                        | **`GEMINI_EMBEDDING_MODEL`** | Quality, speed, cost |
+| Search depth     | **[`app/api/screening`](../app/api/screenings/)** | **`TOP_K`**                  | Recall vs speed      |
+| Retry attempts   | **[`app/api/ingest`](../app/api/ingest/)**        | **`MAX_RETRIES`**            | Reliability vs time  |
+| Index quality    | Supabase                                          | **`m`**, **`ef_construction`**     | Accuracy vs memory   |
+| Assessment model | **[`app/api/screening`](../app/api/screenings/)** | **`MODEL`**                  | Quality vs cost      |
+| Rate limiting    | **[`app/api/ingest`](../app/api/ingest/)**        | **`BATCH_DELAY`**            | Speed vs quota       |
 
 ---
 
