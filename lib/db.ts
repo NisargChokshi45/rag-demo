@@ -1,4 +1,5 @@
 import { createServiceClient } from './supabase/server';
+import { generateJobHash, jobHashesMatch } from './job-hash';
 
 interface ChunkWithEmbedding {
   content: string;
@@ -139,7 +140,8 @@ export async function insertCandidate(
   originalFilename: string,
   fullText: string,
   jobId?: string,
-  score?: number | null
+  score?: number | null,
+  jobHash?: string | null
 ): Promise<string> {
   const client = createServiceClient();
 
@@ -154,6 +156,7 @@ export async function insertCandidate(
         full_text: fullText,
         job_id: jobId || null,
         score: score ?? null,
+        job_hash: jobHash ?? null,
       },
     ])
     .select('id')
@@ -236,7 +239,7 @@ export async function listCandidates(
 
   let candidateQuery = client
     .from('candidates')
-    .select('id, name, role_guess, original_filename, score');
+    .select('id, name, role_guess, original_filename, score, job_id, job_hash');
 
   if (options.jobId)
     candidateQuery = candidateQuery.eq('job_id', options.jobId);
@@ -280,10 +283,65 @@ export async function listCandidates(
     countMap[chunk.candidate_id] = (countMap[chunk.candidate_id] || 0) + 1;
   });
 
-  const results = candidates.map((candidate: any) => ({
-    ...candidate,
-    chunk_count: countMap[candidate.id] || 0,
-  }));
+  // Fetch jobs for candidates that have job_ids
+  const jobIds = [
+    ...new Set(
+      candidates.filter((c: any) => c.job_id).map((c: any) => c.job_id)
+    ),
+  ];
+  const jobMap: Record<string, Job> = {};
+
+  if (jobIds.length > 0) {
+    const { data: jobs, error: jobError } = await client
+      .from('jobs')
+      .select(
+        'id, title, description, experience, skills, is_active, created_at'
+      )
+      .in('id', jobIds);
+
+    if (jobError) throw jobError;
+    if (jobs) {
+      jobs.forEach((job: any) => {
+        jobMap[job.id] = job;
+      });
+    }
+  }
+
+  const results = candidates.map((candidate: any) => {
+    const result: any = {
+      ...candidate,
+      chunk_count: countMap[candidate.id] || 0,
+    };
+
+    // Compute needsRescore if candidate has a job
+    if (candidate.job_id && jobMap[candidate.job_id]) {
+      const job = jobMap[candidate.job_id];
+      const currentJobHash = generateJobHash({
+        description: job.description,
+        experience: job.experience,
+        skills: job.skills,
+      });
+
+      // If score exists and hashes match, score is current
+      if (
+        candidate.score !== null &&
+        jobHashesMatch(candidate.job_hash, currentJobHash)
+      ) {
+        result.needsRescore = false;
+      } else if (candidate.score === null) {
+        // No score yet, needs rescoring
+        result.needsRescore = true;
+      } else {
+        // Score exists but job has changed
+        result.needsRescore = true;
+      }
+    } else if (candidate.score === null && candidate.job_id) {
+      // Has job_id but no job found, needs rescoring
+      result.needsRescore = true;
+    }
+
+    return result;
+  });
 
   const filtered =
     options.status === 'indexed'

@@ -22,6 +22,7 @@ create table if not exists candidates (
   original_filename text not null,
   full_text text not null,
   score int default null,
+  job_hash text,
   created_at timestamptz default now()
 );
 

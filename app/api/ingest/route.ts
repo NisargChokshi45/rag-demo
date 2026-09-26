@@ -7,6 +7,7 @@ import { parsePDF } from '@/lib/pdf';
 import { chunkText } from '@/lib/chunk';
 import { embedDocument } from '@/lib/embeddings';
 import { calculateCandidateScore } from '@/lib/scoring';
+import { generateJobHash } from '@/lib/job-hash';
 import {
   deleteCandidate,
   getJobById,
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate score if jobId is provided
     let score: number | null = null;
+    let jobHash: string | null = null;
     if (jobId) {
       try {
         const job = await getJobById(jobId);
@@ -152,6 +154,11 @@ export async function POST(request: NextRequest) {
           jobDescription: job.description,
           jobExperience: job.experience,
           jobSkills: job.skills,
+        });
+        jobHash = generateJobHash({
+          description: job.description,
+          experience: job.experience,
+          skills: job.skills,
         });
         console.log(`[INGEST] ✓ Score calculated: ${score}`);
       } catch (error) {
@@ -169,7 +176,8 @@ export async function POST(request: NextRequest) {
       filename,
       fullText,
       jobId,
-      score
+      score,
+      jobHash
     );
 
     try {

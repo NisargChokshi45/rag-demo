@@ -17,6 +17,7 @@ interface Candidate {
   original_filename: string;
   chunk_count: number;
   score?: number | null;
+  needsRescore?: boolean;
 }
 
 interface Job {
@@ -76,8 +77,11 @@ export default function CandidatesPage() {
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'indexed' | 'not-indexed'
   >('all');
-  const [sortBy, setSortBy] = useState<'name' | 'role' | 'indexed' | 'score'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'role' | 'indexed' | 'score'>(
+    'name'
+  );
   const [hasLoadedCandidates, setHasLoadedCandidates] = useState(false);
+  const [rescoreLoading, setRescoreLoading] = useState<string | null>(null);
   const candidatesRequestId = useRef(0);
 
   const fetchCandidates = async () => {
@@ -100,7 +104,9 @@ export default function CandidatesPage() {
 
       let candidates = data.candidates || [];
       if (sortBy === 'score') {
-        candidates.sort((a: Candidate, b: Candidate) => (b.score ?? -1) - (a.score ?? -1));
+        candidates.sort(
+          (a: Candidate, b: Candidate) => (b.score ?? -1) - (a.score ?? -1)
+        );
       }
 
       setCandidates(candidates);
@@ -232,10 +238,10 @@ export default function CandidatesPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                    ...p,
-                    status: 'done',
-                    progress: 100,
-                  }
+                  ...p,
+                  status: 'done',
+                  progress: 100,
+                }
                 : p
             )
           );
@@ -245,11 +251,11 @@ export default function CandidatesPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                    ...p,
-                    status: 'error',
-                    error:
-                      error instanceof Error ? error.message : 'Unknown error',
-                  }
+                  ...p,
+                  status: 'error',
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
+                }
                 : p
             )
           );
@@ -314,6 +320,46 @@ export default function CandidatesPage() {
     }
   };
 
+  const rescoreCandidate = async (candidate: Candidate) => {
+    setRescoreLoading(candidate.id);
+    try {
+      const response = await fetch(`/api/candidates/${candidate.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rescore' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.upToDate) {
+          setCandidates((prev) =>
+            prev.map((c) =>
+              c.id === candidate.id ? { ...c, needsRescore: false } : c
+            )
+          );
+          setError(null);
+        } else {
+          throw new Error(data.error || 'Failed to rescore candidate');
+        }
+        return;
+      }
+
+      const { score } = data;
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidate.id ? { ...c, score, needsRescore: false } : c
+        )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to rescore candidate'
+      );
+    } finally {
+      setRescoreLoading(null);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
@@ -325,9 +371,8 @@ export default function CandidatesPage() {
             <p className="mt-1 text-sm text-slate-500">
               {selectedJob
                 ? `Candidates for ${selectedJob.title}`
-                : `${candidates.length} ${
-                    candidates.length === 1 ? 'candidate' : 'candidates'
-                  } ingested`}
+                : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'
+                } ingested`}
             </p>
           </div>
 
@@ -389,11 +434,10 @@ export default function CandidatesPage() {
                   Upload Resumes (PDF)
                 </label>
                 <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
-                    isUploading
-                      ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-                      : 'border-gray-300 hover:border-blue-400 cursor-pointer'
-                  }`}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${isUploading
+                    ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                    : 'border-gray-300 hover:border-blue-400 cursor-pointer'
+                    }`}
                 >
                   <input
                     type="file"
@@ -406,11 +450,10 @@ export default function CandidatesPage() {
                   />
                   <label
                     htmlFor="resume-input"
-                    className={`block ${
-                      isUploading
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-600 hover:text-blue-600 cursor-pointer'
-                    }`}
+                    className={`block ${isUploading
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-gray-600 hover:text-blue-600 cursor-pointer'
+                      }`}
                   >
                     <div className="text-3xl mb-2">📄</div>
                     <p className="font-medium">Click to select PDF files</p>
@@ -615,11 +658,10 @@ export default function CandidatesPage() {
                 {candidates.map((candidate) => (
                   <div
                     key={candidate.id}
-                    className={`rounded-lg shadow-sm transition hover:shadow-md ${
-                      viewMode === 'list'
-                        ? 'flex items-center gap-4 p-4'
-                        : 'p-6'
-                    } ${candidate.chunk_count === 0 ? 'border border-amber-200 bg-amber-50' : 'border border-slate-200 bg-white'}`}
+                    className={`rounded-lg shadow-sm transition hover:shadow-md ${viewMode === 'list'
+                      ? 'flex items-center gap-4 p-4'
+                      : 'p-6'
+                      } ${candidate.chunk_count === 0 ? 'border border-amber-200 bg-amber-50' : 'border border-slate-200 bg-white'}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-4">
@@ -642,11 +684,19 @@ export default function CandidatesPage() {
                               ? 'Not Indexed'
                               : 'Indexed'}
                           </span>
-                          {candidate.score !== null && candidate.score !== undefined && (
-                            <span className="whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700">
-                              Score: {candidate.score}%
-                            </span>
-                          )}
+                          {candidate.score !== null &&
+                            candidate.score !== undefined && (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700">
+                                  Score: {candidate.score}%
+                                </span>
+                                {candidate.needsRescore === false && (
+                                  <span className="text-xs text-gray-500">
+                                    Updated with latest job
+                                  </span>
+                                )}
+                              </div>
+                            )}
                         </div>
                       </div>
                       <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
@@ -663,6 +713,27 @@ export default function CandidatesPage() {
                           className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                         >
                           View parsed resume
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rescoreCandidate(candidate)}
+                          disabled={
+                            candidate.needsRescore !== true ||
+                            rescoreLoading === candidate.id
+                          }
+                          className={`rounded px-3 py-2 text-sm font-medium ${candidate.needsRescore !== true || rescoreLoading === candidate.id
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            }`}
+                        >
+                          {rescoreLoading === candidate.id ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"></span>
+                              Rescoring...
+                            </span>
+                          ) : (
+                            'Re-score'
+                          )}
                         </button>
                       </div>
                     </div>

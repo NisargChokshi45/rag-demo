@@ -31,6 +31,7 @@ export function getEnvConfig(): EnvConfig {
       process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-2',
     groqApiKey: process.env.GROQ_API_KEY || '',
     groqChatModel: process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-120b',
+    // || 'openai/gpt-oss-120b'
     // || 'llama-3.1-8b-instant',
     nodeEnv: process.env.NODE_ENV || 'development',
   };

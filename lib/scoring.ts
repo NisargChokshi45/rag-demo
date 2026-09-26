@@ -41,10 +41,7 @@ async function calculateSemanticSimilarity(
   return Math.max(0, Math.min(1, (similarity + 1) / 2));
 }
 
-function calculateSkillsMatch(
-  resumeText: string,
-  skills: string[]
-): number {
+function calculateSkillsMatch(resumeText: string, skills: string[]): number {
   if (!skills.length) return 0.5;
 
   const resumeLower = resumeText.toLowerCase();
@@ -60,8 +57,12 @@ function calculateSkillsMatch(
 }
 
 async function scoreCandidate(input: ScoringInput): Promise<number> {
-  const { resumeText, jobDescription = '', jobExperience = '', jobSkills = [] } =
-    input;
+  const {
+    resumeText,
+    jobDescription = '',
+    jobExperience = '',
+    jobSkills = [],
+  } = input;
 
   let descriptionScore = 0;
   let experienceScore = 0;
@@ -99,7 +100,9 @@ async function scoreCandidate(input: ScoringInput): Promise<number> {
   return Math.round(weightedScore * 100);
 }
 
-export async function calculateCandidateScore(input: ScoringInput): Promise<number | null> {
+export async function calculateCandidateScore(
+  input: ScoringInput
+): Promise<number | null> {
   try {
     return await scoreCandidate(input);
   } catch (error) {
