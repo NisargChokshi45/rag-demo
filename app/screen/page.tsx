@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { updateScreeningFeedback } from '@/lib/screenings-api';
 import { TrashIcon } from '../icons';
+import { FEATURE_FLAGS } from '@/lib/config';
 
 type IconName =
   | 'copy'
@@ -16,7 +17,13 @@ type IconName =
   | 'citation'
   | 'close';
 
-function Icon({ name, size = 'default' }: { name: IconName; size?: 'default' | 'lg' }) {
+function Icon({
+  name,
+  size = 'default',
+}: {
+  name: IconName;
+  size?: 'default' | 'lg';
+}) {
   const paths = {
     copy: (
       <>
@@ -64,7 +71,10 @@ function Icon({ name, size = 'default' }: { name: IconName; size?: 'default' | '
   }[name];
 
   const sizeClasses = size === 'lg' ? 'h-6 w-6' : 'h-4 w-4';
-  const dimensions = size === 'lg' ? { width: '24', height: '24' } : { width: '16', height: '16' };
+  const dimensions =
+    size === 'lg'
+      ? { width: '24', height: '24' }
+      : { width: '16', height: '16' };
 
   return (
     <svg
@@ -266,6 +276,20 @@ export default function ScreenPage() {
   const initialScreeningIdRef = useRef<string | null>(null);
   const editingQueryRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeScreeningIdRef = useRef<string | null>(null);
+  const loadHistoryCounterRef = useRef(0);
+  const liveSessionsRef = useRef<
+    Map<
+      string,
+      {
+        query: string;
+        conversation: ConversationMessage[];
+        toolCalls: ToolCall[];
+        report: ReportData | null;
+        progress: string;
+      }
+    >
+  >(new Map());
 
   const updateScreeningUrl = (screeningId: string | null) => {
     const url = new URL(window.location.href);
@@ -278,10 +302,13 @@ export default function ScreenPage() {
   };
 
   // Load screening history from Supabase (or localStorage as fallback)
-  const loadHistory = async () => {
-    setIsLoadingHistory(true);
+  const loadHistory = async (silent = false) => {
+    if (!silent) setIsLoadingHistory(true);
+    const requestId = ++loadHistoryCounterRef.current;
     try {
       const response = await fetch('/api/screenings');
+      if (requestId !== loadHistoryCounterRef.current) return;
+
       if (response.ok) {
         const { screenings } = await response.json();
         const formattedHistory: ScreeningHistory[] = screenings.map(
@@ -315,7 +342,7 @@ export default function ScreenPage() {
         setHistory(JSON.parse(saved));
       }
     } finally {
-      setIsLoadingHistory(false);
+      if (!silent) setIsLoadingHistory(false);
     }
   };
 
@@ -372,7 +399,32 @@ export default function ScreenPage() {
       throw new Error(data.error || 'Unable to create screening session');
     }
 
-    return data.screeningId as string;
+    const screeningId = data.screeningId as string;
+
+    // Initialize live session buffer
+    liveSessionsRef.current.set(screeningId, {
+      query: q,
+      conversation: [],
+      toolCalls: [],
+      report: null,
+      progress: '',
+    });
+
+    // Prepend to sidebar immediately
+    const newSession: ScreeningHistory = {
+      id: screeningId,
+      query: q,
+      name: null,
+      jobId: selectedJobId || undefined,
+      timestamp: Date.now(),
+      report: null,
+      feedback: null,
+      status: 'running',
+      metadata: undefined,
+    };
+    setHistory((prev) => [newSession, ...prev]);
+
+    return screeningId;
   };
 
   const finalizeSession = async (
@@ -405,45 +457,77 @@ export default function ScreenPage() {
   const loadFromHistory = async (item: ScreeningHistory) => {
     updateScreeningUrl(item.id);
     setIsHistorySession(true);
+    activeScreeningIdRef.current = item.id;
     setActiveScreeningId(item.id);
-    setIsLoading(item.status === 'running');
-    setSelectedJobId(item.jobId || '');
-    setQuery('');
     setIsEditingSubmittedQuery(false);
     setEditingSubmittedQuery('');
-    setToolCalls([]);
-    setConversation(item.metadata?.conversation || []);
+    setQuery('');
     setError(null);
-    setProgress('');
     setMessageFeedback({});
     setCurrentReportIndex(null);
 
-    // Fetch full details from Supabase for better data integrity
+    // Check if this session is currently being streamed
+    const liveSession = liveSessionsRef.current.get(item.id);
+    if (liveSession) {
+      setSelectedJobId(item.jobId || '');
+      setIsLoading(true);
+      setSubmittedQuery(liveSession.query);
+      setToolCalls(liveSession.toolCalls);
+      setConversation(liveSession.conversation);
+      setReport(liveSession.report);
+      setProgress(liveSession.progress);
+      return;
+    }
+
+    // Not streaming; fetch from server
+    setSelectedJobId(item.jobId || '');
+    setIsLoading(item.status === 'running');
+    setSubmittedQuery(item.query);
+    setToolCalls([]);
+    setConversation(item.metadata?.conversation || []);
+    setProgress('');
+    setReport(null);
+
     try {
       const response = await fetch(`/api/screenings/${item.id}`);
+      if (activeScreeningIdRef.current !== item.id) return;
+
       if (response.ok) {
         const screening = await response.json();
+        if (activeScreeningIdRef.current !== item.id) return;
+
         const conv = screening.metadata?.conversation || [];
         setConversation(conv);
         setIsLoading(screening.status === 'running');
         setSelectedJobId(screening.job_id || '');
 
-        const report: ReportData = screening.report || {
-          query: screening.query,
-          summary: screening.summary,
-          reasoning: screening.reasoning,
-          context: screening.context,
-          assessments: screening.screening_assessments.map(
-            (assessment: any) => ({
-              candidateId: assessment.candidate_id,
-              candidateName: '',
-              score: assessment.score,
-              evidence: assessment.evidence,
-              unknowns: assessment.unknowns,
-              citations: assessment.screening_citations,
-            })
-          ),
-        };
+        const hasAssessments =
+          screening.screening_assessments &&
+          screening.screening_assessments.length > 0;
+        const report: ReportData | null =
+          screening.report ||
+          (screening.summary ||
+          screening.reasoning ||
+          screening.context ||
+          hasAssessments
+            ? {
+                query: screening.query,
+                summary: screening.summary,
+                reasoning: screening.reasoning,
+                context: screening.context,
+                assessments: (screening.screening_assessments ?? []).map(
+                  (assessment: any) => ({
+                    candidateId: assessment.candidate_id,
+                    candidateName: '',
+                    score: assessment.score,
+                    evidence: assessment.evidence,
+                    unknowns: assessment.unknowns,
+                    citations: assessment.screening_citations,
+                  })
+                ),
+              }
+            : null);
+
         const savedToolCalls =
           screening.tool_calls || screening.metadata?.toolCalls || [];
         setToolCalls(
@@ -860,20 +944,22 @@ export default function ScreenPage() {
     setCurrentReportIndex(null);
     setProgress('Starting analysis...');
 
-    let screeningId: string | null = activeScreeningId;
+    let screeningId: string | null = activeScreeningIdRef.current;
     let reportData: ReportData | null = null;
     const collectedToolCalls: ToolCall[] = [];
+    const baseConversation = [...conversation];
 
     try {
       if (!screeningId) {
         screeningId = await createSession(screeningQuery);
         updateScreeningUrl(screeningId);
+        activeScreeningIdRef.current = screeningId;
         setActiveScreeningId(screeningId);
       }
       console.log('[SCREENING REQUEST SIZE]', {
         queryCharacters: screeningQuery.length,
-        conversationMessages: conversation.length,
-        conversationCharacters: conversation.reduce(
+        conversationMessages: baseConversation.length,
+        conversationCharacters: baseConversation.reduce(
           (total, message) => total + message.content.length,
           0
         ),
@@ -885,7 +971,7 @@ export default function ScreenPage() {
           query: screeningQuery,
           jobId: selectedJobId || undefined,
           sessionId: screeningId,
-          conversationHistory: conversation,
+          conversationHistory: baseConversation,
         }),
       });
 
@@ -917,25 +1003,50 @@ export default function ScreenPage() {
 
           try {
             const message: StreamMessage = JSON.parse(line);
+            const isActiveSession =
+              activeScreeningIdRef.current === screeningId;
+            const liveSession = liveSessionsRef.current.get(screeningId);
 
             if (message.type === 'tool-call') {
               collectedToolCalls.push(message);
-              setToolCalls((prev) => [...prev, message]);
+              if (liveSession) liveSession.toolCalls.push(message);
+              if (isActiveSession) {
+                setToolCalls((prev) => [...prev, message]);
+              }
             } else if (message.type === 'tool-result') {
-              setToolCalls((prev) => {
-                const next = [...prev];
-                const reverseIndex = [...next]
+              if (liveSession) {
+                const reverseIndex = [...liveSession.toolCalls]
                   .reverse()
                   .findIndex(
                     (call: ToolCall) =>
                       call.toolName === message.toolName && !call.result
                   );
                 const index =
-                  reverseIndex >= 0 ? next.length - 1 - reverseIndex : -1;
+                  reverseIndex >= 0
+                    ? liveSession.toolCalls.length - 1 - reverseIndex
+                    : -1;
                 if (index >= 0)
-                  next[index] = { ...next[index], result: message.result };
-                return next;
-              });
+                  liveSession.toolCalls[index] = {
+                    ...liveSession.toolCalls[index],
+                    result: message.result,
+                  };
+              }
+              if (isActiveSession) {
+                setToolCalls((prev) => {
+                  const next = [...prev];
+                  const reverseIndex = [...next]
+                    .reverse()
+                    .findIndex(
+                      (call: ToolCall) =>
+                        call.toolName === message.toolName && !call.result
+                    );
+                  const index =
+                    reverseIndex >= 0 ? next.length - 1 - reverseIndex : -1;
+                  if (index >= 0)
+                    next[index] = { ...next[index], result: message.result };
+                  return next;
+                });
+              }
               for (
                 let index = collectedToolCalls.length - 1;
                 index >= 0;
@@ -949,9 +1060,15 @@ export default function ScreenPage() {
               }
             } else if (message.type === 'report') {
               reportData = message.report;
-              setReport(reportData);
+              if (liveSession) liveSession.report = reportData;
+              if (isActiveSession) {
+                setReport(reportData);
+              }
             } else if (message.type === 'progress') {
-              setProgress(message.message);
+              if (liveSession) liveSession.progress = message.message;
+              if (isActiveSession) {
+                setProgress(message.message);
+              }
             } else if (message.type === 'error') {
               throw new Error(message.message);
             }
@@ -963,22 +1080,25 @@ export default function ScreenPage() {
 
       if (reportData && screeningId) {
         const nextConversation = [
-          ...conversation,
+          ...baseConversation,
           { role: 'user' as const, content: screeningQuery },
           {
             role: 'assistant' as const,
             content: JSON.stringify(reportData),
           },
         ];
-        setConversation(nextConversation);
-        setCurrentReportIndex(nextConversation.length - 1);
+        if (activeScreeningIdRef.current === screeningId) {
+          setConversation(nextConversation);
+          setCurrentReportIndex(nextConversation.length - 1);
+        }
         await finalizeSession(
           screeningId,
           reportData,
           collectedToolCalls,
           nextConversation
         );
-        await loadHistory();
+        await loadHistory(true);
+        liveSessionsRef.current.delete(screeningId);
       }
     } catch (err) {
       if (screeningId) {
@@ -989,17 +1109,22 @@ export default function ScreenPage() {
               query: screeningQuery,
             },
             collectedToolCalls,
-            conversation,
+            baseConversation,
             'failed'
           );
-          await loadHistory();
+          await loadHistory(true);
+          liveSessionsRef.current.delete(screeningId);
         } catch (persistError) {
           console.error('Failed to persist screening failure:', persistError);
         }
       }
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (activeScreeningIdRef.current === screeningId) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
-      setIsLoading(false);
+      if (activeScreeningIdRef.current === screeningId) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -1028,6 +1153,7 @@ export default function ScreenPage() {
           <button
             onClick={() => {
               setIsHistorySession(false);
+              activeScreeningIdRef.current = null;
               setActiveScreeningId(null);
               updateScreeningUrl(null);
               setIsLoading(false);
@@ -1230,27 +1356,39 @@ export default function ScreenPage() {
                             <button
                               type="button"
                               onClick={() => {
+                                if (!FEATURE_FLAGS.QUERY_EDIT_ENABLED) return;
                                 setSubmittedQuery(message.content);
                                 setEditingSubmittedQuery(message.content);
                                 setIsEditingSubmittedQuery(true);
                               }}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                              disabled={!FEATURE_FLAGS.QUERY_EDIT_ENABLED}
+                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_EDIT_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
                               aria-label="Edit query"
-                              title="Edit"
+                              title={
+                                !FEATURE_FLAGS.QUERY_EDIT_ENABLED
+                                  ? 'This feature is disabled in public view'
+                                  : 'Edit'
+                              }
                             >
                               <Icon name="edit" />
                             </button>
                             <button
                               type="button"
                               onClick={() => {
-                                if (!isLoading) {
-                                  setSubmittedQuery(message.content);
-                                  void submitQuery(message.content);
-                                }
+                                if (!FEATURE_FLAGS.QUERY_RETRY_ENABLED || isLoading) return;
+                                setSubmittedQuery(message.content);
+                                void submitQuery(message.content);
                               }}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                              disabled={
+                                !FEATURE_FLAGS.QUERY_RETRY_ENABLED || isLoading
+                              }
+                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_RETRY_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
                               aria-label="Retry query"
-                              title="Retry"
+                              title={
+                                !FEATURE_FLAGS.QUERY_RETRY_ENABLED
+                                  ? 'This feature is disabled in public view'
+                                  : 'Retry'
+                              }
                             >
                               <Icon name="retry" />
                             </button>
@@ -1386,21 +1524,35 @@ export default function ScreenPage() {
                         <button
                           type="button"
                           onClick={() => {
+                            if (!FEATURE_FLAGS.QUERY_EDIT_ENABLED) return;
                             setEditingSubmittedQuery(submittedQuery);
                             setIsEditingSubmittedQuery(true);
                           }}
-                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                          disabled={!FEATURE_FLAGS.QUERY_EDIT_ENABLED}
+                          className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_EDIT_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
                           aria-label="Edit your query"
-                          title="Edit"
+                          title={
+                            !FEATURE_FLAGS.QUERY_EDIT_ENABLED
+                              ? 'This feature is disabled in public view'
+                              : 'Edit'
+                          }
                         >
                           <Icon name="edit" />
                         </button>
                         <button
                           type="button"
-                          onClick={retryQuery}
-                          className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                          onClick={() => {
+                            if (!FEATURE_FLAGS.QUERY_RETRY_ENABLED) return;
+                            retryQuery();
+                          }}
+                          disabled={!FEATURE_FLAGS.QUERY_RETRY_ENABLED}
+                          className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_RETRY_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
                           aria-label="Retry your query"
-                          title="Retry"
+                          title={
+                            !FEATURE_FLAGS.QUERY_RETRY_ENABLED
+                              ? 'This feature is disabled in public view'
+                              : 'Retry'
+                          }
                         >
                           <Icon name="retry" />
                         </button>
@@ -1508,17 +1660,30 @@ export default function ScreenPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (currentReportIndex !== null) {
-                        void submitQuery(
-                          conversation[currentReportIndex - 1]?.content ||
-                            submittedQuery
-                        );
+                      if (
+                        !FEATURE_FLAGS.QUERY_RETRY_ENABLED ||
+                        isLoading ||
+                        currentReportIndex === null
+                      ) {
+                        return;
                       }
+                      void submitQuery(
+                        conversation[currentReportIndex - 1]?.content ||
+                          submittedQuery
+                      );
                     }}
-                    className="rounded p-2 hover:bg-gray-100 hover:text-gray-900"
+                    className={`rounded p-2 hover:bg-gray-100 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_RETRY_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
                     aria-label="Retry screening query"
-                    title="Retry"
-                    disabled={isLoading || currentReportIndex === null}
+                    title={
+                      !FEATURE_FLAGS.QUERY_RETRY_ENABLED
+                        ? 'This feature is disabled in public view'
+                        : 'Retry'
+                    }
+                    disabled={
+                      isLoading ||
+                      currentReportIndex === null ||
+                      !FEATURE_FLAGS.QUERY_RETRY_ENABLED
+                    }
                   >
                     <Icon name="retry" />
                   </button>

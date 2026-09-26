@@ -18,4 +18,8 @@ export const FEATURE_FLAGS = {
   // Public deletion is intentionally disabled while data is publicly managed.
   JOB_DELETION_ENABLED: false,
   SCREENING_DELETION_ENABLED: false,
+
+  // Public retries is intentionally disabled due to token consumption.
+  QUERY_EDIT_ENABLED: false,
+  QUERY_RETRY_ENABLED: false,
 };

@@ -276,10 +276,12 @@ Generate a screening report with:
 - ID, name, and relevance score (0-100)
 - Evidence: key qualifications matching the query
 - Unknowns: resume gaps
-- Citations: 1-3 snippets from results supporting the assessment
+- Citations: 1-3 snippets from search_chunks or get_full_resume results supporting the assessment
 - Summary: how candidates were evaluated
 - Reasoning: key assessment steps
 - Context: strategies used
+
+IMPORTANT: For citations, only use tool values "search_chunks" or "get_full_resume". Do not reference any other tools.
 
 Return valid JSON only (no markdown/commentary):
 {"query":"string","assessments":[{"candidateId":"string","candidateName":"string","score":0,"evidence":["string"],"unknowns":["string"],"citations":[{"candidateId":"string","candidateName":"string","content":"string","tool":"search_chunks"}]}],"summary":"string","reasoning":"string","context":["string"]}`;
