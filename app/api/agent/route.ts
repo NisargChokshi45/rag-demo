@@ -354,8 +354,7 @@ export async function POST(request: NextRequest) {
             )
           );
 
-          // Build enhanced context for the final report with truncated results to avoid token limits
-          const MAX_RESULT_LENGTH = 800;
+          // Selective truncation: preserve evidence chunks, truncate large resumes only
           const contextForReport = toolCalls
             .map((call, idx) => {
               let resultStr =
@@ -363,11 +362,20 @@ export async function POST(request: NextRequest) {
                   ? call.result
                   : JSON.stringify(call.result, null, 2);
 
-              if (resultStr.length > MAX_RESULT_LENGTH) {
-                resultStr =
-                  resultStr.substring(0, MAX_RESULT_LENGTH / 2) +
-                  '\n[... truncated (kept key info only) ...]';
+              // PRESERVE: search_chunks results (lightweight, contains evidence topChunks)
+              // TRUNCATE: get_full_resume results only (can be 10k+ characters)
+              if (call.toolName === 'get_full_resume') {
+                const MAX_RESUME_LENGTH = 1000; // Keep enough for context without bloat
+                if (resultStr.length > MAX_RESUME_LENGTH) {
+                  resultStr =
+                    resultStr.substring(0, MAX_RESUME_LENGTH) +
+                    '\n[... truncated (full resume too long) ...]';
+                  console.log(
+                    `[TRUNCATE] ${sessionId} - get_full_resume: ${resultStr.length} → ${MAX_RESUME_LENGTH} chars`
+                  );
+                }
               }
+              // search_chunks: NO TRUNCATION (evidence chunks must be complete)
 
               return `[${idx + 1}] Tool: ${call.toolName}\nResult:\n${resultStr}`;
             })

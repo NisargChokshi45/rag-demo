@@ -142,7 +142,12 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
     - Only included when job details are available
     - Helps LLM provide better assessment context without bloating tokens
   - **Streaming**: Tool calls and results streamed as JSON-delimited events (compatible with existing UI)
-  - **Token management**: MAX_RESULT_LENGTH = 500 (aggressive truncation, down from 800); job description capped at 300 chars
+  - **Token management (selective truncation)**:
+    - **PRESERVE**: search_chunks results **fully intact** (lightweight, contains evidence topChunks)
+    - **TRUNCATE**: get_full_resume results only to 1000 chars (avoids bloat without losing evidence)
+    - Job description capped at 300 chars
+    - Conversation context: last 2 messages at 150 chars each
+  - **Accuracy priority**: Evidence chunks never truncated; LLM can cite specific resume excerpts
   - **Predictable**: No agent recursion, no dynamic tool-calling — deterministic token usage
   - **Multi-turn conversations**:
     - Accepts `conversationHistory[]` from frontend (normalized to valid messages only)
