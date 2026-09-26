@@ -324,14 +324,14 @@ export default function CandidatesPage() {
             </p>
           </div>
 
-          {candidates.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-4">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-              >
-                Upload More
-              </button>
+          <div className="flex flex-wrap justify-center gap-4">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+            >
+              Upload More
+            </button>
+            {candidates.length > 0 ? (
               <Link
                 href={
                   selectedJobId
@@ -342,8 +342,16 @@ export default function CandidatesPage() {
               >
                 Screen Candidates
               </Link>
-            </div>
-          )}
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm cursor-not-allowed"
+              >
+                Screen Candidates
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Upload Modal */}
