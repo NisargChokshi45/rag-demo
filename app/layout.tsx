@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Analytics } from '@vercel/analytics/next';
 import { AuthHeader } from './components/AuthHeader';
 import './globals.css';
 
@@ -73,6 +74,7 @@ export default function RootLayout({
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        <Analytics />
       </body>
     </html>
   );
