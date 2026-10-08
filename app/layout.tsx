@@ -42,6 +42,12 @@ export default function RootLayout({
                 Candidates
               </Link>
               <Link
+                href="/documents"
+                className="text-gray-600 hover:text-gray-900 font-medium text-sm"
+              >
+                Documents
+              </Link>
+              <Link
                 href="/screen"
                 className="text-gray-600 hover:text-gray-900 font-medium text-sm"
               >

@@ -16,6 +16,14 @@ const destinations = [
     description: 'Upload resumes and review applicants and generated reports',
   },
   {
+    href: '/documents',
+    accent: 'border-purple-200 hover:border-purple-400',
+    icon: '📚',
+    title: 'Documents',
+    description:
+      'Upload long reports and ask cited questions across their text, tables and footnotes',
+  },
+  {
     href: '/screen',
     accent: 'border-green-200 hover:border-green-400',
     icon: '🎯',
