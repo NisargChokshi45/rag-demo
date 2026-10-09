@@ -491,3 +491,237 @@ export async function getAssessmentsByCandidate(
   if (error) throw error;
   return data || [];
 }
+
+// ---------------------------------------------------------------------------
+// Documents (long-form PDFs with hybrid retrieval)
+// ---------------------------------------------------------------------------
+
+export type DocumentStatus = 'processing' | 'embedding' | 'ready' | 'failed';
+
+export interface DocumentRecord {
+  id: string;
+  title: string;
+  storage_path: string;
+  strategy: 'narrative' | 'long_structured' | 'element_rich';
+  page_count: number;
+  status: DocumentStatus;
+  error: string | null;
+  created_at: string;
+}
+
+export interface DocumentChunkRow {
+  id: string;
+  parent_id: string | null;
+  chunk_index: number;
+  kind: 'section' | 'text' | 'table' | 'footnote' | 'figure';
+  section_path: string;
+  page_start: number;
+  page_end: number;
+  content: string;
+}
+
+const DOCUMENT_COLUMNS =
+  'id, title, storage_path, strategy, page_count, status, error, created_at';
+
+export async function createDocument(input: {
+  title: string;
+  storagePath: string;
+  strategy: DocumentRecord['strategy'];
+  pageCount: number;
+  userId?: string | null;
+}): Promise<DocumentRecord> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('documents')
+    .insert({
+      title: input.title,
+      storage_path: input.storagePath,
+      strategy: input.strategy,
+      page_count: input.pageCount,
+      status: 'processing',
+      user_id: input.userId ?? null,
+    })
+    .select(DOCUMENT_COLUMNS)
+    .single();
+
+  if (error) throw error;
+  return data as DocumentRecord;
+}
+
+export async function setDocumentStatus(
+  documentId: string,
+  status: DocumentStatus,
+  errorMessage: string | null = null
+): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('documents')
+    .update({ status, error: errorMessage })
+    .eq('id', documentId);
+
+  if (error) throw error;
+}
+
+export async function getDocumentById(
+  documentId: string
+): Promise<DocumentRecord | null> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('documents')
+    .select(DOCUMENT_COLUMNS)
+    .eq('id', documentId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as DocumentRecord | null) ?? null;
+}
+
+export async function listDocuments(): Promise<DocumentRecord[]> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('documents')
+    .select(DOCUMENT_COLUMNS)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as DocumentRecord[];
+}
+
+/**
+ * Inserts chunk rows without embeddings. Returns the generated ids in the
+ * same order as the input so parent links can be resolved.
+ */
+export async function insertDocumentChunks(
+  documentId: string,
+  rows: Array<Omit<DocumentChunkRow, 'id' | 'document_id'>>
+): Promise<string[]> {
+  const client = createServiceClient();
+  const ids: string[] = [];
+  const batchSize = 200;
+
+  for (let start = 0; start < rows.length; start += batchSize) {
+    const batch = rows.slice(start, start + batchSize).map((row) => ({
+      ...row,
+      document_id: documentId,
+    }));
+    const { data, error } = await client
+      .from('document_chunks')
+      .insert(batch)
+      .select('id, chunk_index');
+
+    if (error) throw error;
+    const byIndex = new Map(
+      (data || []).map((row: { id: string; chunk_index: number }) => [
+        row.chunk_index,
+        row.id,
+      ])
+    );
+    for (const row of batch) ids.push(byIndex.get(row.chunk_index) as string);
+  }
+
+  return ids;
+}
+
+export async function countPendingDocumentChunks(
+  documentId: string
+): Promise<number> {
+  const client = createServiceClient();
+  const { count, error } = await client
+    .from('document_chunks')
+    .select('id', { count: 'exact', head: true })
+    .eq('document_id', documentId)
+    .is('embedding', null);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function getPendingDocumentChunks(
+  documentId: string,
+  limit: number
+): Promise<Array<{ id: string; section_path: string; content: string }>> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select('id, section_path, content')
+    .eq('document_id', documentId)
+    .is('embedding', null)
+    .order('chunk_index', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []) as Array<{
+    id: string;
+    section_path: string;
+    content: string;
+  }>;
+}
+
+export async function setDocumentChunkEmbedding(
+  chunkId: string,
+  embedding: number[]
+): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('document_chunks')
+    .update({ embedding: JSON.stringify(embedding) })
+    .eq('id', chunkId);
+
+  if (error) throw error;
+}
+
+export interface DocumentSearchHit extends DocumentChunkRow {
+  score: number;
+}
+
+export async function searchDocumentChunks(
+  documentId: string,
+  queryText: string,
+  queryEmbedding: number[],
+  matchCount: number
+): Promise<DocumentSearchHit[]> {
+  const client = createServiceClient();
+  const { data, error } = await client.rpc('search_document_chunks', {
+    p_document_id: documentId,
+    p_query_text: queryText,
+    p_query_embedding: JSON.stringify(queryEmbedding),
+    p_match_count: matchCount,
+  });
+
+  if (error) throw error;
+  return (data || []) as DocumentSearchHit[];
+}
+
+export async function getDocumentChunksByIndex(
+  documentId: string,
+  indexes: number[]
+): Promise<DocumentChunkRow[]> {
+  if (indexes.length === 0) return [];
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select(
+      'id, parent_id, chunk_index, kind, section_path, page_start, page_end, content'
+    )
+    .eq('document_id', documentId)
+    .in('chunk_index', indexes);
+
+  if (error) throw error;
+  return (data || []) as DocumentChunkRow[];
+}
+
+export async function getDocumentChunksByIds(
+  ids: string[]
+): Promise<DocumentChunkRow[]> {
+  if (ids.length === 0) return [];
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select(
+      'id, parent_id, chunk_index, kind, section_path, page_start, page_end, content'
+    )
+    .in('id', ids);
+
+  if (error) throw error;
+  return (data || []) as DocumentChunkRow[];
+}
