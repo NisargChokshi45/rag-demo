@@ -1,8 +1,14 @@
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { getJobById, listCandidates, searchChunks, getFullResumeById } from '@/lib/db';
+import {
+  getJobById,
+  listCandidates,
+  searchChunks,
+  getFullResumeById,
+} from '@/lib/db';
 import { embedQuery } from '@/lib/embeddings';
 import { getChatModel } from '@/lib/models';
 import { validateEnv, getMissingEnvMessage } from '@/lib/env';
@@ -75,6 +81,9 @@ function parseReportResponse(response: unknown): ScreeningReport {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const {
       query,
@@ -128,7 +137,9 @@ export async function POST(request: NextRequest) {
         let phase = 'initialization';
 
         try {
-          console.log(`[SESSION] ${sessionId} - Starting analysis for query: "${query.substring(0, 50)}..."`);
+          console.log(
+            `[SESSION] ${sessionId} - Starting analysis for query: "${query.substring(0, 50)}..."`
+          );
 
           controller.enqueue(
             encoder.encode(
@@ -207,10 +218,7 @@ export async function POST(request: NextRequest) {
 
                 if (mentionedSkills.length > 0) {
                   // Boost by 3 points per matched skill (max +15 for 5 skills)
-                  const skillBoost = Math.min(
-                    15,
-                    mentionedSkills.length * 3
-                  );
+                  const skillBoost = Math.min(15, mentionedSkills.length * 3);
                   relevanceScore = Math.min(100, relevanceScore + skillBoost);
 
                   console.log(
@@ -482,7 +490,10 @@ Return valid JSON only (no markdown/commentary):
           );
           controller.close();
         } catch (error) {
-          console.error(`[SESSION] ${sessionId} [${phase}] Stream error:`, error);
+          console.error(
+            `[SESSION] ${sessionId} [${phase}] Stream error:`,
+            error
+          );
           controller.enqueue(
             encoder.encode(
               JSON.stringify({

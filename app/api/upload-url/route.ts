@@ -1,7 +1,11 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { filename } = body;

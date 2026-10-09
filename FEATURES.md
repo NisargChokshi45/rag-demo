@@ -299,16 +299,17 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 - **Features:**
   - ✅ Login/Logout routes (`/api/auth/login`, `/api/auth/logout`, `/api/auth/signup`)
   - ✅ Login page with sign up toggle (`/login`)
-  - ✅ Session management via `@supabase/ssr`
-  - ✅ Middleware for session refresh
-  - ✅ Optional auth checks on API routes (controlled by `NEXT_PUBLIC_AUTH_ENABLED`)
-  - ✅ Auth hook for client components (`lib/hooks/useAuth.ts`)
+  - ✅ Cookie-based sessions via `@supabase/ssr` (browser, server and middleware share one session)
+  - ✅ Middleware refreshes the session and gates the app: signed-out pages redirect to `/login?next=…`, signed-out `/api/*` calls get `401`
+  - ✅ `validateAuth()` on every API route handler (controlled by `NEXT_PUBLIC_AUTH_ENABLED`)
+  - ✅ Email confirmation callback (`/auth/callback`)
+  - ✅ Auth hook for client components (`lib/hooks/useAuth.ts`) that follows sign-in/out
   - ✅ Auth helper functions (`lib/auth.ts`)
 
 **Enabling:**
 1. Set `NEXT_PUBLIC_AUTH_ENABLED=true` in `.env.local`
-2. Restart dev server
-3. Login page appears at `/login`
+2. Add `<app-url>/auth/callback` to Supabase Redirect URLs
+3. Restart dev server; signed-out visitors are sent to `/login`
 
 **Documentation:** See [AUTH_SETUP.md](./AUTH_SETUP.md) for complete setup guide
 

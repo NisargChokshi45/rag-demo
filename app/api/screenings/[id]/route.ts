@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { getUserId } from '@/lib/auth';
+import { validateAuth, getUserId } from '@/lib/auth';
 import { FEATURE_FLAGS } from '@/lib/config';
 
 interface ReportData {
@@ -35,6 +35,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const { id } = await params;
     const userId = await getUserId();
@@ -117,6 +120,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const { id } = await params;
     const body = (await request.json()) as {
@@ -275,6 +281,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     if (!FEATURE_FLAGS.SCREENING_DELETION_ENABLED) {
       return NextResponse.json(

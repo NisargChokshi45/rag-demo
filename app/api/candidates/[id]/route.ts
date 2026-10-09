@@ -1,3 +1,4 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getFullResumeById,
@@ -12,6 +13,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const { id } = await params;
     const view = request.nextUrl.searchParams.get('view');
@@ -53,6 +57,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const { id } = await params;
     const body = await request.json();

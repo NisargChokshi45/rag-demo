@@ -1,7 +1,11 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createJob, listJobs } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const searchParams = new URL(request.url).searchParams;
     const statusParam = searchParams.get('status');
@@ -29,6 +33,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const title = typeof body.title === 'string' ? body.title.trim() : '';

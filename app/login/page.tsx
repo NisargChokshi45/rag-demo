@@ -1,16 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Alert, buttonClass, Spinner } from '../components/ui';
 
-export default function LoginPage() {
+const CALLBACK_ERRORS: Record<string, string> = {
+  auth_callback_failed:
+    'That confirmation link is invalid or has expired. Please sign in or sign up again.',
+};
+
+/** Only follow same-site relative paths after sign-in. */
+function safeNextPath(value: string | null): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return '/candidates';
+  }
+  if (value.startsWith('/\\')) return '/candidates';
+  return value;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNextPath(searchParams.get('next'));
+  const callbackError = searchParams.get('error');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    callbackError
+      ? (CALLBACK_ERRORS[callbackError] ?? 'Authentication failed.')
+      : null
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -20,6 +42,11 @@ export default function LoginPage() {
     setIsSignUp(signUp);
     setError(null);
     setNotice(null);
+  };
+
+  const finishSignIn = () => {
+    router.replace(nextPath);
+    router.refresh();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,18 +59,25 @@ export default function LoginPage() {
       const supabase = createClient();
 
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               full_name: fullName,
             },
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
           },
         });
 
         if (signUpError) {
           setError(signUpError.message);
+          return;
+        }
+
+        // With email confirmation turned off, Supabase signs the user in.
+        if (data.session) {
+          finishSignIn();
           return;
         }
 
@@ -64,7 +98,7 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/candidates');
+        finishSignIn();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -206,5 +240,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

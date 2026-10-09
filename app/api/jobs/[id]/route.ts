@@ -1,3 +1,4 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { FEATURE_FLAGS } from '@/lib/config';
 import { deleteJob, updateJob } from '@/lib/db';
@@ -31,6 +32,9 @@ function parseJobInput(body: Record<string, unknown>) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const { id } = await context.params;
     const body = await request.json();
@@ -50,6 +54,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_: NextRequest, context: RouteContext) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     if (!FEATURE_FLAGS.JOB_DELETION_ENABLED) {
       throw new Error('Deletion is disabled in public access');

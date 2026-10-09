@@ -12,9 +12,9 @@ Authentication is **disabled by default** for MVP development. The system is des
 - **Default:** `false`
 - **Description:** Master flag to enable/disable all authentication features
 - **Impact when true:**
-  - Login page becomes available at `/login`
-  - API routes require authentication headers
-  - User session management enabled
+  - Every page except `/login` and `/auth/callback` redirects signed-out visitors to `/login?next=<page>`
+  - Every `/api/*` route (except `/api/auth/*`) returns `401` without a session
+  - Sessions are stored in cookies and refreshed by `middleware.ts`
 
 ### `NEXT_PUBLIC_USER_DATA_ISOLATION`
 - **Default:** `false`
@@ -38,12 +38,13 @@ NEXT_PUBLIC_USER_DATA_ISOLATION=false
 ## Implementation Status
 
 ### ✅ Implemented (Gate-Only Auth)
-- Supabase Auth integration via `@supabase/ssr`
-- Login/logout API routes (`/api/auth/login`, `/api/auth/logout`, `/api/auth/signup`)
-- Login page with sign up toggle (`/login`)
-- Optional auth checks on API routes
-- Auth context helpers (`lib/auth.ts`)
-- Session middleware (`middleware.ts`)
+- Supabase Auth integration via `@supabase/ssr` (cookie-based sessions; requires `@supabase/ssr` 0.12+)
+- Login page with sign up toggle (`/login`), honouring a safe `?next=` redirect
+- Email confirmation callback (`/auth/callback`) that exchanges the code for a session
+- Page and API gating in `middleware.ts` (redirect for pages, `401` for APIs)
+- `validateAuth()` on every API route handler as a second layer behind the middleware
+- Login/logout/signup API routes (`/api/auth/*`); login now sets the session cookie
+- Auth helpers (`lib/auth.ts`) and a typed client hook (`lib/hooks/useAuth.ts`) that tracks sign-in/out
 
 ### 📋 Needed for Data Isolation (Phase 2)
 
@@ -80,11 +81,11 @@ To enable `NEXT_PUBLIC_USER_DATA_ISOLATION=true`, you must:
 
 ### Step 1: Gate-Only Authentication (Recommended for Testing)
 
-1. Set `NEXT_PUBLIC_AUTH_ENABLED=true` in `.env.local`
-2. Restart dev server
-3. Login page appears at `/login`
-4. Users can sign up / sign in via Supabase Auth
-5. API routes optionally enforce auth (controlled by feature flag)
+1. Set `NEXT_PUBLIC_AUTH_ENABLED=true` in `.env.local` (it is read at build time, so restart or rebuild)
+2. In the Supabase dashboard (Authentication → URL Configuration), set the **Site URL** to your app URL and add `<your-app-url>/auth/callback` to **Redirect URLs**. Do this for localhost and for each deployed origin.
+3. Signed-out visitors are sent to `/login`
+4. Users can sign up / sign in via Supabase Auth. With email confirmation on, the confirmation link returns through `/auth/callback`
+5. All `/api/*` routes enforce auth (middleware plus `validateAuth()`)
 
 ```bash
 # .env.local
@@ -107,17 +108,18 @@ NEXT_PUBLIC_USER_DATA_ISOLATION=true
 
 ## Protected API Routes
 
-When `AUTH_ENABLED=true`, these routes enforce authentication:
+When `AUTH_ENABLED=true`, every handler under `/api` enforces authentication, except `/api/auth/*` (needed to sign in):
 
-- `POST /api/upload-url` - Generate signed upload URLs
-- `POST /api/ingest` - Ingest resumes (prevents unsigned upload URL abuse)
-- `POST /api/agent` - Run screening (requires authenticated user)
-- `GET /api/candidates` - List candidates
-- `GET /api/candidates/[id]` - View resume
-- `GET /api/jobs` - List jobs
-- `POST /api/jobs` - Create jobs
+- `/api/upload-url`, `/api/ingest`, `/api/agent`
+- `/api/candidates`, `/api/candidates/[id]`
+- `/api/jobs`, `/api/jobs/[id]`
+- `/api/screenings`, `/api/screenings/[id]`
+- `/api/documents/*`
+- `/api/admin/*` and `/api/debug`
 
-**Note:** Auth check can be disabled per-route by removing the `validateAuth()` call.
+Enforcement is layered: `middleware.ts` rejects unauthenticated `/api` requests with `401`, and each handler also calls `validateAuth()` at the top. New route handlers must do the same.
+
+Auth gating does not isolate data: all signed-in users still share one pool until `NEXT_PUBLIC_USER_DATA_ISOLATION` (Phase 2) is implemented.
 
 ## Current Implementation Details
 
@@ -128,19 +130,20 @@ When `AUTH_ENABLED=true`, these routes enforce authentication:
 - `createAuthenticatedServerClient()` - Uses anon key + user session (respects RLS)
 
 **`lib/supabase/client.ts`:**
-- `createClient()` - Browser client with anon key
+- `createClient()` - Browser client (`createBrowserClient`) that keeps the session in cookies so the server can read it
 
 ### Auth Routes
 
-- `GET/POST /api/auth/login` - Sign in with email/password
+- `POST /api/auth/login` - Sign in with email/password (sets the session cookie)
 - `POST /api/auth/logout` - Sign out
 - `POST /api/auth/signup` - Create new account
+- `GET /auth/callback` - Completes email confirmation (`?code=…&next=…`)
 
 ### Login Page
 
 - Location: `/login`
-- Features: Sign up / sign in toggle, error handling, form validation
-- Uses Supabase client for auth (not server route)
+- Features: Sign up / sign in toggle, error handling, form validation, post-login redirect to `?next=` (same-site paths only)
+- Uses the Supabase browser client for auth (not the `/api/auth/*` routes)
 
 ## Testing
 
@@ -167,8 +170,14 @@ When `AUTH_ENABLED=true`, these routes enforce authentication:
 ### "Unauthorized" when accessing routes
 
 - Check `NEXT_PUBLIC_AUTH_ENABLED=true` in `.env.local`
-- Verify session cookie is set (browser dev tools → Application → Cookies)
+- Verify the `sb-…-auth-token` cookie is set (browser dev tools → Application → Cookies)
 - Ensure you're logged in (visit `/login`)
+- The flag is read at build time; rebuild or restart after changing it
+
+### Confirmation email link fails
+
+- Add `<your-app-url>/auth/callback` to Supabase **Redirect URLs**
+- Open the link in the same browser that signed up (the sign-up stores a PKCE verifier cookie)
 
 ### RLS policies failing
 

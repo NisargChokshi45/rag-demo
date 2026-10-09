@@ -42,7 +42,8 @@ export async function createAuthenticatedServerClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Cookie setting may fail in some edge cases
+            // Called from a Server Component, where cookies are read-only.
+            // Middleware refreshes the session, so ignoring this is safe.
           }
         },
       },

@@ -1,7 +1,11 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { listCandidateRoles, listCandidates } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') || 'all';

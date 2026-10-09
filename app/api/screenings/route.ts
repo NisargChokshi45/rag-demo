@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { getUserId } from '@/lib/auth';
+import { validateAuth, getUserId } from '@/lib/auth';
 import { FEATURE_FLAGS } from '@/lib/config';
 
 interface ReportData {
@@ -84,6 +84,9 @@ async function insertReportDetails(
 
 // POST /api/screenings - Save a new screening session
 export async function POST(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const userId = await getUserId();
 
@@ -159,6 +162,9 @@ export async function POST(request: NextRequest) {
 
 // GET /api/screenings - Get screening history
 export async function GET(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const userId = await getUserId();
     const limit = request.nextUrl.searchParams.get('limit') || '50';

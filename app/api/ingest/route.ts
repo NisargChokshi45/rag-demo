@@ -1,6 +1,7 @@
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { parsePDF } from '@/lib/pdf';
@@ -26,6 +27,9 @@ async function delay(ms: number) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   try {
     const body: IngestRequest = await request.json();
     const { storagePath, jobId } = body;

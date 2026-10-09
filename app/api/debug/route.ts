@@ -1,7 +1,11 @@
+import { validateAuth } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { EMBEDDING_DIMENSIONS, embedDocument } from '@/lib/embeddings';
 
 export async function GET(_request: NextRequest) {
+  const authError = await validateAuth();
+  if (authError) return authError;
+
   const apiKey = process.env.GOOGLE_API_KEY;
 
   const response: any = {
