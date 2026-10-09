@@ -154,7 +154,7 @@ export default function DocumentChatPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col min-h-[calc(100vh-140px)]">
+    <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col min-h-[calc(100dvh-8rem)]">
       <div className="mb-4">
         <Link
           href="/documents"
@@ -209,7 +209,7 @@ export default function DocumentChatPage() {
               ? 'Ask about this document'
               : 'Waiting for the document to be prepared'
           }
-          className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+          className="flex-1 rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm shadow-sm"
         />
         <button
           type="submit"
@@ -237,7 +237,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const answer = message.answer;
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-gray-200 bg-surface p-4 shadow-sm">
         <p className="whitespace-pre-wrap text-sm text-gray-900">
           {message.content}
         </p>

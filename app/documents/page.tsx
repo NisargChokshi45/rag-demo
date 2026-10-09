@@ -144,7 +144,7 @@ export default function DocumentsPage() {
 
       <form
         onSubmit={handleUpload}
-        className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm space-y-5"
+        className="bg-surface rounded-lg border border-gray-200 p-6 shadow-sm space-y-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -226,7 +226,7 @@ export default function DocumentsPage() {
         ) : documents.length === 0 ? (
           <p className="text-gray-500 text-sm">No documents yet.</p>
         ) : (
-          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
+          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-surface">
             {documents.map((document) => (
               <li
                 key={document.id}
