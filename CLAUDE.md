@@ -1,9 +1,3 @@
-- Use "nvm use 24".
-- The development server is already up and running. Do not run it yourself.
-- Never run "git commit" command.
-- Never create arficats.
-- Never store markdowns in scratchpad under the root .claude folder.
-
 ## Project Overview
 
 Agentic resume-screening RAG demo. Recruiters create jobs and upload candidate resume PDFs. Each PDF is parsed, chunked, embedded and stored in Postgres (pgvector). Screening questions are answered by a LangGraph tool-calling agent that searches the job's candidate pool and returns a structured, cited report.
@@ -73,6 +67,7 @@ Secrets live in `.env.local`, which is git-ignored. Never commit it or paste its
 
 - Don't run the dev server, and don't run `pnpm dev` or `next dev`.
 - Don't run `git commit`. Leave commits to the user.
+- Don't use "Co-Authored by: Claude" signature in the git commit message and description.
 - Don't create artifacts.
 - Don't store markdown files in the scratchpad under the root `.claude` folder.
 - Don't commit `.env.local` or any secret values.
