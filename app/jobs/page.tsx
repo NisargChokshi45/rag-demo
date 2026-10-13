@@ -2,10 +2,21 @@
 
 import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Modal } from '../components/Modal';
+import {
+  Alert,
+  Badge,
+  buttonClass,
+  EmptyState,
+  PageHeader,
+  SkeletonCards,
+  Spinner,
+} from '../components/ui';
 import {
   EditIcon,
   GridIcon,
   ListIcon,
+  PlusIcon,
   ScreenIcon,
   TrashIcon,
   UsersIcon,
@@ -65,19 +76,16 @@ function SkillsDisplay({ skills }: { skills: string[] }) {
   if (skills.length === 0) return null;
 
   return (
-    <div ref={containerRef} className="mt-3 flex flex-wrap gap-2 items-center">
+    <div ref={containerRef} className="mt-3 flex flex-wrap items-center gap-2">
       {skills.slice(0, visibleCount).map((skill) => (
-        <span
-          key={skill}
-          className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-        >
+        <Badge key={skill} tone="neutral">
           {skill}
-        </span>
+        </Badge>
       ))}
       {visibleCount < skills.length && (
         <span
           title={skills.slice(visibleCount).join(', ')}
-          className="rounded-full bg-slate-200 px-2.5 py-1 text-xs text-slate-600 cursor-help hover:bg-slate-300 transition-colors"
+          className="inline-flex cursor-help items-center whitespace-nowrap rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300"
         >
           +{skills.length - visibleCount} more
         </span>
@@ -85,6 +93,11 @@ function SkillsDisplay({ skills }: { skills: string[] }) {
     </div>
   );
 }
+
+const inputClass = 'field';
+const labelClass = 'mb-1.5 block text-sm font-medium text-slate-700';
+const iconButtonClass =
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900';
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -108,6 +121,7 @@ export default function JobsPage() {
   const [sortBy, setSortBy] = useState<'title' | 'newest' | 'oldest'>('newest');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -137,7 +151,10 @@ export default function JobsPage() {
         if (loadError.name !== 'AbortError') setError(loadError.message);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+          setHasLoadedOnce(true);
+        }
       });
 
     return () => controller.abort();
@@ -174,6 +191,11 @@ export default function JobsPage() {
     setIsActive(job.is_active);
     setError(null);
     setIsModalOpen(true);
+  };
+
+  const closeJobModal = () => {
+    setIsModalOpen(false);
+    setEditingJob(null);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -244,140 +266,188 @@ export default function JobsPage() {
   };
 
   const visibleJobs = jobs;
+  const hasActiveFilters =
+    debouncedSearchQuery !== '' || statusFilter !== 'all';
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Jobs on the platform
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Showing {visibleJobs.length} of {jobs.length} jobs
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <span className="text-lg leading-none">+</span>
-            Add Job
-          </button>
-        </div>
+    <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
+        <PageHeader
+          title="Jobs on the platform"
+          description={
+            hasLoadedOnce
+              ? `Showing ${visibleJobs.length} of ${jobs.length} jobs`
+              : 'Loading jobs…'
+          }
+          actions={
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className={buttonClass('primary', 'md')}
+            >
+              <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
+              Add Job
+            </button>
+          }
+        />
 
-        <section>
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
-            <label className="min-w-0 flex-1 text-sm font-medium text-slate-700">
-              Search jobs
+        {error && !isModalOpen && !deletingJob && (
+          <Alert tone="error">{error}</Alert>
+        )}
+
+        <section
+          aria-label="Job filters"
+          className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card sm:p-5"
+        >
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_11rem_11rem_auto] md:items-end">
+            <div className="min-w-0">
+              <label htmlFor="job-search" className={labelClass}>
+                Search jobs
+              </label>
               <input
+                id="job-search"
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search title, description, or skill"
-                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className={inputClass}
               />
-            </label>
-            <label className="text-sm font-medium text-slate-700">
-              Status
+            </div>
+            <div>
+              <label htmlFor="job-status" className={labelClass}>
+                Status
+              </label>
               <select
+                id="job-status"
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(event.target.value as typeof statusFilter)
                 }
-                className="select-control mt-1 block w-full font-normal"
+                className="select-control"
               >
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-            </label>
-            <label className="text-sm font-medium text-slate-700">
-              Sort by
+            </div>
+            <div>
+              <label htmlFor="job-sort" className={labelClass}>
+                Sort by
+              </label>
               <select
+                id="job-sort"
                 value={sortBy}
                 onChange={(event) =>
                   setSortBy(event.target.value as typeof sortBy)
                 }
-                className="select-control mt-1 block w-full font-normal"
+                className="select-control"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="title">Title A-Z</option>
               </select>
-            </label>
+            </div>
             <div
-              className="flex self-start rounded border border-slate-300 p-1 lg:self-auto"
+              className="flex h-[42px] items-center gap-1 self-end rounded-lg border border-slate-300 p-1"
               role="group"
               aria-label="Job view"
             >
               <button
-                key="grid"
                 type="button"
                 onClick={() => setViewMode('grid')}
                 aria-pressed={viewMode === 'grid'}
                 aria-label="Grid view"
-                className={`rounded p-2 ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                title="Grid view"
+                className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition ${viewMode === 'grid' ? 'bg-inverse text-inverse-fg' : 'text-slate-600 hover:bg-slate-100'}`}
               >
                 <GridIcon />
               </button>
               <button
-                key="list"
                 type="button"
                 onClick={() => setViewMode('list')}
                 aria-pressed={viewMode === 'list'}
                 aria-label="List view"
-                className={`rounded p-2 ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                title="List view"
+                className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition ${viewMode === 'list' ? 'bg-inverse text-inverse-fg' : 'text-slate-600 hover:bg-slate-100'}`}
               >
                 <ListIcon />
               </button>
             </div>
           </div>
+        </section>
 
-          {isLoading ? (
-            <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-slate-500">
-              Loading jobs...
-            </div>
+        <section aria-live="polite" aria-busy={isLoading}>
+          {!hasLoadedOnce && isLoading ? (
+            <SkeletonCards count={4} />
           ) : visibleJobs.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-              {jobs.length === 0
-                ? 'No jobs yet. Add the first role to start screening.'
-                : 'No jobs match the current search and filters.'}
-            </div>
+            <EmptyState
+              icon={
+                <ScreenIcon className="h-6 w-6 fill-none stroke-current stroke-2" />
+              }
+              title={
+                jobs.length === 0 && !hasActiveFilters
+                  ? 'No jobs yet'
+                  : 'No matching jobs'
+              }
+              description={
+                jobs.length === 0 && !hasActiveFilters
+                  ? 'Add the first role to start screening candidates.'
+                  : 'Try a different search term or clear the filters.'
+              }
+              action={
+                jobs.length === 0 && !hasActiveFilters ? (
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className={buttonClass('primary', 'sm')}
+                  >
+                    <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
+                    Add your first job
+                  </button>
+                ) : undefined
+              }
+            />
           ) : (
             <div
               className={
-                viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'space-y-3'
+                viewMode === 'grid'
+                  ? 'grid gap-4 md:grid-cols-2'
+                  : 'flex flex-col gap-3'
               }
             >
               {visibleJobs.map((job) => (
                 <article
                   key={job.id}
-                  className={`rounded-lg border border-slate-200 bg-white shadow-sm ${viewMode === 'list' ? 'p-4' : 'p-5'}`}
+                  className={`flex flex-col rounded-xl border border-slate-200 bg-surface shadow-card transition hover:shadow-card-hover ${viewMode === 'list' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'}`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-                      <span className="relative flex h-2.5 w-2.5">
-                        {job.is_active && (
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        )}
-                        <span
-                          aria-label={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
-                          title={`Project status: ${job.is_active ? 'Active' : 'Inactive'}`}
-                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                            job.is_active ? 'bg-emerald-500' : 'bg-slate-400'
-                          }`}
-                        />
-                      </span>
-                      {job.title}
-                    </h3>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="flex items-center gap-2.5 text-base font-semibold text-slate-900">
+                        <span className="relative flex h-2.5 w-2.5 shrink-0">
+                          {job.is_active && (
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none" />
+                          )}
+                          <span
+                            aria-label={`Status: ${job.is_active ? 'Active' : 'Inactive'}`}
+                            title={`Status: ${job.is_active ? 'Active' : 'Inactive'}`}
+                            className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                              job.is_active ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`}
+                          />
+                        </span>
+                        <span className="truncate">{job.title}</span>
+                      </h3>
+                      <p className="mt-1 text-sm font-medium text-slate-600">
+                        {job.experience}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => openEditModal(job)}
-                        className="inline-flex items-center gap-1.5 rounded border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                        className={iconButtonClass}
                         aria-label={`Edit ${job.title}`}
+                        title="Edit"
                       >
                         <EditIcon />
                       </button>
@@ -387,259 +457,247 @@ export default function JobsPage() {
                           setError(null);
                           setDeletingJob(job);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded border border-red-200 px-2.5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-600 transition hover:bg-red-50"
                         aria-label={`Delete ${job.title}`}
+                        title="Delete"
                       >
                         <TrashIcon />
                       </button>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">
+
+                  <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-slate-600">
                     {job.description}
                   </p>
-                  <p className="mt-3 text-sm font-medium text-slate-700">
-                    {job.experience}
-                  </p>
                   <SkillsDisplay skills={job.skills} />
-                  <div className="mt-5 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
-                    <div className="flex min-w-0 flex-wrap gap-3">
+
+                  <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap gap-2">
                       <Link
                         href={`/candidates?jobId=${job.id}`}
-                        className="inline-flex items-center gap-1.5 rounded border border-blue-200 px-2.5 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                        className={buttonClass(
+                          'secondary',
+                          'sm',
+                          'text-blue-700'
+                        )}
                       >
                         <UsersIcon />
                         View candidates
                       </Link>
                       <Link
                         href={`/screen?jobId=${job.id}`}
-                        className="inline-flex items-center gap-1.5 rounded border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className={buttonClass('secondary', 'sm')}
                       >
                         <ScreenIcon />
                         Screen this job
                       </Link>
                     </div>
-                    <div className="flex shrink-0 flex-col items-center gap-1 text-center">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          job.is_active
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
+                    <div className="flex items-center gap-2 text-xs text-slate-500 sm:flex-col sm:items-end sm:gap-1">
+                      <Badge tone={job.is_active ? 'success' : 'neutral'}>
                         {job.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                      <span className="text-xs text-slate-500">
+                      </Badge>
+                      <time dateTime={job.created_at}>
                         {new Date(job.created_at).toLocaleDateString()}
-                      </span>
+                      </time>
                     </div>
                   </div>
                 </article>
               ))}
             </div>
           )}
+          {isLoading && hasLoadedOnce && (
+            <p className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+              <Spinner className="h-3.5 w-3.5 border-slate-400" />
+              Updating results…
+            </p>
+          )}
         </section>
 
-        {isModalOpen && (
-          <div
-            className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="job-form-title"
-          >
-            <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-              <div className="mb-5 flex items-center justify-between">
-                <h2
-                  id="job-form-title"
-                  className="text-xl font-semibold text-slate-900"
-                >
-                  {editingJob ? 'Edit Job' : 'Add Job'}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setEditingJob(null);
-                  }}
-                  className="text-2xl leading-none text-slate-500 hover:text-slate-900"
-                  aria-label="Close"
-                >
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label
-                    htmlFor="title"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    Job title
-                  </label>
-                  <input
-                    id="title"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="Senior Backend Engineer"
-                    className="w-full rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  />
-                </div>
-                {editingJob && (
-                  <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={isActive}
-                      onChange={(event) => setIsActive(event.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    Actively Hiring
-                    {/* {isActive ? 'Actively Hiring' : 'Inactive job'} */}
-                  </label>
-                )}
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="What will this person own?"
-                    className="h-32 w-full resize-none rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="experience"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    Experience
-                  </label>
-                  <input
-                    id="experience"
-                    value={experience}
-                    onChange={(event) => setExperience(event.target.value)}
-                    placeholder="5+ years building production APIs"
-                    className="w-full rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="skills"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    Skills
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="skills"
-                      value={skillInput}
-                      onChange={(event) => setSkillInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          addSkill();
-                        }
-                      }}
-                      placeholder="Type a skill and press Enter"
-                      className="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                    <button
-                      type="button"
-                      onClick={addSkill}
-                      className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-                    >
-                      <span className="text-lg leading-none">+</span>
-                      Add
-                    </button>
-                  </div>
-                  <div className="mt-3 flex min-h-8 flex-wrap gap-2">
-                    {skills.map((skill) => (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() =>
-                          setSkills((current) =>
-                            current.filter((item) => item !== skill)
-                          )
-                        }
-                        className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100"
-                      >
-                        {skill} x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {error && (
-                  <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {error}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full rounded bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-slate-400"
-                >
-                  {isSaving
-                    ? 'Saving job...'
-                    : editingJob
-                      ? 'Save changes'
-                      : 'Create job'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {deletingJob && (
-          <div
-            className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-job-title"
-          >
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <h2
-                id="delete-job-title"
-                className="text-xl font-semibold text-slate-900"
+        <Modal
+          open={isModalOpen}
+          onClose={closeJobModal}
+          locked={isSaving}
+          size="lg"
+          title={editingJob ? 'Edit Job' : 'Add Job'}
+          description={
+            editingJob
+              ? 'Update the criteria used when screening candidates for this role.'
+              : 'Define the criteria used when screening candidates for this role.'
+          }
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={closeJobModal}
+                disabled={isSaving}
+                className={buttonClass('secondary', 'md', 'sm:w-auto')}
               >
-                Delete this job?
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                This will permanently delete{' '}
-                <strong>{deletingJob.title}</strong> and its screening history.
-              </p>
-              {error && (
-                <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {error}
-                </p>
-              )}
-              <div className="mt-6 flex justify-end gap-3">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="job-form"
+                disabled={isSaving}
+                className={buttonClass('primary', 'md', 'sm:min-w-40')}
+              >
+                {isSaving && <Spinner className="h-4 w-4 border-white" />}
+                {isSaving
+                  ? 'Saving job...'
+                  : editingJob
+                    ? 'Save changes'
+                    : 'Create job'}
+              </button>
+            </>
+          }
+        >
+          <form id="job-form" onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="title" className={labelClass}>
+                Job title
+              </label>
+              <input
+                id="title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Senior Backend Engineer"
+                className={inputClass}
+                required
+                autoComplete="off"
+              />
+            </div>
+            {editingJob && (
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(event) => setIsActive(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Actively Hiring
+              </label>
+            )}
+            <div>
+              <label htmlFor="description" className={labelClass}>
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="What will this person own?"
+                className={`${inputClass} h-32 resize-y`}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="experience" className={labelClass}>
+                Experience
+              </label>
+              <input
+                id="experience"
+                value={experience}
+                onChange={(event) => setExperience(event.target.value)}
+                placeholder="5+ years building production APIs"
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="skills" className={labelClass}>
+                Skills
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="skills"
+                  value={skillInput}
+                  onChange={(event) => setSkillInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addSkill();
+                    }
+                  }}
+                  placeholder="Type a skill and press Enter"
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
                 <button
                   type="button"
-                  onClick={() => setDeletingJob(null)}
-                  disabled={isDeleting}
-                  className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  onClick={addSkill}
+                  className={buttonClass('secondary', 'md', 'shrink-0')}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:bg-slate-400"
-                >
-                  <TrashIcon />
-                  {isDeleting ? 'Deleting...' : 'Delete job'}
+                  <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
+                  Add
                 </button>
               </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Select a skill chip to remove it.
+              </p>
+              <div className="mt-3 flex min-h-8 flex-wrap gap-2">
+                {skills.map((skill) => (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() =>
+                      setSkills((current) =>
+                        current.filter((item) => item !== skill)
+                      )
+                    }
+                    aria-label={`Remove skill ${skill}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 transition hover:bg-blue-100"
+                  >
+                    {skill}
+                    <span aria-hidden="true" className="text-blue-500">
+                      &times;
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+            {error && <Alert tone="error">{error}</Alert>}
+          </form>
+        </Modal>
+
+        <Modal
+          open={Boolean(deletingJob)}
+          onClose={() => setDeletingJob(null)}
+          locked={isDeleting}
+          size="sm"
+          title="Delete this job?"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setDeletingJob(null)}
+                disabled={isDeleting}
+                className={buttonClass('secondary', 'md', 'sm:w-auto')}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className={buttonClass('danger', 'md', 'sm:min-w-40')}
+              >
+                <TrashIcon />
+                {isDeleting ? 'Deleting...' : 'Delete job'}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-slate-600">
+            This will permanently delete{' '}
+            <strong className="font-semibold text-slate-900">
+              {deletingJob?.title}
+            </strong>{' '}
+            and its screening history.
+          </p>
+          {error && (
+            <Alert tone="error" className="mt-4">
+              {error}
+            </Alert>
+          )}
+        </Modal>
       </div>
     </div>
   );

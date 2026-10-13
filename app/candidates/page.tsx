@@ -2,7 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { GridIcon, ListIcon, ScreenIcon } from '../icons';
+import { Modal } from '../components/Modal';
+import {
+  Alert,
+  Badge,
+  buttonClass,
+  EmptyState,
+  PageHeader,
+  SkeletonCards,
+  Spinner,
+} from '../components/ui';
+import { GridIcon, ListIcon, PlusIcon, ScreenIcon } from '../icons';
 
 interface UploadProgress {
   filename: string;
@@ -25,6 +35,19 @@ interface Job {
   id: string;
   title: string;
 }
+
+const labelClass = 'mb-1.5 block text-sm font-medium text-slate-700';
+
+const UPLOAD_STATUS: Record<
+  UploadProgress['status'],
+  { label: string; tone: 'neutral' | 'info' | 'accent' | 'success' | 'danger' }
+> = {
+  pending: { label: 'Waiting', tone: 'neutral' },
+  uploading: { label: 'Uploading', tone: 'info' },
+  ingesting: { label: 'Processing', tone: 'accent' },
+  done: { label: 'Complete', tone: 'success' },
+  error: { label: 'Failed', tone: 'danger' },
+};
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -336,216 +359,205 @@ export default function CandidatesPage() {
     }
   };
 
-  return (
-    <div className="min-h-[calc(100vh-80px)] bg-slate-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Candidates on the Platform
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {selectedJob
-                ? `Candidates for ${selectedJob.title}`
-                : `${candidates.length} ${
-                    candidates.length === 1 ? 'candidate' : 'candidates'
-                  } ingested`}
-            </p>
-          </div>
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadProgress([]);
+  };
 
-          <div className="flex flex-wrap justify-center gap-4">
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-            >
-              <span className="text-lg leading-none">+</span>
-              Upload Resumes
-            </button>
-            {candidates.length > 0 ? (
-              <Link
-                href={
-                  selectedJobId
-                    ? `/screen?jobId=${encodeURIComponent(selectedJobId)}`
-                    : '/screen'
-                }
-                className="inline-flex items-center gap-1.5 bg-green-600 text-white rounded-lg px-2.5 py-1.5 text-sm font-medium text-green-700 hover:bg-green-700"
-              >
-                <ScreenIcon />
-                Screen Candidates
-              </Link>
-            ) : (
+  const hasFilters =
+    debouncedSearchQuery.trim() !== '' ||
+    statusFilter !== 'all' ||
+    (selectedJobId ?? '') !== '';
+
+  return (
+    <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
+        <PageHeader
+          title="Candidates on the Platform"
+          description={
+            selectedJob
+              ? `Candidates for ${selectedJob.title}`
+              : `${candidates.length} ${
+                  candidates.length === 1 ? 'candidate' : 'candidates'
+                } ingested`
+          }
+          actions={
+            <>
               <button
                 type="button"
-                disabled
-                className="inline-flex items-center gap-1.5 bg-gray-300 text-gray-500 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-400 cursor-not-allowed"
+                onClick={() => setShowUploadModal(true)}
+                className={buttonClass('primary', 'md')}
               >
-                <ScreenIcon />
-                Screen Candidates
+                <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
+                Upload Resumes
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div
-            className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Upload Resumes</h2>
+              {candidates.length > 0 ? (
+                <Link
+                  href={
+                    selectedJobId
+                      ? `/screen?jobId=${encodeURIComponent(selectedJobId)}`
+                      : '/screen'
+                  }
+                  className={buttonClass('success', 'md')}
+                >
+                  <ScreenIcon />
+                  Screen Candidates
+                </Link>
+              ) : (
                 <button
-                  onClick={() => {
-                    setShowUploadModal(false);
-                    setUploadProgress([]);
-                  }}
-                  className="text-2xl text-gray-500 hover:text-gray-700"
-                  aria-label="Close"
+                  type="button"
+                  disabled
+                  title="Upload resumes before screening"
+                  className={buttonClass('success', 'md')}
                 >
-                  ×
+                  <ScreenIcon />
+                  Screen Candidates
                 </button>
-              </div>
+              )}
+            </>
+          }
+        />
 
-              {/* Resume Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Resumes (PDF)
-                </label>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
-                    isUploading
-                      ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-                      : 'border-gray-300 hover:border-blue-400 cursor-pointer'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf"
-                    onChange={handleFileSelect}
-                    disabled={isUploading}
-                    className="hidden"
-                    id="resume-input"
-                  />
-                  <label
-                    htmlFor="resume-input"
-                    className={`block ${
-                      isUploading
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-600 hover:text-blue-600 cursor-pointer'
-                    }`}
-                  >
-                    <div className="text-3xl mb-2">📄</div>
-                    <p className="font-medium">Click to select PDF files</p>
-                    <p className="text-sm text-gray-500">
-                      Select one or more resumes to upload
-                    </p>
-                  </label>
-                </div>
-              </div>
+        <Modal
+          open={showUploadModal}
+          onClose={closeUploadModal}
+          locked={isUploading}
+          size="lg"
+          title="Upload Resumes"
+          description="Select one or more PDF resumes. Each file is parsed, embedded and added to the selected role."
+          footer={
+            <button
+              type="button"
+              onClick={closeUploadModal}
+              disabled={isUploading}
+              className={buttonClass('secondary', 'md', 'sm:w-auto')}
+            >
+              {uploadProgress.length > 0 && !isUploading ? 'Done' : 'Close'}
+            </button>
+          }
+        >
+          <div className="space-y-6">
+            <div>
+              <label htmlFor="resume-input" className={labelClass}>
+                Resume files (PDF)
+              </label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,application/pdf"
+                onChange={handleFileSelect}
+                disabled={isUploading}
+                className="sr-only"
+                id="resume-input"
+              />
+              <label
+                htmlFor="resume-input"
+                className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+                  isUploading
+                    ? 'cursor-not-allowed border-slate-300 bg-slate-50 text-slate-400'
+                    : 'border-slate-300 text-slate-600 hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-700'
+                }`}
+              >
+                <span aria-hidden="true" className="text-3xl">
+                  📄
+                </span>
+                <span className="font-medium">
+                  {isUploading
+                    ? 'Upload in progress…'
+                    : 'Click to select PDF files'}
+                </span>
+                <span className="text-sm text-slate-500">
+                  You can select several resumes at once
+                </span>
+              </label>
+            </div>
 
-              {/* Upload Progress */}
-              {uploadProgress.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-gray-900">Upload Progress</h3>
+            {uploadProgress.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Upload progress
+                </h3>
+                <ul className="space-y-2" aria-live="polite">
                   {uploadProgress.map((item, idx) => {
-                    const statusConfig = {
-                      pending: {
-                        label: 'Waiting',
-                        color: 'bg-gray-100 text-gray-700',
-                      },
-                      uploading: {
-                        label: 'Uploading',
-                        color: 'bg-blue-100 text-blue-700',
-                      },
-                      ingesting: {
-                        label: 'Processing',
-                        color: 'bg-purple-100 text-purple-700',
-                      },
-                      done: {
-                        label: 'Complete',
-                        color: 'bg-green-100 text-green-700',
-                      },
-                      error: {
-                        label: 'Failed',
-                        color: 'bg-red-100 text-red-700',
-                      },
-                    };
-                    const config = statusConfig[item.status];
+                    const config = UPLOAD_STATUS[item.status];
                     return (
-                      <div
-                        key={idx}
-                        className="p-4 border border-gray-200 rounded-lg"
+                      <li
+                        key={`${item.filename}-${idx}`}
+                        className="rounded-lg border border-slate-200 p-3.5"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-900">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="min-w-0 truncate text-sm font-medium text-slate-900">
                             {item.filename}
                           </span>
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}
-                          >
-                            {config.label}
-                          </span>
+                          <Badge tone={config.tone}>{config.label}</Badge>
                         </div>
                         {item.status === 'error' && (
-                          <p className="text-sm text-red-600">{item.error}</p>
+                          <p className="mt-2 text-sm text-red-600">
+                            {item.error}
+                          </p>
                         )}
                         {item.progress !== undefined &&
                           item.status !== 'error' && (
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={item.progress}
+                              aria-label={`Upload progress for ${item.filename}`}
+                            >
                               <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                className="h-full rounded-full bg-blue-600 transition-all duration-300"
                                 style={{ width: `${item.progress}%` }}
                               />
                             </div>
                           )}
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
-              )}
-            </div>
+                </ul>
+              </div>
+            )}
           </div>
-        )}
+        </Modal>
 
-        {loading && (
-          <div className="bg-white p-8 rounded-lg shadow text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading candidates...</p>
-          </div>
-        )}
+        {loading && !hasLoadedCandidates && <SkeletonCards count={4} />}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
-            <p className="text-red-700 font-semibold mb-2">
-              Error Loading Candidates
-            </p>
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
+          <Alert tone="error" title="Error loading candidates">
+            {error}
+          </Alert>
         )}
 
-        {!loading && hasLoadedCandidates && (
+        {hasLoadedCandidates && (
           <>
-            <section className="mb-6" aria-label="Candidate filters">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-                <label className="min-w-0 flex-1 text-sm font-medium text-slate-700">
-                  Search candidates
+            <section
+              aria-label="Candidate filters"
+              className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card sm:p-5"
+            >
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto] lg:items-end">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <label htmlFor="candidate-search" className={labelClass}>
+                    Search candidates
+                  </label>
                   <input
+                    id="candidate-search"
                     type="search"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search name, role, or filename"
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-normal text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="field"
                   />
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Role
+                </div>
+                <div>
+                  <label htmlFor="candidate-role" className={labelClass}>
+                    Role
+                  </label>
                   <select
+                    id="candidate-role"
                     value={selectedJobId || ''}
                     onChange={(event) => handleJobChange(event.target.value)}
-                    className="select-control mt-1 block w-full font-normal"
+                    className="select-control"
                   >
                     <option value="">All roles</option>
                     {jobs.map((job) => (
@@ -554,127 +566,150 @@ export default function CandidatesPage() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Status
+                </div>
+                <div>
+                  <label htmlFor="candidate-status" className={labelClass}>
+                    Status
+                  </label>
                   <select
+                    id="candidate-status"
                     value={statusFilter}
                     onChange={(event) =>
                       setStatusFilter(event.target.value as typeof statusFilter)
                     }
-                    className="select-control mt-1 block w-full font-normal"
+                    className="select-control"
                   >
                     <option value="all">All statuses</option>
                     <option value="indexed">Indexed</option>
                     <option value="not-indexed">Not indexed</option>
                   </select>
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Sort by
+                </div>
+                <div>
+                  <label htmlFor="candidate-sort" className={labelClass}>
+                    Sort by
+                  </label>
                   <select
+                    id="candidate-sort"
                     value={sortBy}
                     onChange={(event) =>
                       setSortBy(event.target.value as typeof sortBy)
                     }
-                    className="select-control mt-1 block w-full font-normal"
+                    className="select-control"
                   >
                     <option value="name">Name</option>
                     <option value="role">Role</option>
                     <option value="indexed">Indexing status</option>
                     <option value="score">Job match score</option>
                   </select>
-                </label>
+                </div>
                 <div
-                  className="flex rounded border border-slate-300 p-1"
+                  className="flex h-[42px] items-center gap-1 self-end rounded-lg border border-slate-300 p-1"
                   role="group"
                   aria-label="Candidate view"
                 >
                   <button
-                    key="grid"
                     type="button"
                     onClick={() => setViewMode('grid')}
                     aria-pressed={viewMode === 'grid'}
                     aria-label="Grid view"
-                    className={`rounded p-2 ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                    title="Grid view"
+                    className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition ${viewMode === 'grid' ? 'bg-inverse text-inverse-fg' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
                     <GridIcon />
                   </button>
                   <button
-                    key="list"
                     type="button"
                     onClick={() => setViewMode('list')}
                     aria-pressed={viewMode === 'list'}
                     aria-label="List view"
-                    className={`rounded p-2 ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                    title="List view"
+                    className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition ${viewMode === 'list' ? 'bg-inverse text-inverse-fg' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
                     <ListIcon />
                   </button>
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-500">
+              <p className="mt-4 text-sm text-slate-500" aria-live="polite">
                 Showing {candidates.length}{' '}
-                {candidates.length === 1 ? 'candidate' : 'candidates'} matching
-                your filters
+                {candidates.length === 1 ? 'candidate' : 'candidates'}
+                {hasFilters ? ' matching your filters' : ''}
+                {loading && ' · updating…'}
               </p>
             </section>
 
             {candidates.length === 0 ? (
-              <div className="bg-white border-2 border-dashed border-gray-300 p-12 rounded-lg text-center">
-                <p className="text-4xl mb-4">📋</p>
-                <p className="text-gray-600 mb-4">No candidates uploaded yet</p>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Upload Resumes to Get Started
-                </button>
-              </div>
+              <EmptyState
+                icon={
+                  <PlusIcon className="h-6 w-6 fill-none stroke-current stroke-2" />
+                }
+                title={
+                  hasFilters
+                    ? 'No matching candidates'
+                    : 'No candidates uploaded yet'
+                }
+                description={
+                  hasFilters
+                    ? 'Try a different search or clear the filters.'
+                    : 'Upload PDF resumes to start building your candidate pool.'
+                }
+                action={
+                  hasFilters ? undefined : (
+                    <button
+                      type="button"
+                      onClick={() => setShowUploadModal(true)}
+                      className={buttonClass('primary', 'sm')}
+                    >
+                      Upload resumes to get started
+                    </button>
+                  )
+                }
+              />
             ) : (
               <div
                 className={
                   viewMode === 'grid'
                     ? 'grid gap-4 md:grid-cols-2'
-                    : 'space-y-3'
+                    : 'flex flex-col gap-3'
                 }
               >
-                {candidates.map((candidate) => (
-                  <div
-                    key={candidate.id}
-                    className={`rounded-lg shadow-sm transition hover:shadow-md ${
-                      viewMode === 'list'
-                        ? 'flex items-center gap-4 p-4'
-                        : 'p-6'
-                    } ${candidate.chunk_count === 0 ? 'border border-amber-200 bg-amber-50' : 'border border-slate-200 bg-white'}`}
-                  >
-                    <div className="min-w-0 flex-1">
+                {candidates.map((candidate) => {
+                  const isRescoring = rescoreLoading.has(candidate.id);
+                  const canRescore =
+                    candidate.needsRescore === true && !isRescoring;
+                  const notIndexed = candidate.chunk_count === 0;
+                  return (
+                    <article
+                      key={candidate.id}
+                      className={`rounded-xl border shadow-card transition hover:shadow-card-hover ${
+                        notIndexed
+                          ? 'border-amber-200 bg-amber-50'
+                          : 'border-slate-200 bg-surface'
+                      } ${viewMode === 'list' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'}`}
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <h2 className="truncate text-xl font-semibold text-gray-900">
+                          <h3 className="truncate text-lg font-semibold text-slate-900">
                             {candidate.name}
-                          </h2>
-                          <p className="mt-1 text-sm text-gray-600">
+                          </h3>
+                          <p className="mt-1 text-sm text-slate-600">
                             Role: {candidate.role_guess}
                           </p>
-                          <p className="mt-2 truncate text-xs text-gray-500">
+                          <p className="mt-2 truncate text-xs text-slate-500">
                             {candidate.original_filename}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-2 items-end">
-                          <span
-                            className={`whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${candidate.chunk_count === 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
-                          >
-                            {candidate.chunk_count === 0
-                              ? 'Not Indexed'
-                              : 'Indexed'}
-                          </span>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <Badge tone={notIndexed ? 'warning' : 'success'}>
+                            {notIndexed ? 'Not indexed' : 'Indexed'}
+                          </Badge>
                           {candidate.score !== null &&
                             candidate.score !== undefined && (
                               <div className="flex flex-col items-end gap-1">
-                                <span className="whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700">
+                                <Badge tone="info">
                                   Score: {candidate.score}%
-                                </span>
+                                </Badge>
                                 {candidate.needsRescore === false && (
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-slate-500">
                                     Updated with latest job
                                   </span>
                                 )}
@@ -682,113 +717,90 @@ export default function CandidatesPage() {
                             )}
                         </div>
                       </div>
-                      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
+                      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
                         <button
                           type="button"
                           onClick={() => viewResume(candidate)}
-                          className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                          className={buttonClass('primary', 'sm')}
                         >
                           View resume
                         </button>
                         <button
                           type="button"
                           onClick={() => viewParsedResume(candidate)}
-                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                          className={buttonClass('secondary', 'sm')}
                         >
                           View parsed resume
                         </button>
                         <button
                           type="button"
                           onClick={() => rescoreCandidate(candidate)}
-                          disabled={
-                            candidate.needsRescore !== true ||
-                            rescoreLoading.has(candidate.id)
-                          }
-                          className={`rounded px-3 py-2 text-sm font-medium ${
-                            candidate.needsRescore !== true ||
-                            rescoreLoading.has(candidate.id)
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                          }`}
+                          disabled={!canRescore}
+                          className={buttonClass(
+                            'secondary',
+                            'sm',
+                            'text-blue-700'
+                          )}
                         >
-                          {rescoreLoading.has(candidate.id) ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"></span>
+                          {isRescoring ? (
+                            <>
+                              <Spinner className="h-3 w-3 border-blue-500" />
                               Rescoring...
-                            </span>
+                            </>
                           ) : (
                             'Re-score'
                           )}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </>
         )}
 
-        {resume && (
-          <div
-            className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Resume: {resume.name}</h2>
-                <button
-                  type="button"
-                  onClick={() => setResume(null)}
-                  className="text-2xl text-gray-500"
-                  aria-label="Close"
-                >
-                  &times;
-                </button>
-              </div>
-              <div className="space-y-6">
-                <iframe
-                  src={resume.pdfUrl}
-                  title={`Resume PDF: ${resume.name}`}
-                  className="h-[70vh] min-h-[500px] w-full rounded border border-gray-200"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        {parsedResume && (
-          <div
-            className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">
-                  Parsed resume: {parsedResume.name}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setParsedResume(null)}
-                  className="text-2xl text-gray-500"
-                  aria-label="Close"
-                >
-                  &times;
-                </button>
-              </div>
-              {parsedResume.text ? (
-                <pre className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                  {parsedResume.text}
-                </pre>
-              ) : (
-                <p className="text-sm text-gray-600">
-                  No parsed resume text is available for this candidate.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+        <Modal
+          open={Boolean(resume)}
+          onClose={() => setResume(null)}
+          size="xl"
+          title={`Resume: ${resume?.name ?? ''}`}
+          footer={
+            <a
+              href={resume?.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClass('secondary', 'md', 'sm:w-auto')}
+            >
+              Open in new tab
+            </a>
+          }
+        >
+          {resume && (
+            <iframe
+              src={resume.pdfUrl}
+              title={`Resume PDF: ${resume.name}`}
+              className="h-[65vh] min-h-[360px] w-full rounded-lg border border-slate-200"
+            />
+          )}
+        </Modal>
+
+        <Modal
+          open={Boolean(parsedResume)}
+          onClose={() => setParsedResume(null)}
+          size="lg"
+          title={`Parsed resume: ${parsedResume?.name ?? ''}`}
+        >
+          {parsedResume?.text ? (
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+              {parsedResume.text}
+            </pre>
+          ) : (
+            <p className="text-sm text-slate-600">
+              No parsed resume text is available for this candidate.
+            </p>
+          )}
+        </Modal>
       </div>
     </div>
   );

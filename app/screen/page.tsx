@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { updateScreeningFeedback } from '@/lib/screenings-api';
-import { TrashIcon } from '../icons';
+import { MenuIcon, TrashIcon } from '../icons';
 import { FEATURE_FLAGS } from '@/lib/config';
+import { Modal } from '../components/Modal';
+import { Alert, buttonClass, Spinner } from '../components/ui';
 
 type IconName =
   | 'copy'
@@ -240,7 +242,7 @@ export default function ScreenPage() {
     null
   );
   const [isHistorySession, setIsHistorySession] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
@@ -290,6 +292,11 @@ export default function ScreenPage() {
       }
     >
   >(new Map());
+
+  // On phones the history sidebar is a drawer; close it after a selection.
+  const closeSidebarOnMobile = () => {
+    if (window.matchMedia('(max-width: 767px)').matches) setSidebarOpen(false);
+  };
 
   const updateScreeningUrl = (screeningId: string | null) => {
     const url = new URL(window.location.href);
@@ -347,6 +354,8 @@ export default function ScreenPage() {
   };
 
   useEffect(() => {
+    // History is always visible on desktop; on phones it starts closed as a drawer.
+    if (window.matchMedia('(min-width: 768px)').matches) setSidebarOpen(true);
     initialScreeningIdRef.current = new URLSearchParams(
       window.location.search
     ).get('screeningId');
@@ -845,7 +854,7 @@ export default function ScreenPage() {
             {reportToRender.assessments.map((assessment, index) => (
               <article
                 key={`${reportKey}-assessment-${index}`}
-                className="rounded-lg border border-gray-200 bg-white p-4"
+                className="rounded-lg border border-gray-200 bg-surface p-4"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -1139,15 +1148,26 @@ export default function ScreenPage() {
       : conversation;
 
   return (
-    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-gray-50">
+    <div className="relative flex h-[calc(100dvh-4rem)] overflow-hidden bg-slate-50">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close screening history"
+          className="fixed inset-x-0 bottom-0 top-16 z-30 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-0'
-        } flex h-full shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-200`}
+      <aside
+        id="screening-history"
+        aria-label="Screening session history"
+        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-72 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl transition-transform duration-200 md:static md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none md:transition-[width] ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${sidebarOpen ? 'md:w-64' : 'md:w-0'}`}
       >
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900 mb-2">
+        <div className="border-b border-slate-200 p-4">
+          <h2 className="mb-3 font-semibold text-slate-900">
             Screening Session History
           </h2>
           <button
@@ -1166,9 +1186,9 @@ export default function ScreenPage() {
               setCurrentReportIndex(null);
               setError(null);
             }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
+            className={buttonClass('primary', 'sm', 'w-full')}
           >
-            <span className="text-lg leading-none">+</span>
+            <span className="text-base leading-none">+</span>
             New Session
           </button>
         </div>
@@ -1188,8 +1208,11 @@ export default function ScreenPage() {
                   className="p-3 hover:bg-gray-50 transition group border-b border-gray-100 flex items-start justify-between gap-2"
                 >
                   <button
-                    onClick={() => loadFromHistory(item)}
-                    className="flex-1 text-left"
+                    onClick={() => {
+                      void loadFromHistory(item);
+                      closeSidebarOnMobile();
+                    }}
+                    className="min-w-0 flex-1 rounded text-left"
                   >
                     <p className="text-xs text-gray-500 mb-1">
                       {new Date(item.timestamp).toLocaleDateString()} at{' '}
@@ -1211,7 +1234,7 @@ export default function ScreenPage() {
                         setEditingSessionId(item.id);
                         setEditingSessionName(item.name || item.query);
                       }}
-                      className="text-gray-400 hover:text-blue-600 transition p-1 opacity-0 group-hover:opacity-100"
+                      className="text-gray-400 hover:text-blue-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
                       title="Edit screening name"
                     >
                       <svg
@@ -1239,7 +1262,7 @@ export default function ScreenPage() {
                         process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE ===
                         'true'
                       }
-                      className="text-gray-400 hover:text-red-600 transition p-1 opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                      className="text-gray-400 hover:text-red-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
                       title="Delete screening"
                     >
                       <TrashIcon />
@@ -1252,31 +1275,40 @@ export default function ScreenPage() {
         </div>
 
         {history.length > 0 && (
-          <div className="p-4 border-t border-gray-200">
+          <div className="border-t border-slate-200 p-4">
             <button
               // onClick={clearHistory}
               disabled
               title="Clear History is temporarily disabled"
-              className="w-full px-3 py-2 text-xs text-gray-400 border border-gray-200 rounded cursor-not-allowed"
+              className="w-full cursor-not-allowed rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-400"
             >
               Clear History
             </button>
           </div>
         )}
-      </div>
+      </aside>
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Toggle Button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute top-24 left-2 z-10 p-2 hover:bg-gray-100 rounded transition md:hidden"
-        >
-          {sidebarOpen ? '←' : '→'}
-        </button>
+        {/* Toolbar */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4 py-2.5">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-expanded={sidebarOpen}
+            aria-controls="screening-history"
+            className={buttonClass('secondary', 'sm')}
+          >
+            <MenuIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
+            {sidebarOpen ? 'Hide history' : 'History'}
+          </button>
+          <p className="min-w-0 truncate text-sm text-slate-500">
+            {submittedQuery || 'New screening session'}
+          </p>
+        </div>
 
         {/* Header */}
-        {/* <div className="border-b border-gray-200 bg-white p-2 md:p-4">
+        {/* <div className="border-b border-gray-200 bg-surface p-2 md:p-4">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
             Screen Candidates
           </h1>
@@ -1286,7 +1318,7 @@ export default function ScreenPage() {
         </div> */}
 
         {/* Results Area */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
             {previousConversation.length > 0 && (
               <div className="mb-6 space-y-4">
@@ -1309,7 +1341,7 @@ export default function ScreenPage() {
                     <div
                       className={`max-w-[85%] ${
                         message.role === 'user'
-                          ? 'flex w-fit max-w-[70%] flex-col items-end text-gray-900'
+                          ? 'flex w-fit max-w-[85%] flex-col items-end text-gray-900 md:max-w-[70%]'
                           : 'text-gray-700'
                       }`}
                     >
@@ -1375,7 +1407,11 @@ export default function ScreenPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (!FEATURE_FLAGS.QUERY_RETRY_ENABLED || isLoading) return;
+                                if (
+                                  !FEATURE_FLAGS.QUERY_RETRY_ENABLED ||
+                                  isLoading
+                                )
+                                  return;
                                 setSubmittedQuery(message.content);
                                 void submitQuery(message.content);
                               }}
@@ -1467,7 +1503,7 @@ export default function ScreenPage() {
             {/* Submitted Query Display */}
             {submittedQuery && (
               <div className="mb-6 flex items-start justify-end gap-2">
-                <div className="w-fit max-w-[70%]">
+                <div className="w-fit max-w-[85%] md:max-w-[70%]">
                   <div className="rounded-lg bg-gray-100 p-4 text-white">
                     {/* <p className="mb-1 text-sm text-gray-600">Your Query:</p> */}
                     {isEditingSubmittedQuery ? (
@@ -1478,7 +1514,7 @@ export default function ScreenPage() {
                           setEditingSubmittedQuery(e.target.value)
                         }
                         rows={3}
-                        className="min-h-24 w-full resize-none overflow-hidden rounded border border-gray-300 bg-white p-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        className="min-h-24 w-full resize-none overflow-hidden rounded border border-gray-300 bg-surface p-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                         aria-label="Edit your query"
                         autoFocus
                       />
@@ -1693,20 +1729,11 @@ export default function ScreenPage() {
 
             {isLoading && !report && (
               <div className="flex justify-start">
-                <div className="flex max-w-[85%] items-center gap-3 rounded-lg bg-white px-4 py-4 border border-gray-200">
+                <div className="flex max-w-[85%] items-center gap-3 rounded-lg bg-surface px-4 py-4 border border-gray-200">
                   <div className="flex gap-1">
-                    <div
-                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                      style={{ animationDelay: '0s' }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.4s' }}
-                    ></div>
+                    <div className="h-2 w-2 rounded-full bg-blue-600 motion-safe:animate-bounce [animation-delay:0s]"></div>
+                    <div className="h-2 w-2 rounded-full bg-blue-600 motion-safe:animate-bounce [animation-delay:0.2s]"></div>
+                    <div className="h-2 w-2 rounded-full bg-blue-600 motion-safe:animate-bounce [animation-delay:0.4s]"></div>
                   </div>
                   <p className="text-gray-600">{progress || 'Processing...'}</p>
                 </div>
@@ -1730,7 +1757,7 @@ export default function ScreenPage() {
         </div>
 
         {/* Input Area - Bottom Fixed */}
-        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-white px-4 py-3 md:px-6 md:py-4">
+        <div className="sticky bottom-0 z-10 shrink-0 border-t border-gray-200 bg-surface px-4 py-3 md:px-6 md:py-4">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-2">
               <div className="flex flex-col gap-1">
@@ -1765,7 +1792,7 @@ export default function ScreenPage() {
                   }
                 }}
                 placeholder="Ask screening questions (e.g., 'Find candidates with Java and AWS experience')"
-                className="h-16 w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                className="field h-16 resize-none p-3"
                 disabled={isLoading}
                 aria-describedby="screening-prompt-hint"
               />
@@ -1794,12 +1821,19 @@ export default function ScreenPage() {
       {inspector && (
         <aside
           id="search-chunks"
-          style={{ width: inspectorWidth }}
-          className="fixed right-0 top-20 z-20 flex h-[calc(100vh-5rem)] max-w-[90vw] border-l border-gray-200 bg-white shadow-xl transition-[width] duration-200"
+          style={
+            {
+              '--inspector-width': `${inspectorWidth}px`,
+            } as React.CSSProperties
+          }
+          className="fixed inset-x-0 bottom-0 top-16 z-40 flex border-l border-slate-200 bg-surface shadow-xl md:inset-x-auto md:right-0 md:w-[var(--inspector-width)] md:max-w-[90vw]"
         >
           <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panel"
             onMouseDown={startInspectorResize}
-            className="w-1 cursor-col-resize bg-gray-200 hover:bg-blue-400"
+            className="hidden w-1.5 cursor-col-resize bg-slate-200 transition hover:bg-blue-400 md:block"
             title="Resize panel"
           />
           <div className="flex min-w-0 flex-1 flex-col">
@@ -1845,7 +1879,7 @@ export default function ScreenPage() {
                 <iframe
                   src={resume.pdfUrl}
                   title={`Resume PDF: ${resume.name}`}
-                  className="h-full min-h-[calc(100vh-120px)] w-full rounded border border-gray-200"
+                  className="h-full min-h-[60vh] w-full rounded-lg border border-gray-200 md:min-h-[calc(100dvh-8rem)]"
                 />
               ) : (
                 <p className="text-sm text-gray-500">Loading resume...</p>
@@ -1855,106 +1889,102 @@ export default function ScreenPage() {
         </aside>
       )}
 
-      {deletingSessionId && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-session-title"
-        >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2
-              id="delete-session-title"
-              className="text-xl font-semibold text-slate-900"
+      <Modal
+        open={Boolean(deletingSessionId)}
+        onClose={() => setDeletingSessionId(null)}
+        locked={isDeleting}
+        size="sm"
+        title="Delete this screening session?"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeletingSessionId(null)}
+              disabled={isDeleting}
+              className={buttonClass('secondary', 'md', 'sm:w-auto')}
             >
-              Delete this screening session?
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              This will permanently delete this screening session and its
-              results.
-            </p>
-            {deleteError && (
-              <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-                {deleteError}
-              </p>
-            )}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setDeletingSessionId(null)}
-                disabled={isDeleting}
-                className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteSession}
-                disabled={isDeleting}
-                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:bg-slate-400"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete session'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSession}
+              disabled={isDeleting}
+              className={buttonClass('danger', 'md', 'sm:min-w-40')}
+            >
+              {isDeleting && <Spinner className="h-4 w-4 border-white" />}
+              {isDeleting ? 'Deleting...' : 'Delete session'}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          This will permanently delete this screening session and its results.
+        </p>
+        {deleteError && (
+          <Alert tone="error" className="mt-4">
+            {deleteError}
+          </Alert>
+        )}
+      </Modal>
 
-      {editingSessionId && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-session-title"
-        >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2
-              id="edit-session-title"
-              className="text-xl font-semibold text-slate-900"
+      <Modal
+        open={Boolean(editingSessionId)}
+        onClose={() => {
+          setEditingSessionId(null);
+          setEditingSessionName('');
+        }}
+        locked={isEditingSession}
+        size="sm"
+        title="Edit screening session name"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSessionId(null);
+                setEditingSessionName('');
+              }}
+              disabled={isEditingSession}
+              className={buttonClass('secondary', 'md', 'sm:w-auto')}
             >
-              Edit screening session name
-            </h2>
-            <div className="mt-4">
-              <label
-                htmlFor="session-name"
-                className="block text-sm font-medium text-slate-700 mb-2"
-              >
-                Session name
-              </label>
-              <input
-                id="session-name"
-                type="text"
-                value={editingSessionName}
-                onChange={(e) => setEditingSessionName(e.target.value)}
-                placeholder="Enter a name for this session"
-                className="w-full rounded border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                autoFocus
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSessionId(null);
-                  setEditingSessionName('');
-                }}
-                disabled={isEditingSession}
-                className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleEditSession}
-                disabled={isEditingSession || !editingSessionName.trim()}
-                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-400"
-              >
-                {isEditingSession ? 'Saving...' : 'Save name'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="session-name-form"
+              disabled={isEditingSession || !editingSessionName.trim()}
+              className={buttonClass('primary', 'md', 'sm:min-w-40')}
+            >
+              {isEditingSession && <Spinner className="h-4 w-4 border-white" />}
+              {isEditingSession ? 'Saving...' : 'Save name'}
+            </button>
+          </>
+        }
+      >
+        <form
+          id="session-name-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleEditSession();
+          }}
+        >
+          <label
+            htmlFor="session-name"
+            className="mb-1.5 block text-sm font-medium text-slate-700"
+          >
+            Session name
+          </label>
+          <input
+            id="session-name"
+            type="text"
+            value={editingSessionName}
+            onChange={(e) => setEditingSessionName(e.target.value)}
+            placeholder="Enter a name for this session"
+            className="field"
+            autoComplete="off"
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

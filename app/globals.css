@@ -2,50 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  html {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+
+  /* Keyboard focus must always be visible, in both themes. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-50;
+  }
+
+  ::selection {
+    @apply bg-blue-200 text-slate-900;
+  }
 }
 
-html {
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
+@layer components {
+  .select-control {
+    @apply block w-full appearance-none rounded-lg border border-slate-300 bg-surface py-2.5 pl-3.5 pr-10 text-sm text-slate-900 transition-colors duration-150 hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem 1.25rem;
+  }
+
+  .field {
+    @apply block w-full rounded-lg border border-slate-300 bg-surface px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors duration-150 hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60;
+  }
 }
 
-body {
-  background: #fff;
-  color: #000;
-}
-
-.select-control {
-  appearance: none;
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.75rem center;
-  background-repeat: no-repeat;
-  background-size: 1.25rem 1.25rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  color: #0f172a;
-  outline: none;
-  padding: 0.625rem 2.5rem 0.625rem 0.875rem;
-  transition:
-    border-color 150ms ease-in-out,
-    box-shadow 150ms ease-in-out;
-}
-
-.select-control:hover {
-  border-color: #94a3b8;
-}
-
-.select-control:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgb(59 130 246 / 10%);
-}
-
-.select-control:disabled {
-  background-color: #f8fafc;
-  color: #64748b;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
