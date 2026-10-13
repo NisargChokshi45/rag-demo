@@ -567,3 +567,20 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 - **Signed URL:** Time-limited upload URL from Supabase (avoids POST size limits)
 - **Embedding:** Numerical vector representation of text (used for semantic search)
 - **Reranking:** Re-scoring search results with an LLM for better relevance
+
+---
+
+## Documents: Advanced RAG Hands-On (`/documents`)
+
+Long-form PDF Q&A across three document shapes: narrative text (GPO annual report), long chapter-structured reports (World Bank Global Economic Prospects) and visual reports with tables and footnotes (Apple iMac environmental report). Sample questions and source PDFs live in `documents/`.
+
+- [x] Layout-aware parsing with `unpdf` item positions: lines, cells, font-size headings, multi-column reading order (`lib/documents/layout.ts`, `structure.ts`)
+- [x] Three chunking strategies: `narrative`, `long_structured` (section rows plus child windows), `element_rich` (tables, footnotes, figure captions as their own chunks) (`lib/documents/chunk.ts`)
+- [x] Migration `016_documents.sql`: `documents`, `document_chunks`, HNSW + GIN indexes, `search_document_chunks` hybrid RPC (vector + keyword, reciprocal rank fusion)
+- [x] Upload flow parses, chunks and embeds during upload; embedding is resumable in time-budgeted steps (`lib/documents/ingest.ts`, `app/api/documents/[id]/embed`)
+- [x] LangGraph answer pipeline on the shared Groq chat model: retrieve → rerank → expand → generate → verify, with one rewrite-and-retry when ungrounded (`lib/documents/graph.ts`)
+- [x] Citations restricted to retrieved passages; numbers not found in cited passages are flagged
+- [x] `/documents` list and upload page, `/documents/[id]` chat with source panel and retrieval trace
+- [ ] Verified against live Supabase and Gemini/Groq: migration applied, upload end-to-end, eval pass rate (run `npx tsx --env-file=.env.local scripts/eval-documents.ts documents/`)
+- [ ] Charts without text labels (iMac bar charts drawn as vector graphics) are not extracted; needs a vision captioning step
+- [ ] Per-user isolation for documents when `NEXT_PUBLIC_USER_DATA_ISOLATION` is on (`user_id` is stored; list queries do not filter yet)
