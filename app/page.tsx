@@ -732,12 +732,6 @@ export default function Home() {
         </section>
 
         <section aria-labelledby="get-started-heading">
-          <h2
-            id="get-started-heading"
-            className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500"
-          >
-            Get started
-          </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {destinations.map((dest) => (
               <Link
@@ -757,9 +751,6 @@ export default function Home() {
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
                   {dest.description}
                 </p>
-                <span className="mt-auto pt-5 text-sm font-medium text-blue-600 group-hover:underline">
-                  Open {dest.title} &rarr;
-                </span>
               </Link>
             ))}
           </div>
