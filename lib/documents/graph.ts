@@ -9,24 +9,36 @@ import {
   type DocumentChunkRow,
   type DocumentSearchHit,
 } from '@/lib/db';
+import { configuredRerankMode, rerank, type RerankMode } from './rerank';
+import { routeQuestion, type QuestionRoute } from './routing';
+import type { DocumentStrategy } from './chunk';
 
 /**
  * LangGraph answer pipeline for one document:
  *
- *   retrieve → rerank → expand → generate → verify → END
- *                  ▲                              │ (not grounded, first try)
- *                  └──────── retrieve ◀── rewrite ┘
+ * plan → retrieve → rerank → expand → generate → verify → END
+ *                         ▲                              │ (not grounded, first try)
+ *                         └──────────── rewrite ◀────────┘
  *
- * Retrieval is hybrid (vector + keyword, see search_document_chunks). The LLM
- * rerank and the answer step use the shared Groq chat model. Verification
- * rejects citations outside the retrieved context and flags numbers that
- * never appear in the cited passages.
+ * The document's strategy (its shape) decides which steps apply:
+ *  - narrative:       no chapters or regions, so no routing. Hybrid search,
+ *                     rerank, then the hits plus their neighbouring windows.
+ *  - long_structured: route to a chapter or region when the question names
+ *                     one. Search the child windows, rerank them, then answer
+ *                     from the parent sections of the reranked hits.
+ *  - element_rich:    hybrid search and grounded answers. Rerank defaults to
+ *                     off, since prose-trained rerankers under-rate tables.
+ *
+ * Retrieval is hybrid (vector + OR keyword, see search_document_chunks) and
+ * falls back to the whole document when a filtered search is thin. The answer
+ * step uses the shared Groq chat model. Verification rejects citations outside
+ * the retrieved context and flags numbers that never appear in the cited
+ * passages.
  */
 
-const RERANK_KEEP = 6;
 const RETRIEVE_COUNT = 20;
+const MIN_FILTERED_HITS = 6;
 const CONTEXT_CHAR_BUDGET = 14000;
-const PASSAGE_PREVIEW = 500;
 const MAX_REWRITES = 1;
 
 export interface GraphTurn {
@@ -39,6 +51,8 @@ export interface ContextBlock {
   chunkId: string;
   kind: DocumentChunkRow['kind'];
   sectionPath: string;
+  chapter: string;
+  region: string;
   pageStart: number;
   pageEnd: number;
   content: string;
@@ -54,8 +68,27 @@ export interface Citation {
 }
 
 export interface TraceStep {
-  step: 'retrieve' | 'rerank' | 'expand' | 'generate' | 'verify' | 'rewrite';
+  step:
+    | 'route'
+    | 'retrieve'
+    | 'rerank'
+    | 'expand'
+    | 'generate'
+    | 'verify'
+    | 'rewrite';
   detail: string;
+}
+
+/** Retrieval internals, returned only when the eval script asks for them. */
+export interface RetrievalDebug {
+  rerankMode: RerankMode;
+  route: QuestionRoute;
+  /** Candidate passages in fused order, before rerank. */
+  candidates: string[];
+  /** Passages kept by rerank, best first. */
+  ranked: string[];
+  /** Passages sent to the answer step, labelled C1, C2, ... */
+  context: string[];
 }
 
 export interface DocumentAnswer {
@@ -65,13 +98,18 @@ export interface DocumentAnswer {
   unverifiedNumbers: string[];
   searchQuery: string;
   trace: TraceStep[];
+  debug?: RetrievalDebug;
 }
 
 interface GraphState {
   documentId: string;
   question: string;
   history: GraphTurn[];
+  strategy: DocumentStrategy;
   searchQuery: string;
+  rerankMode: RerankMode;
+  route: QuestionRoute | null;
+  candidates: DocumentSearchHit[];
   hits: DocumentSearchHit[];
   context: ContextBlock[];
   rawAnswer: {
@@ -112,22 +150,6 @@ function parseJsonObject<T>(raw: string): T | null {
   }
 }
 
-function parseJsonArray(raw: string): number[] | null {
-  const start = raw.indexOf('[');
-  const end = raw.lastIndexOf(']');
-  if (start < 0 || end < start) return null;
-  try {
-    const value = JSON.parse(raw.slice(start, end + 1));
-    return Array.isArray(value)
-      ? value
-          .map((item) => Number(item))
-          .filter((item) => Number.isInteger(item))
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 function pageLabel(start: number, end: number) {
   return start === end ? `p.${start}` : `pp.${start}-${end}`;
 }
@@ -138,81 +160,150 @@ function normalizeNumber(value: string) {
 
 const model = () => getChatModel(0);
 
+async function routeNode(state: GraphState): Promise<Partial<GraphState>> {
+  // Only long reports carry chapter and region tags, so other shapes skip the lookup.
+  const route: QuestionRoute =
+    state.strategy === 'long_structured'
+      ? await routeQuestion(state.documentId, state.question)
+      : {
+          chapter: null,
+          region: null,
+          reason: 'no chapters or regions in this document shape',
+        };
+  return {
+    route,
+    trace: [{ step: 'route', detail: route.reason }],
+  };
+}
+
 async function retrieveNode(state: GraphState): Promise<Partial<GraphState>> {
   const query = state.searchQuery || state.question;
   const embedding = await embedQuery(query);
-  const hits = await searchDocumentChunks(
+  const filter = {
+    region: state.route?.region ?? null,
+    chapter: state.route?.chapter ?? null,
+  };
+  const filtered = Boolean(filter.region || filter.chapter);
+
+  let candidates = await searchDocumentChunks(
     state.documentId,
     query,
     embedding,
-    RETRIEVE_COUNT
+    RETRIEVE_COUNT,
+    filter
   );
+  const filteredCount = candidates.length;
+  let widened = false;
+
+  // A thin filtered result would hide the answer, so the whole document
+  // joins in behind it.
+  if (filtered && filteredCount < MIN_FILTERED_HITS) {
+    const wider = await searchDocumentChunks(
+      state.documentId,
+      query,
+      embedding,
+      RETRIEVE_COUNT
+    );
+    const seen = new Set(candidates.map((hit) => hit.id));
+    candidates = [
+      ...candidates,
+      ...wider.filter((hit) => !seen.has(hit.id)),
+    ].slice(0, RETRIEVE_COUNT);
+    widened = true;
+  }
+
+  const scope = filtered
+    ? ` in ${[state.route?.region, state.route?.chapter].filter(Boolean).join(', ')}`
+    : '';
   return {
-    hits,
+    candidates,
+    hits: candidates,
     trace: [
       {
         step: 'retrieve',
-        detail: `${hits.length} candidates via hybrid search for "${query}"`,
+        detail: `${candidates.length} candidates via hybrid search${scope} for "${query}"${widened ? ` (filter kept ${filteredCount}, widened)` : ''}`,
       },
     ],
   };
 }
 
 async function rerankNode(state: GraphState): Promise<Partial<GraphState>> {
-  if (state.hits.length <= RERANK_KEEP) {
-    return {
-      hits: state.hits,
-      trace: [{ step: 'rerank', detail: 'kept all candidates' }],
-    };
-  }
-
-  const listing = state.hits
-    .map((hit, index) => {
-      const preview = hit.content
-        .slice(0, PASSAGE_PREVIEW)
-        .replace(/\s+/g, ' ');
-      return `[${index}] (${hit.kind}, ${pageLabel(hit.page_start, hit.page_end)}, ${hit.section_path || 'no section'}) ${preview}`;
-    })
-    .join('\n');
-
-  let ranked: number[] | null = null;
-  try {
-    const response = await model().invoke([
-      new SystemMessage(
-        `You rank document passages for a question. Return only a JSON array of the ${RERANK_KEEP} passage numbers most likely to contain the answer, most relevant first. Prefer passages with the exact figures or facts asked for.`
-      ),
-      new HumanMessage(`Question: ${state.question}\n\nPassages:\n${listing}`),
-    ]);
-    ranked = parseJsonArray(text(response.content));
-  } catch {
-    ranked = null;
-  }
-
-  const chosen = (ranked ?? [])
-    .filter(
-      (index, position, all) =>
-        index >= 0 &&
-        index < state.hits.length &&
-        all.indexOf(index) === position
-    )
-    .slice(0, RERANK_KEEP);
-  const fallback = state.hits.slice(0, RERANK_KEEP).map((_, index) => index);
-  const order = chosen.length > 0 ? chosen : fallback;
-
+  const result = await rerank(state.question, state.candidates, {
+    mode: state.rerankMode,
+  });
   return {
-    hits: order.map((index) => state.hits[index]),
+    hits: result.hits,
     trace: [
       {
         step: 'rerank',
-        detail: ranked
-          ? `LLM kept ${order.length} of ${state.hits.length}`
-          : `fallback to fused order, kept ${order.length}`,
+        detail: `${result.mode}: ${result.detail}`,
       },
     ],
   };
 }
 
+/**
+ * Long reports: the answer step reads the parent section of each reranked
+ * child, in rank order, each parent once. Children are searched, parents are
+ * read, and neighbouring windows are not added.
+ */
+async function expandToParents(
+  hits: DocumentSearchHit[]
+): Promise<ContextBlock[]> {
+  const parentIds = [
+    ...new Set(
+      hits.map((hit) => hit.parent_id).filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const parents = new Map(
+    (await getDocumentChunksByIds(parentIds)).map((row) => [row.id, row])
+  );
+
+  const ordered: DocumentChunkRow[] = [];
+  const seen = new Set<string>();
+  for (const hit of hits) {
+    const row = hit.parent_id ? parents.get(hit.parent_id) : hit;
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    ordered.push(row);
+  }
+
+  const context: ContextBlock[] = [];
+  let used = 0;
+  for (const row of ordered) {
+    if (used + row.content.length > CONTEXT_CHAR_BUDGET && context.length > 0)
+      break;
+    used += row.content.length;
+    context.push({
+      label: `C${context.length + 1}`,
+      chunkId: row.id,
+      kind: row.kind,
+      sectionPath: row.section_path,
+      chapter: row.chapter ?? '',
+      region: row.region ?? '',
+      pageStart: row.page_start,
+      pageEnd: row.page_end,
+      content: row.content,
+    });
+  }
+  return context;
+}
+
 async function expandNode(state: GraphState): Promise<Partial<GraphState>> {
+  if (state.strategy === 'long_structured') {
+    const context = await expandToParents(state.hits);
+    const used = context.reduce((sum, block) => sum + block.content.length, 0);
+    return {
+      context,
+      trace: [
+        {
+          step: 'expand',
+          detail: `${context.length} parent sections in context (${used} chars)`,
+        },
+      ],
+    };
+  }
+
   const blocks = new Map<string, DocumentChunkRow>();
   const addRow = (row: DocumentChunkRow) => {
     if (!blocks.has(row.id)) blocks.set(row.id, row);
@@ -266,6 +357,8 @@ async function expandNode(state: GraphState): Promise<Partial<GraphState>> {
       chunkId: row.id,
       kind: row.kind,
       sectionPath: row.section_path,
+      chapter: row.chapter ?? '',
+      region: row.region ?? '',
       pageStart: row.page_start,
       pageEnd: row.page_end,
       content: row.content,
@@ -285,10 +378,10 @@ async function expandNode(state: GraphState): Promise<Partial<GraphState>> {
 
 async function generateNode(state: GraphState): Promise<Partial<GraphState>> {
   const contextText = state.context
-    .map(
-      (block) =>
-        `[${block.label}] (${block.kind}, ${pageLabel(block.pageStart, block.pageEnd)}, ${block.sectionPath || 'no section'})\n${block.content}`
-    )
+    .map((block) => {
+      const place = [block.chapter, block.region].filter(Boolean).join(', ');
+      return `[${block.label}] (${block.kind}, ${pageLabel(block.pageStart, block.pageEnd)}, ${block.sectionPath || 'no section'}${place ? `, ${place}` : ''})\n${block.content}`;
+    })
     .join('\n\n');
 
   const historyText = state.history
@@ -437,7 +530,11 @@ const graph = new StateGraph<GraphState>({
     documentId: channel(() => ''),
     question: channel(() => ''),
     history: channel<GraphTurn[]>(() => []),
+    strategy: channel<DocumentStrategy>(() => 'narrative'),
     searchQuery: channel(() => ''),
+    rerankMode: channel<RerankMode>(() => 'llm'),
+    route: channel<QuestionRoute | null>(() => null),
+    candidates: channel<DocumentSearchHit[]>(() => []),
     hits: channel<DocumentSearchHit[]>(() => []),
     context: channel<ContextBlock[]>(() => []),
     rawAnswer: channel<GraphState['rawAnswer']>(() => null),
@@ -447,13 +544,15 @@ const graph = new StateGraph<GraphState>({
     trace: appendChannel<TraceStep>(),
   },
 })
+  .addNode('plan', routeNode)
   .addNode('retrieve', retrieveNode)
   .addNode('rerank', rerankNode)
   .addNode('expand', expandNode)
   .addNode('generate', generateNode)
   .addNode('verify', verifyNode)
   .addNode('rewrite', rewriteNode)
-  .addEdge(START, 'retrieve')
+  .addEdge(START, 'plan')
+  .addEdge('plan', 'retrieve')
   .addEdge('retrieve', 'rerank')
   .addEdge('rerank', 'expand')
   .addEdge('expand', 'generate')
@@ -469,17 +568,37 @@ export async function answerDocumentQuestion(input: {
   documentId: string;
   question: string;
   history?: GraphTurn[];
+  /** The document's shape; decides routing, rerank default and expansion. */
+  strategy?: DocumentStrategy;
+  /** Overrides the strategy's rerank default; the eval script uses this to compare rerankers. */
+  rerankMode?: RerankMode;
+  includeDebug?: boolean;
 }): Promise<DocumentAnswer> {
+  const strategy = input.strategy ?? 'narrative';
   const final = (await compiled.invoke({
     documentId: input.documentId,
     question: input.question,
     history: input.history ?? [],
+    strategy,
     searchQuery: '',
+    rerankMode: input.rerankMode ?? configuredRerankMode(strategy),
     rewrites: 0,
   })) as GraphState;
 
   if (!final.result) {
     throw new Error('Document answer pipeline produced no result');
   }
-  return { ...final.result, trace: final.trace };
+
+  const debug: RetrievalDebug | undefined =
+    input.includeDebug && final.route
+      ? {
+          rerankMode: final.rerankMode,
+          route: final.route,
+          candidates: final.candidates.map((hit) => hit.content),
+          ranked: final.hits.map((hit) => hit.content),
+          context: final.context.map((block) => block.content),
+        }
+      : undefined;
+
+  return { ...final.result, trace: final.trace, debug };
 }

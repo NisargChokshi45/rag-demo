@@ -1,4 +1,5 @@
-import { extractTextItems, type StructuredTextItem } from 'unpdf';
+import { extractDrawingPages, type DrawnTable } from './drawings';
+import { extractPageItems, type PageItem } from './items';
 
 /**
  * Rebuilds visual lines from the positioned text items that unpdf (pdf.js)
@@ -20,16 +21,34 @@ export interface TextLine {
   x0: number;
   x1: number;
   fontSize: number;
+  /** Generic family from the PDF font descriptor: "serif", "sans-serif", ... */
+  fontFamily: string;
+  /** True when every visible character is set in a bold font face. */
+  bold: boolean;
   cells: Cell[];
   text: string;
   /** Position of the line on its page, 0 = bottom, 1 = top. */
   relY: number;
+  /** Set on the single line that stands for a table drawn with shaded cells. */
+  drawnRows?: string[][];
 }
 
 export interface DocumentLayout {
   pageCount: number;
   bodyFontSize: number;
+  /** Font family that carries most of the body text, e.g. "serif". */
+  bodyFamily: string;
   lines: TextLine[];
+  /** Pages with bright filled shapes (charts), candidates for the vision pass. */
+  visualPages: number[];
+}
+
+interface Superscript {
+  digits: string;
+  /** Right edge of the text the marker follows. */
+  x: number;
+  /** Baseline of that text. */
+  y: number;
 }
 
 const LINE_TOLERANCE = 2.5;
@@ -38,12 +57,71 @@ const SPACE_GAP = 0.8;
 const MIN_GUTTER = 12;
 const DOT_LEADER = /\.{4,}|…/;
 
+/**
+ * NFKC turns ligatures into plain letters ("ﬂ" -> "fl", "ﬁ" -> "fi") and
+ * compatibility forms into their usual characters. Soft hyphens are dropped.
+ */
 function normalizeSpaces(text: string) {
-  return text.replace(/\s+/g, ' ').trim();
+  return text.normalize('NFKC').replace(/­/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function fontFamilyOf(item: PageItem): string {
+  return item.fontFamily;
+}
+
+function isBold(item: PageItem): boolean {
+  return item.bold;
+}
+
+/**
+ * Pulls small raised digits (footnote markers) out of the text items. A marker
+ * is a short number, smaller than body text, sitting just right of a body-size
+ * item and above its baseline. Subscripts sit lower and are left alone.
+ */
+function splitSuperscripts(
+  items: PageItem[],
+  bodySize: number
+): { body: PageItem[]; marks: Superscript[] } {
+  const body: PageItem[] = [];
+  const marks: Superscript[] = [];
+  for (const item of items) {
+    const digits = item.str.trim();
+    const small = item.fontSize < bodySize * 0.8 && /^\d{1,3}$/.test(digits);
+    const anchor = small
+      ? items.find(
+          (other) =>
+            other.fontSize >= bodySize * 0.8 &&
+            Math.abs(other.x + other.width - item.x) < 3 &&
+            item.y > other.y &&
+            item.y - other.y < other.fontSize * 0.8
+        )
+      : undefined;
+    if (anchor) {
+      marks.push({ digits, x: anchor.x + anchor.width, y: anchor.y });
+    } else {
+      body.push(item);
+    }
+  }
+  return { body, marks };
+}
+
+/** Writes each marker as [^n] at the end of the cell it follows. */
+function attachSuperscripts(lines: TextLine[], marks: Superscript[]) {
+  for (const mark of marks) {
+    const line = lines.find(
+      (candidate) =>
+        Math.abs(candidate.y - mark.y) <= LINE_TOLERANCE &&
+        candidate.cells.some((cell) => Math.abs(cell.x1 - mark.x) < 3)
+    );
+    const cell = line?.cells.find((c) => Math.abs(c.x1 - mark.x) < 3);
+    if (!line || !cell) continue;
+    cell.text += `[^${mark.digits}]`;
+    line.text = line.cells.map((c) => c.text).join(' ');
+  }
 }
 
 function buildLines(
-  items: StructuredTextItem[],
+  items: PageItem[],
   page: number,
   pageMinY: number,
   pageSpan: number
@@ -52,7 +130,7 @@ function buildLines(
   if (visible.length === 0) return [];
 
   const sorted = [...visible].sort((a, b) => b.y - a.y || a.x - b.x);
-  const groups: StructuredTextItem[][] = [];
+  const groups: PageItem[][] = [];
   for (const item of sorted) {
     const current = groups[groups.length - 1];
     if (current && Math.abs(current[0].y - item.y) <= LINE_TOLERANCE) {
@@ -106,6 +184,8 @@ function buildLines(
       x0: Math.min(...finalCells.map((cell) => cell.x0)),
       x1: Math.max(...finalCells.map((cell) => cell.x1)),
       fontSize: Math.round(longest.fontSize * 2) / 2,
+      fontFamily: fontFamilyOf(longest),
+      bold: group.every((item) => item.str.trim() === '' || isBold(item)),
       cells: finalCells,
       text: finalCells.map((cell) => cell.text).join(' '),
       relY: (y - pageMinY) / pageSpan,
@@ -113,23 +193,36 @@ function buildLines(
   });
 }
 
-function computeBodyFontSize(pages: StructuredTextItem[][]): number {
-  const weights = new Map<number, number>();
+/** The size and family that carry the most characters are the body text. */
+function dominant<K>(
+  pages: PageItem[][],
+  keyOf: (item: PageItem) => K,
+  fallback: K
+): K {
+  const weights = new Map<K, number>();
   for (const page of pages) {
     for (const item of page) {
-      const size = Math.round(item.fontSize * 2) / 2;
-      weights.set(size, (weights.get(size) || 0) + item.str.length);
+      const key = keyOf(item);
+      weights.set(key, (weights.get(key) || 0) + item.str.length);
     }
   }
-  let best = 10;
+  let best = fallback;
   let bestWeight = -1;
-  for (const [size, weight] of weights) {
+  for (const [key, weight] of weights) {
     if (weight > bestWeight) {
-      best = size;
+      best = key;
       bestWeight = weight;
     }
   }
   return best;
+}
+
+function computeBodyFontSize(pages: PageItem[][]): number {
+  return dominant(pages, (item) => Math.round(item.fontSize * 2) / 2, 10);
+}
+
+function computeBodyFamily(pages: PageItem[][]): string {
+  return dominant(pages, fontFamilyOf, '');
 }
 
 /**
@@ -138,7 +231,7 @@ function computeBodyFontSize(pages: StructuredTextItem[][]): number {
  * single-column pages.
  */
 function findGutter(
-  items: StructuredTextItem[],
+  items: PageItem[],
   bodySize: number
 ): { start: number; end: number } | undefined {
   const body = items.filter(
@@ -178,6 +271,13 @@ function findGutter(
   return { start: minX + best.start, end: minX + best.start + best.length };
 }
 
+/** True when at least half the items hold a word of three or more letters. */
+function isProse(items: PageItem[]) {
+  if (items.length === 0) return false;
+  const words = items.filter((item) => /[A-Za-z]{3,}/.test(item.str));
+  return words.length * 2 >= items.length;
+}
+
 function topDown(lines: TextLine[]) {
   return [...lines].sort((a, b) => b.y - a.y || a.x0 - b.x0);
 }
@@ -188,29 +288,54 @@ function topDown(lines: TextLine[]) {
  * (headings, full-width tables) act as separators between column zones.
  */
 function pageLines(
-  items: StructuredTextItem[],
+  items: PageItem[],
   page: number,
   bodySize: number
 ): TextLine[] {
   const visible = items.filter((item) => item.str.trim().length > 0);
   if (visible.length === 0) return [];
+  const { body, marks } = splitSuperscripts(visible, bodySize);
+  const lines = orderLines(body, page, bodySize);
+  attachSuperscripts(lines, marks);
+  return lines;
+}
+
+function orderLines(
+  visible: PageItem[],
+  page: number,
+  bodySize: number
+): TextLine[] {
+  if (visible.length === 0) return [];
 
   const minY = Math.min(...visible.map((item) => item.y));
   const span = Math.max(...visible.map((item) => item.y)) - minY || 1;
-  const gutter = findGutter(visible, bodySize);
+  // The document-wide body size can differ from this page's text, e.g. a
+  // 10pt page in a 12pt report, so the gutter search uses the page's own size.
+  const pageBodySize = dominant(
+    [visible],
+    (item) => Math.round(item.fontSize * 2) / 2,
+    bodySize
+  );
+  const gutter = findGutter(visible, pageBodySize);
 
   if (!gutter) {
     return topDown(buildLines(visible, page, minY, span));
   }
 
-  const left: StructuredTextItem[] = [];
-  const right: StructuredTextItem[] = [];
-  const spanning: StructuredTextItem[] = [];
+  const left: PageItem[] = [];
+  const right: PageItem[] = [];
+  const spanning: PageItem[] = [];
   for (const item of visible) {
     const itemEnd = item.x + item.width;
     if (item.x < gutter.start && itemEnd > gutter.end) spanning.push(item);
     else if (item.x >= gutter.end - 1) right.push(item);
     else left.push(item);
+  }
+
+  // A gap inside a numeric table is not a column gutter. Both sides must
+  // carry prose before the page is split.
+  if (!isProse(left) || !isProse(right)) {
+    return topDown(buildLines(visible, page, minY, span));
   }
 
   const leftLines = buildLines(left, page, minY, span);
@@ -240,17 +365,72 @@ function pageLines(
   return ordered;
 }
 
-export async function extractLayout(data: Uint8Array): Promise<DocumentLayout> {
-  const { totalPages, items } = await extractTextItems(data);
-  const bodyFontSize = computeBodyFontSize(items);
+/**
+ * Adds one line per drawn table at its height on the page. The text that
+ * belongs to the table is already removed, so it is not read twice.
+ */
+function insertTables(
+  built: TextLine[],
+  tables: DrawnTable[],
+  page: number,
+  bodySize: number
+): TextLine[] {
+  if (tables.length === 0) return built;
+  const ys = built.map((line) => line.y);
+  const minY = ys.length ? Math.min(...ys) : 0;
+  const span = ys.length ? Math.max(...ys) - minY || 1 : 1;
 
-  const lines = items.flatMap((pageItems, index) =>
-    pageLines(pageItems, index + 1, bodyFontSize)
-  );
+  const ordered = [...built];
+  for (const table of [...tables].sort((a, b) => b.top - a.top)) {
+    const at = ordered.findIndex((line) => line.y < table.top);
+    const line: TextLine = {
+      page,
+      y: table.top,
+      x0: 0,
+      x1: 0,
+      fontSize: bodySize,
+      fontFamily: '',
+      bold: false,
+      cells: [],
+      text: table.rows.map((row) => row.join(' | ')).join(' / '),
+      relY: (table.top - minY) / span,
+      drawnRows: table.rows,
+    };
+    if (at < 0) ordered.push(line);
+    else ordered.splice(at, 0, line);
+  }
+  return ordered;
+}
+
+export async function extractLayout(data: Uint8Array): Promise<DocumentLayout> {
+  // pdf.js transfers the buffer to its worker, so the drawing pass gets a copy.
+  const forDrawings = data.slice();
+  const { totalPages, items } = await extractPageItems(data);
+  const bodyFontSize = computeBodyFontSize(items);
+  const bodyFamily = computeBodyFamily(items);
+  const drawings = await extractDrawingPages(forDrawings, items);
+
+  const lines = items.flatMap((pageItems, index) => {
+    const drawing = drawings[index];
+    const consumed = new Set(drawing.tables.flatMap((t) => t.consumed));
+    const remaining = pageItems.filter(
+      (_, position) => !consumed.has(position)
+    );
+    return insertTables(
+      pageLines(remaining, index + 1, bodyFontSize),
+      drawing.tables,
+      index + 1,
+      bodyFontSize
+    );
+  });
 
   return {
     pageCount: totalPages,
     bodyFontSize,
+    bodyFamily,
     lines,
+    visualPages: drawings
+      .filter((drawing) => drawing.hasColourShapes)
+      .map((drawing) => drawing.page),
   };
 }

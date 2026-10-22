@@ -26,25 +26,58 @@ const NOTE = /^(source|sources|note|notes)\b[:.\s]/i;
 const FOOTNOTE_MARKER = /^[\d*†‡]{1,3}\s+\S/;
 const NUMERIC = /\d/;
 
+function repeatKey(line: TextLine) {
+  return line.text.toLowerCase().replace(/\d+/g, '#').trim();
+}
+
+function inHeaderOrFooter(line: TextLine) {
+  return line.relY < 0.08 || line.relY > 0.92;
+}
+
 function isRunningTextNoise(
   line: TextLine,
   repeats: Map<string, number>,
   pageCount: number
 ) {
-  const key = line.text.toLowerCase().replace(/\d+/g, '#').trim();
   const threshold = Math.max(3, Math.floor(pageCount * 0.3));
-  if ((repeats.get(key) || 0) >= threshold && line.text.length <= 120)
+  if (
+    (repeats.get(repeatKey(line)) || 0) >= threshold &&
+    line.text.length <= 120
+  )
     return true;
   // Bare page numbers in the header or footer band
-  if (/^\d{1,4}$/.test(line.text) && (line.relY < 0.08 || line.relY > 0.92))
-    return true;
+  if (/^\d{1,4}$/.test(line.text) && inHeaderOrFooter(line)) return true;
   return false;
+}
+
+/**
+ * A bold line in the header or footer band that reads the same on the page
+ * before or after it is a running header, e.g. "U.S. Government Publishing
+ * Office" across a spread. Subsections repeat too, but under different
+ * chapters, so their repeats sit far apart and they are kept.
+ */
+function runningBoldHeaders(lines: TextLine[]) {
+  const pagesByKey = new Map<string, Set<number>>();
+  const bandBold = lines.filter((line) => line.bold && inHeaderOrFooter(line));
+  for (const line of bandBold) {
+    const key = repeatKey(line);
+    if (!pagesByKey.has(key)) pagesByKey.set(key, new Set());
+    pagesByKey.get(key)!.add(line.page);
+  }
+  return new Set(
+    bandBold.filter((line) => {
+      const pages = pagesByKey.get(repeatKey(line));
+      return Boolean(
+        pages && (pages.has(line.page - 1) || pages.has(line.page + 1))
+      );
+    })
+  );
 }
 
 function countRepeats(lines: TextLine[]) {
   const pagesByKey = new Map<string, Set<number>>();
   for (const line of lines) {
-    const key = line.text.toLowerCase().replace(/\d+/g, '#').trim();
+    const key = repeatKey(line);
     if (!key) continue;
     if (!pagesByKey.has(key)) pagesByKey.set(key, new Set());
     pagesByKey.get(key)!.add(line.page);
@@ -70,42 +103,88 @@ function verticalGap(a: TextLine, b: TextLine) {
   return Math.abs(a.y - b.y);
 }
 
+/**
+ * Joins wrapped lines. A word split across a line break ("sustainabil-" then
+ * "ity") is rejoined, and so is one with a stray space after the hyphen.
+ */
 function joinParagraph(parts: string[]) {
-  return parts.reduce((acc, part) => {
-    if (!acc) return part;
-    if (acc.endsWith('-') && /^[a-z]/.test(part)) {
-      return acc.slice(0, -1) + part;
-    }
-    return `${acc} ${part}`;
-  }, '');
+  return parts
+    .reduce((acc, part) => {
+      if (!acc) return part;
+      if (acc.endsWith('-') && /^[a-z]/.test(part)) {
+        return acc.slice(0, -1) + part;
+      }
+      return `${acc} ${part}`;
+    }, '')
+    .replace(/([a-z]{3,})- ([a-z]{2,})/g, '$1$2');
 }
 
-function headingLevels(lines: TextLine[], bodySize: number) {
-  const sizes = [
-    ...new Set(
-      lines
-        .filter((line) => isHeadingCandidate(line, bodySize))
-        .map((line) => line.fontSize)
-    ),
-  ].sort((a, b) => b - a);
+function headingLevels(candidates: Set<TextLine>) {
+  const sizes = [...new Set([...candidates].map((line) => line.fontSize))].sort(
+    (a, b) => b - a
+  );
   return new Map(sizes.map((size, index) => [size, Math.min(index + 1, 4)]));
 }
 
-function isHeadingCandidate(line: TextLine, bodySize: number) {
-  return (
-    line.fontSize >= bodySize * 1.25 &&
+/**
+ * Bold body-size lines are subsections only when they read like a title: two
+ * or more words, clear of the page's header and footer bands, and set off
+ * from the line above by a paragraph-sized gap. Memo labels ("Date", "To")
+ * are one word, and running headers sit in the bands.
+ */
+function isBoldHeading(line: TextLine, previous: TextLine | undefined) {
+  if (line.text.trim().split(/\s+/).length < 2) return false;
+  if (!previous || previous.page !== line.page) return true;
+  return verticalGap(previous, line) > previous.fontSize * 1.2;
+}
+
+function isHeadingCandidate(
+  line: TextLine,
+  layout: DocumentLayout,
+  previous?: TextLine
+) {
+  if (
+    line.fontSize >= layout.bodyFontSize * 1.25 &&
     line.text.length <= 140 &&
     /[A-Za-z]/.test(line.text) &&
     line.cells.length <= 2
-  );
+  ) {
+    return true;
+  }
+  // Subsections often keep body size but switch family, e.g. sans-serif
+  // headings in a serif body. Only short, single-cell, unpunctuated lines
+  // qualify, which keeps most sans-serif table labels out. A bold line only
+  // counts when the whole line is bold, so bold words inside a body sentence
+  // do not start a heading.
+  const shortLabel =
+    Math.abs(line.fontSize - layout.bodyFontSize) < 0.6 &&
+    line.cells.length === 1 &&
+    line.text.length <= 90 &&
+    /[A-Za-z]/.test(line.text) &&
+    !/[.;,:]$/.test(line.text);
+  if (!shortLabel) return false;
+  const otherFamily =
+    layout.bodyFamily !== '' &&
+    line.fontFamily !== '' &&
+    line.fontFamily !== layout.bodyFamily;
+  return otherFamily || (line.bold && isBoldHeading(line, previous));
 }
 
 export function buildBlocks(layout: DocumentLayout): Block[] {
   const repeats = countRepeats(layout.lines);
+  const running = runningBoldHeaders(layout.lines);
   const lines = layout.lines.filter(
-    (line) => !isRunningTextNoise(line, repeats, layout.pageCount)
+    (line) =>
+      line.drawnRows !== undefined ||
+      (!running.has(line) &&
+        !isRunningTextNoise(line, repeats, layout.pageCount))
   );
-  const levels = headingLevels(lines, layout.bodyFontSize);
+  const candidates = new Set(
+    lines.filter((line, index) =>
+      isHeadingCandidate(line, layout, lines[index - 1])
+    )
+  );
+  const levels = headingLevels(candidates);
   const blocks: Block[] = [];
 
   let paragraph: TextLine[] = [];
@@ -194,13 +273,27 @@ export function buildBlocks(layout: DocumentLayout): Block[] {
   for (const line of lines) {
     const text = line.text;
 
+    if (line.drawnRows) {
+      // Shaded-cell tables arrive pre-built, one line per table.
+      flushAll();
+      blocks.push({
+        type: 'table',
+        page: line.page,
+        text: line.drawnRows.map((row) => row.join(' | ')).join('\n'),
+        rows: line.drawnRows,
+        caption: pendingCaption,
+      });
+      pendingCaption = undefined;
+      continue;
+    }
+
     if (CAPTION.test(text) && line.fontSize <= layout.bodyFontSize * 1.25) {
       flushAll();
       pendingCaption = text;
       continue;
     }
 
-    if (isHeadingCandidate(line, layout.bodyFontSize)) {
+    if (candidates.has(line)) {
       flushParagraph();
       flushTable();
       flushFootnote();

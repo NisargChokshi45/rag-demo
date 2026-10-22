@@ -1,12 +1,18 @@
 import type { Block } from './structure';
+import { chapterForHeading, regionForHeading } from './regions';
 
 /**
  * Chunking strategies, one per document shape:
- *  - narrative:       paragraph windows with page and heading metadata.
- *  - long_structured: section rows (embedded for section-level routing) plus
- *                     paragraph windows that point back to their section.
- *  - element_rich:    paragraph windows plus standalone table, footnote and
- *                     figure-caption chunks so visual facts stay searchable.
+ *  - narrative:       sentence windows with page and heading metadata.
+ *  - long_structured: parent windows (~3,300 chars, what the model reads) per
+ *                     section, plus child windows (~900 chars, what we search)
+ *                     that point back to the parent containing them.
+ *  - element_rich:    sentence windows plus standalone table, footnote and
+ *                     figure chunks. Footnote markers in body text pull their
+ *                     note text into the chunk that cites them.
+ *
+ * Every window is built from whole sentences, with the last sentences of one
+ * window repeated at the start of the next so a fact at a boundary stays whole.
  */
 
 export const DOCUMENT_STRATEGIES = [
@@ -21,6 +27,10 @@ export type ChunkKind = 'section' | 'text' | 'table' | 'footnote' | 'figure';
 export interface ChunkDraft {
   kind: ChunkKind;
   sectionPath: string;
+  /** "Chapter N" from the nearest chapter heading, or ''. */
+  chapter?: string;
+  /** Region name from the nearest regional heading, or ''. */
+  region?: string;
   pageStart: number;
   pageEnd: number;
   content: string;
@@ -28,93 +38,205 @@ export interface ChunkDraft {
   parentIndex?: number;
 }
 
-const TARGET_CHARS = 900;
-const MAX_PIECE_CHARS = 1300;
-const OVERLAP_MAX_CHARS = 300;
-const SECTION_INTRO_CHARS = 1200;
+interface SectionMeta {
+  chapter: string;
+  region: string;
+}
 
-interface Piece {
+/** Child windows are searched; parent windows are what the model reads. */
+const CHILD_CHARS = 900;
+const CHILD_OVERLAP_CHARS = 240;
+const PARENT_CHARS = 3300;
+const NOTE_CHARS = 500;
+
+const ABBREVIATIONS = new Set([
+  'mr',
+  'mrs',
+  'ms',
+  'dr',
+  'prof',
+  'st',
+  'no',
+  'nos',
+  'vs',
+  'inc',
+  'co',
+  'ltd',
+  'jr',
+  'sr',
+  'fy',
+  'approx',
+  'etc',
+  'fig',
+  'eq',
+  'al',
+  'vol',
+  'ed',
+  'dept',
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'sept',
+  'oct',
+  'nov',
+  'dec',
+  'cf',
+  'ca',
+]);
+
+/**
+ * A sentence ends at . ! or ? followed by whitespace and a capital, digit or
+ * opening quote. Decimals ("6.3") have no space after the dot, so they never
+ * match. Abbreviations ("U.S.", "No. 5", "e.g.") are skipped.
+ */
+const SENTENCE_END = /[.!?]["')\]”’]*\s+(?=["“‘(\[]?[A-Z0-9])/g;
+
+function isAbbreviation(word: string) {
+  const lower = word.toLowerCase().replace(/^[("“‘[]+/, '');
+  return (
+    ABBREVIATIONS.has(lower) ||
+    /^[a-z]$/.test(lower) ||
+    /^([a-z]\.)+[a-z]?$/.test(lower)
+  );
+}
+
+/**
+ * Splits prose into sentences without dropping text. Every character of the
+ * input ends up in exactly one sentence (whitespace aside).
+ */
+export function splitSentences(text: string): string[] {
+  const clean = text.trim();
+  const sentences: string[] = [];
+  let start = 0;
+  for (const match of clean.matchAll(SENTENCE_END)) {
+    const at = match.index ?? 0;
+    const word = clean.slice(start, at).split(/\s+/).pop() ?? '';
+    if (isAbbreviation(word)) continue;
+    sentences.push(clean.slice(start, at + match[0].trimEnd().length));
+    start = at + match[0].length;
+  }
+  const tail = clean.slice(start).trim();
+  if (tail) sentences.push(tail);
+  return sentences;
+}
+
+/** Breaks a run-on string at spaces so no unit exceeds the child size. */
+function hardSplit(text: string, limit: number): string[] {
+  const parts: string[] = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf(' ', limit);
+    if (cut <= 0) cut = limit;
+    parts.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) parts.push(rest);
+  return parts;
+}
+
+/** One sentence, table row or other atomic piece of text, with its page. */
+interface Unit {
   text: string;
   page: number;
+  /** First unit of a paragraph: joined with a blank line, not a space. */
+  breakBefore: boolean;
+  /** Table rows and similar: joined with a newline, never merged into prose. */
+  atomic: boolean;
 }
 
 interface Packed {
+  start: number;
+  end: number;
   content: string;
   pageStart: number;
   pageEnd: number;
 }
 
-function splitSentences(text: string, limit: number): string[] {
-  if (text.length <= limit) return [text];
-  const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
-  const pieces: string[] = [];
-  let current = '';
-  for (const sentence of sentences) {
-    const next = sentence.trim();
-    if (!next) continue;
-    if (current && current.length + next.length + 1 > limit) {
-      pieces.push(current);
-      current = next;
-    } else {
-      current = current ? `${current} ${next}` : next;
-    }
-  }
-  if (current) pieces.push(current);
-  return pieces;
+interface Section extends SectionMeta {
+  path: string;
+  /** Prose runs between standalone chunks, or standalone chunk drafts. */
+  runs: Array<Unit[] | ChunkDraft>;
 }
 
-function packPieces(pieces: Piece[]): Packed[] {
-  interface Window {
-    texts: string[];
-    pageStart: number;
-    pageEnd: number;
-    length: number;
-  }
-  const packed: Packed[] = [];
-  let current: Window | null = null;
+function proseUnits(text: string, page: number, atomic = false): Unit[] {
+  const pieces = atomic ? [text] : splitSentences(text);
+  return pieces.flatMap((piece, index) =>
+    hardSplit(piece, CHILD_CHARS).map((part, sub) => ({
+      text: part,
+      page,
+      breakBefore: index === 0 && sub === 0 && !atomic,
+      atomic,
+    }))
+  );
+}
 
-  const finalize = () => {
-    if (!current) return;
-    packed.push({
-      content: current.texts.join('\n\n'),
-      pageStart: current.pageStart,
-      pageEnd: current.pageEnd,
+function joinUnits(units: Unit[], start: number, end: number): string {
+  let out = '';
+  for (let i = start; i < end; i++) {
+    if (i > start) {
+      const unit = units[i];
+      if (unit.breakBefore) out += '\n\n';
+      else if (unit.atomic || units[i - 1].atomic) out += '\n';
+      else out += ' ';
+    }
+    out += units[i].text;
+  }
+  return out;
+}
+
+/**
+ * Packs units into windows of about `target` characters. When `overlap` is
+ * positive, each window starts with as many trailing units of the previous
+ * window as fit in `overlap` characters.
+ */
+function packUnits(units: Unit[], target: number, overlap: number): Packed[] {
+  const windows: Packed[] = [];
+  const close = (start: number, end: number) => {
+    windows.push({
+      start,
+      end,
+      content: joinUnits(units, start, end),
+      pageStart: units[start].page,
+      pageEnd: units[end - 1].page,
     });
   };
 
-  for (const piece of pieces) {
-    for (const text of splitSentences(piece.text, MAX_PIECE_CHARS)) {
-      if (current && current.length + text.length > TARGET_CHARS) {
-        const last: string = current.texts[current.texts.length - 1];
-        finalize();
-        // Carry the previous paragraph forward so context spans the boundary.
-        const overlap: string[] =
-          last.length <= OVERLAP_MAX_CHARS ? [last] : [];
-        current = {
-          texts: overlap,
-          pageStart: piece.page,
-          pageEnd: piece.page,
-          length: overlap.reduce(
-            (sum: number, value: string) => sum + value.length,
-            0
-          ),
-        };
+  let start = 0;
+  let length = 0;
+  for (let i = 0; i < units.length; i++) {
+    const size = units[i].text.length;
+    if (i > start && length + size > target) {
+      close(start, i);
+      let next = i;
+      let carried = 0;
+      while (
+        next > start + 1 &&
+        carried + units[next - 1].text.length <= overlap
+      ) {
+        next--;
+        carried += units[next].text.length;
       }
-      if (!current) {
-        current = {
-          texts: [],
-          pageStart: piece.page,
-          pageEnd: piece.page,
-          length: 0,
-        };
-      }
-      current.texts.push(text);
-      current.length += text.length;
-      current.pageEnd = piece.page;
+      start = next;
+      length = carried;
     }
+    length += size;
   }
-  finalize();
-  return packed;
+  if (units.length > start) close(start, units.length);
+  return windows;
+}
+
+interface HeadingFrame {
+  level: number;
+  text: string;
+}
+
+function currentPath(stack: HeadingFrame[]) {
+  return stack.map((frame) => frame.text).join(' > ');
 }
 
 function toMarkdownTable(rows: string[][]): string {
@@ -131,33 +253,182 @@ function toMarkdownTable(rows: string[][]): string {
   ].join('\n');
 }
 
-interface HeadingFrame {
-  level: number;
-  text: string;
-}
+/**
+ * Groups blocks into sections (one per heading) and prose runs. Each section
+ * carries the chapter and region in force at its heading. A chapter heading
+ * resets the region, and a regional heading sets it until the next one.
+ */
+function buildSections(blocks: Block[], strategy: DocumentStrategy): Section[] {
+  const sections: Section[] = [];
+  const stack: HeadingFrame[] = [];
+  let chapter = '';
+  let region = '';
+  let current: Section = { path: '', chapter, region, runs: [] };
+  sections.push(current);
+  let run: Unit[] | null = null;
 
-function currentPath(stack: HeadingFrame[]) {
-  return stack.map((frame) => frame.text).join(' > ');
-}
+  const proseInto = (units: Unit[]) => {
+    if (!run) {
+      run = [];
+      current.runs.push(run);
+    }
+    run.push(...units);
+  };
+  const standalone = (draft: ChunkDraft) => {
+    current.runs.push({
+      ...draft,
+      chapter: current.chapter,
+      region: current.region,
+    });
+    run = null;
+  };
 
-/** Paragraph text that follows a heading, up to the next heading. */
-function sectionIntro(
-  blocks: Block[],
-  start: number
-): { text: string; pageEnd: number } {
-  const parts: string[] = [];
-  let pageEnd = blocks[start].page;
-  let length = 0;
-  for (let index = start + 1; index < blocks.length; index++) {
-    const block = blocks[index];
-    if (block.type === 'heading') break;
-    if (block.type !== 'paragraph') continue;
-    parts.push(block.text);
-    pageEnd = block.page;
-    length += block.text.length;
-    if (length >= SECTION_INTRO_CHARS) break;
+  for (const block of blocks) {
+    if (block.type === 'heading') {
+      const level = block.level ?? 4;
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+      stack.push({ level, text: block.text });
+
+      const chapterLabel = chapterForHeading(block.text);
+      if (chapterLabel) {
+        chapter = chapterLabel;
+        region = '';
+      }
+      const regionLabel = regionForHeading(block.text);
+      if (regionLabel) region = regionLabel;
+
+      current = { path: currentPath(stack), chapter, region, runs: [] };
+      sections.push(current);
+      run = null;
+      continue;
+    }
+
+    const page = block.page;
+    const path = current.path;
+
+    if (block.type === 'table') {
+      if (strategy !== 'element_rich') {
+        const rows = block.rows?.length
+          ? block.rows.map((row) => row.join(' | '))
+          : [block.text];
+        proseInto(rows.flatMap((row) => proseUnits(row, page, true)));
+        continue;
+      }
+      standalone({
+        kind: 'table',
+        sectionPath: path,
+        pageStart: page,
+        pageEnd: page,
+        content: [block.caption, toMarkdownTable(block.rows ?? [])]
+          .filter(Boolean)
+          .join('\n'),
+      });
+      continue;
+    }
+
+    if (block.type === 'paragraph') {
+      proseInto(proseUnits(block.text, page));
+      continue;
+    }
+
+    if (strategy === 'element_rich') {
+      standalone({
+        kind: block.type === 'footnote' ? 'footnote' : 'figure',
+        sectionPath: path,
+        pageStart: page,
+        pageEnd: page,
+        content: block.text,
+      });
+      continue;
+    }
+
+    // Footnotes and figure captions read as prose in the other strategies.
+    proseInto(proseUnits(block.text, page));
   }
-  return { text: parts.join('\n\n').slice(0, SECTION_INTRO_CHARS), pageEnd };
+
+  return sections.filter((section) => section.runs.length > 0);
+}
+
+/** Long reports: parent windows for the model, child windows for search. */
+function pushParented(drafts: ChunkDraft[], section: Section, units: Unit[]) {
+  const meta = {
+    sectionPath: section.path,
+    chapter: section.chapter,
+    region: section.region,
+  };
+  const parents = packUnits(units, PARENT_CHARS, 0);
+  const parentIndexes = parents.map((parent) => {
+    drafts.push({
+      kind: 'section',
+      ...meta,
+      pageStart: parent.pageStart,
+      pageEnd: parent.pageEnd,
+      content: parent.content,
+    });
+    return drafts.length - 1;
+  });
+
+  for (const child of packUnits(units, CHILD_CHARS, CHILD_OVERLAP_CHARS)) {
+    const owner = parents.findIndex(
+      (parent) => child.start >= parent.start && child.start < parent.end
+    );
+    drafts.push({
+      kind: 'text',
+      ...meta,
+      pageStart: child.pageStart,
+      pageEnd: child.pageEnd,
+      content: child.content,
+      parentIndex: owner >= 0 ? parentIndexes[owner] : undefined,
+    });
+  }
+}
+
+function pushWindows(drafts: ChunkDraft[], section: Section, units: Unit[]) {
+  for (const piece of packUnits(units, CHILD_CHARS, CHILD_OVERLAP_CHARS)) {
+    drafts.push({
+      kind: 'text',
+      sectionPath: section.path,
+      chapter: section.chapter,
+      region: section.region,
+      pageStart: piece.pageStart,
+      pageEnd: piece.pageEnd,
+      content: piece.content,
+    });
+  }
+}
+
+const NOTE_LABEL = /^\[?\^?(\d{1,3})\]?[.)]?\s+(\S[\s\S]*)$/;
+const NOTE_MARKER = /\[\^(\d{1,3})\]/g;
+
+/**
+ * Footnote markers ([^n]) in body text are replaced by the note text, so the
+ * claim and its caveat are retrieved together. Notes stay as their own chunks.
+ */
+function linkFootnotes(drafts: ChunkDraft[]) {
+  const notes = new Map<number, string>();
+  for (const draft of drafts) {
+    if (draft.kind !== 'footnote') continue;
+    const match = NOTE_LABEL.exec(draft.content);
+    if (match) notes.set(Number(match[1]), match[2].trim());
+  }
+
+  for (const draft of drafts) {
+    if (draft.kind === 'footnote') continue;
+    const refs = [...draft.content.matchAll(NOTE_MARKER)].map((m) =>
+      Number(m[1])
+    );
+    if (refs.length === 0) continue;
+    draft.content = draft.content
+      .replace(NOTE_MARKER, '')
+      .replace(/ {2,}/g, ' ')
+      .trim();
+    const lines = [...new Set(refs)]
+      .filter((ref) => notes.has(ref))
+      .map((ref) => `[Note ${ref}] ${notes.get(ref)!.slice(0, NOTE_CHARS)}`);
+    if (lines.length > 0) draft.content += `\n${lines.join('\n')}`;
+  }
 }
 
 export function chunkBlocks(
@@ -165,111 +436,19 @@ export function chunkBlocks(
   strategy: DocumentStrategy
 ): ChunkDraft[] {
   const drafts: ChunkDraft[] = [];
-  const stack: HeadingFrame[] = [];
-  let buffer: Piece[] = [];
-  let bufferPath = '';
-  let sectionIndex: number | undefined;
-
-  const flush = () => {
-    if (buffer.length === 0) return;
-    for (const packed of packPieces(buffer)) {
-      drafts.push({
-        kind: 'text',
-        sectionPath: bufferPath,
-        pageStart: packed.pageStart,
-        pageEnd: packed.pageEnd,
-        content: packed.content,
-        parentIndex: sectionIndex,
-      });
-    }
-    buffer = [];
-  };
-
-  blocks.forEach((block, index) => {
-    if (block.type === 'heading') {
-      flush();
-      const level = block.level ?? 4;
-      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-        stack.pop();
+  for (const section of buildSections(blocks, strategy)) {
+    for (const run of section.runs) {
+      if (!Array.isArray(run)) {
+        drafts.push(run);
+        continue;
       }
-      stack.push({ level, text: block.text });
-
-      // Every structural heading opens a section row, so routing can land on
-      // a chapter, section or sub-section rather than only the top level.
       if (strategy === 'long_structured') {
-        const intro = sectionIntro(blocks, index);
-        sectionIndex = drafts.length;
-        drafts.push({
-          kind: 'section',
-          sectionPath: currentPath(stack),
-          pageStart: block.page,
-          pageEnd: intro.pageEnd,
-          content: intro.text,
-        });
+        pushParented(drafts, section, run);
+      } else {
+        pushWindows(drafts, section, run);
       }
-      bufferPath = currentPath(stack);
-      return;
     }
-
-    if (
-      block.type === 'paragraph' ||
-      (block.type === 'footnote' && strategy !== 'element_rich') ||
-      (block.type === 'figure' && strategy !== 'element_rich')
-    ) {
-      if (buffer.length === 0) bufferPath = currentPath(stack);
-      buffer.push({ text: block.text, page: block.page });
-      return;
-    }
-
-    if (block.type === 'table') {
-      if (strategy !== 'element_rich') {
-        if (buffer.length === 0) bufferPath = currentPath(stack);
-        buffer.push({
-          text: block.rows
-            ? block.rows.map((row) => row.join(' | ')).join('\n')
-            : block.text,
-          page: block.page,
-        });
-        return;
-      }
-      flush();
-      const markdown = toMarkdownTable(block.rows ?? []);
-      drafts.push({
-        kind: 'table',
-        sectionPath: currentPath(stack),
-        pageStart: block.page,
-        pageEnd: block.page,
-        content: [block.caption, markdown].filter(Boolean).join('\n'),
-        parentIndex: sectionIndex,
-      });
-      return;
-    }
-
-    if (block.type === 'footnote') {
-      flush();
-      drafts.push({
-        kind: 'footnote',
-        sectionPath: currentPath(stack),
-        pageStart: block.page,
-        pageEnd: block.page,
-        content: block.text,
-        parentIndex: sectionIndex,
-      });
-      return;
-    }
-
-    // Figure captions that are not attached to a table.
-    flush();
-    drafts.push({
-      kind: 'figure',
-      sectionPath: currentPath(stack),
-      pageStart: block.page,
-      pageEnd: block.page,
-      content: block.text,
-      parentIndex: sectionIndex,
-    });
-  });
-
-  flush();
+  }
+  if (strategy === 'element_rich') linkFootnotes(drafts);
   return drafts;
 }

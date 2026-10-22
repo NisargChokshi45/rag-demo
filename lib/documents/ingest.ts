@@ -3,15 +3,22 @@ import { embedDocument, EMBEDDING_DIMENSIONS } from '@/lib/embeddings';
 import {
   countPendingDocumentChunks,
   createDocument,
+  deleteDocumentChunks,
+  deleteDocumentRecord,
+  getDocumentById,
   getPendingDocumentChunks,
   insertDocumentChunks,
+  listDocumentChunks,
   setDocumentChunkEmbedding,
   setDocumentStatus,
+  setDocumentVisualPages,
+  updateDocumentChunkMetadata,
   type DocumentRecord,
 } from '@/lib/db';
 import { chunkBlocks, type ChunkDraft, type DocumentStrategy } from './chunk';
 import { extractLayout } from './layout';
 import { buildBlocks } from './structure';
+import { describePendingFigures } from './vision';
 
 /**
  * Two phases, both driven by the upload flow:
@@ -45,7 +52,11 @@ export async function parseDocumentBuffer(
   const layout = await extractLayout(new Uint8Array(buffer));
   const blocks = buildBlocks(layout);
   const drafts = chunkBlocks(blocks, strategy);
-  return { pageCount: layout.pageCount, drafts };
+  return {
+    pageCount: layout.pageCount,
+    drafts,
+    visualPages: layout.visualPages,
+  };
 }
 
 export async function createDocumentFromStorage(input: {
@@ -61,7 +72,7 @@ export async function createDocumentFromStorage(input: {
   if (error) throw new Error(`Failed to download PDF: ${error.message}`);
 
   const buffer = Buffer.from(await data.arrayBuffer());
-  const { pageCount, drafts } = await parseDocumentBuffer(
+  const { pageCount, drafts, visualPages } = await parseDocumentBuffer(
     buffer,
     input.strategy
   );
@@ -78,15 +89,54 @@ export async function createDocumentFromStorage(input: {
   });
 
   try {
+    await setDocumentVisualPages(record.id, visualPages);
     await storeDrafts(record.id, drafts);
     await setDocumentStatus(record.id, 'embedding');
     return { ...record, status: 'embedding' };
   } catch (storeError) {
+    // Partial chunks would be embedded as if the document were complete, so
+    // the row is removed rather than kept as a retryable 'failed' document.
+    await deleteDocumentRecord(record.id).catch(() => undefined);
+    throw storeError;
+  }
+}
+
+/**
+ * Re-parses a stored PDF with the document's current strategy and replaces its
+ * chunks. The PDF is parsed before anything is deleted, so a parse failure
+ * leaves the existing chunks in place. The caller then runs embedPendingChunks
+ * until the document reports ready.
+ */
+export async function reparseDocument(documentId: string): Promise<void> {
+  const document = await getDocumentById(documentId);
+  if (!document) throw new Error('Document not found');
+
+  const client = createServiceClient();
+  const { data, error } = await client.storage
+    .from('documents')
+    .download(document.storage_path);
+  if (error) throw new Error(`Failed to download PDF: ${error.message}`);
+
+  const buffer = Buffer.from(await data.arrayBuffer());
+  const { drafts, visualPages } = await parseDocumentBuffer(
+    buffer,
+    document.strategy
+  );
+  if (drafts.length === 0) {
+    throw new Error('PDF did not contain extractable text');
+  }
+
+  try {
+    await setDocumentVisualPages(documentId, visualPages);
+    await deleteDocumentChunks(documentId);
+    await storeDrafts(documentId, drafts);
+    await setDocumentStatus(documentId, 'embedding');
+  } catch (storeError) {
     const message =
-      storeError instanceof Error
-        ? storeError.message
-        : 'Failed to store chunks';
-    await setDocumentStatus(record.id, 'failed', message);
+      storeError instanceof Error ? storeError.message : 'Re-parse failed';
+    await setDocumentStatus(documentId, 'failed', message).catch(
+      () => undefined
+    );
     throw storeError;
   }
 }
@@ -129,6 +179,8 @@ function toRow(draft: ChunkDraft, index: number, parentId: string | null) {
     chunk_index: index,
     kind: draft.kind,
     section_path: draft.sectionPath,
+    chapter: draft.chapter ?? '',
+    region: draft.region ?? '',
     page_start: draft.pageStart,
     page_end: draft.pageEnd,
     content: draft.content,
@@ -165,6 +217,12 @@ export async function embedPendingChunks(
 ): Promise<EmbedProgress> {
   const started = Date.now();
 
+  // Chart pages are read first, so their figure chunks are embedded below.
+  const figuresLeft = await describePendingFigures(
+    documentId,
+    Math.floor(budgetMs / 2)
+  );
+
   while (Date.now() - started < budgetMs) {
     const pending = await getPendingDocumentChunks(documentId, EMBED_BATCH);
     if (pending.length === 0) break;
@@ -180,9 +238,63 @@ export async function embedPendingChunks(
   }
 
   const remaining = await countPendingDocumentChunks(documentId);
-  if (remaining === 0) {
+  if (remaining === 0 && figuresLeft === 0) {
     await setDocumentStatus(documentId, 'ready');
     return { status: 'ready', remaining: 0 };
   }
-  return { status: 'embedding', remaining };
+  return { status: 'embedding', remaining: remaining + figuresLeft };
+}
+
+export interface MetadataRefresh {
+  updated: number;
+  unchanged: number;
+  /** Chunks whose text no longer matches the PDF; these need a full re-parse. */
+  mismatched: number;
+}
+
+/**
+ * Sets chapter and region on stored chunks without re-embedding. A chunk is
+ * updated only when its text still matches the current parse, so chunks whose
+ * text changed are reported and left for a full re-parse.
+ */
+export async function refreshChunkMetadata(
+  documentId: string
+): Promise<MetadataRefresh> {
+  const document = await getDocumentById(documentId);
+  if (!document) throw new Error('Document not found');
+
+  const client = createServiceClient();
+  const { data, error } = await client.storage
+    .from('documents')
+    .download(document.storage_path);
+  if (error) throw new Error(`Failed to download PDF: ${error.message}`);
+
+  const buffer = Buffer.from(await data.arrayBuffer());
+  const { drafts, visualPages } = await parseDocumentBuffer(
+    buffer,
+    document.strategy
+  );
+  const stored = new Map(
+    (await listDocumentChunks(documentId)).map((row) => [row.chunk_index, row])
+  );
+
+  const result: MetadataRefresh = { updated: 0, unchanged: 0, mismatched: 0 };
+  for (const [index, draft] of drafts.entries()) {
+    const row = stored.get(index);
+    if (!row || row.content !== draft.content) {
+      result.mismatched += 1;
+      continue;
+    }
+    const chapter = draft.chapter ?? '';
+    const region = draft.region ?? '';
+    if (row.chapter === chapter && row.region === region) {
+      result.unchanged += 1;
+      continue;
+    }
+    await updateDocumentChunkMetadata(row.id, chapter, region);
+    result.updated += 1;
+  }
+
+  await setDocumentVisualPages(documentId, visualPages);
+  return result;
 }
