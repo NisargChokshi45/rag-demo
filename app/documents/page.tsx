@@ -193,10 +193,10 @@ export default function DocumentsPage() {
     chunks: DocumentChunk[];
   } | null>(null);
   const [loadingViewId, setLoadingViewId] = useState<string | null>(null);
-  const [reparseProgress, setReparseProgress] = useState<{
+  /* const [reparseProgress, setReparseProgress] = useState<{
     done: number;
     total: number;
-  } | null>(null);
+  } | null>(null); */
   const [reparseTarget, setReparseTarget] = useState<DocumentItem | null>(null);
   const reparsing = useSyncExternalStore(
     reparsingDocuments.subscribe,
@@ -377,7 +377,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const reparseAll = async () => {
+  /* const reparseAll = async () => {
     const confirmed = window.confirm(
       'Re-parse every document with its current document shape? Existing chunks are replaced and every chunk is embedded again, which uses embedding quota.'
     );
@@ -417,7 +417,7 @@ export default function DocumentsPage() {
           : null
       );
     }
-  };
+  }; */
 
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -505,7 +505,7 @@ export default function DocumentsPage() {
               <button
                 type="button"
                 onClick={openUploadModal}
-                disabled={reparseProgress !== null || reparsing.size > 0}
+                disabled={reparsing.size > 0}
                 className={buttonClass('primary', 'md')}
               >
                 <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
@@ -943,10 +943,7 @@ export default function DocumentsPage() {
                 const isReparsing = reparsing.has(document.id);
                 const reparseRemaining = reparsing.get(document.id);
                 const reparseDisabled =
-                  inProgress ||
-                  isUploading ||
-                  reparsing.size > 0 ||
-                  reparseProgress !== null;
+                  inProgress || isUploading || reparsing.size > 0;
                 return (
                   <article
                     key={document.id}
