@@ -506,6 +506,7 @@ export interface DocumentRecord {
   page_count: number;
   status: DocumentStatus;
   error: string | null;
+  visual_pages: number[];
   created_at: string;
 }
 
@@ -515,13 +516,31 @@ export interface DocumentChunkRow {
   chunk_index: number;
   kind: 'section' | 'text' | 'table' | 'footnote' | 'figure';
   section_path: string;
+  chapter: string;
+  region: string;
   page_start: number;
   page_end: number;
   content: string;
 }
 
+const CHUNK_COLUMNS =
+  'id, parent_id, chunk_index, kind, section_path, chapter, region, page_start, page_end, content';
+
 const DOCUMENT_COLUMNS =
-  'id, title, storage_path, strategy, page_count, status, error, created_at';
+  'id, title, storage_path, strategy, page_count, status, error, visual_pages, created_at';
+
+export async function setDocumentVisualPages(
+  documentId: string,
+  pages: number[]
+): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('documents')
+    .update({ visual_pages: pages })
+    .eq('id', documentId);
+
+  if (error) throw error;
+}
 
 export async function createDocument(input: {
   title: string;
@@ -576,12 +595,32 @@ export async function getDocumentById(
   return (data as DocumentRecord | null) ?? null;
 }
 
-export async function listDocuments(): Promise<DocumentRecord[]> {
+export interface ListDocumentsOptions {
+  search?: string;
+  sort?: 'title' | 'newest' | 'oldest';
+}
+
+export async function listDocuments(
+  options: ListDocumentsOptions = {}
+): Promise<DocumentRecord[]> {
   const client = createServiceClient();
-  const { data, error } = await client
-    .from('documents')
-    .select(DOCUMENT_COLUMNS)
-    .order('created_at', { ascending: false });
+  let query = client.from('documents').select(DOCUMENT_COLUMNS);
+
+  const search = options.search
+    ?.trim()
+    .replace(/[,%(){}.*]/g, ' ')
+    .slice(0, 100);
+  if (search) {
+    query = query.ilike('title', `%${search}%`);
+  }
+
+  const sort = options.sort || 'newest';
+  const { data, error } = await query.order(
+    sort === 'title' ? 'title' : 'created_at',
+    {
+      ascending: sort === 'oldest' || sort === 'title',
+    }
+  );
 
   if (error) throw error;
   return (data || []) as DocumentRecord[];
@@ -636,6 +675,39 @@ export async function countPendingDocumentChunks(
   return count ?? 0;
 }
 
+export async function countDocumentChunks(documentId: string): Promise<number> {
+  const client = createServiceClient();
+  const { count, error } = await client
+    .from('document_chunks')
+    .select('id', { count: 'exact', head: true })
+    .eq('document_id', documentId);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Removes every chunk of a document, keeping the document row itself. */
+export async function deleteDocumentChunks(documentId: string): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('document_chunks')
+    .delete()
+    .eq('document_id', documentId);
+
+  if (error) throw error;
+}
+
+/** Removes a document; its chunks go with it (ON DELETE CASCADE). */
+export async function deleteDocumentRecord(documentId: string): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('documents')
+    .delete()
+    .eq('id', documentId);
+
+  if (error) throw error;
+}
+
 export async function getPendingDocumentChunks(
   documentId: string,
   limit: number
@@ -674,11 +746,17 @@ export interface DocumentSearchHit extends DocumentChunkRow {
   score: number;
 }
 
+export interface DocumentSearchFilter {
+  region?: string | null;
+  chapter?: string | null;
+}
+
 export async function searchDocumentChunks(
   documentId: string,
   queryText: string,
   queryEmbedding: number[],
-  matchCount: number
+  matchCount: number,
+  filter: DocumentSearchFilter = {}
 ): Promise<DocumentSearchHit[]> {
   const client = createServiceClient();
   const { data, error } = await client.rpc('search_document_chunks', {
@@ -686,10 +764,133 @@ export async function searchDocumentChunks(
     p_query_text: queryText,
     p_query_embedding: JSON.stringify(queryEmbedding),
     p_match_count: matchCount,
+    p_region: filter.region ?? null,
+    p_chapter: filter.chapter ?? null,
   });
 
   if (error) throw error;
   return (data || []) as DocumentSearchHit[];
+}
+
+/**
+ * Counts, per region, the tagged chunks whose text mentions a term. Used to
+ * route a question that names a place (e.g. a country) to the region whose
+ * own passages discuss it. Untagged chunks are ignored, so summary tables
+ * outside the regional chapters do not vote.
+ */
+export async function countTermByRegion(
+  documentId: string,
+  term: string
+): Promise<Map<string, number>> {
+  const client = createServiceClient();
+  const pattern = term.replace(/[%_\\]/g, (char) => `\\${char}`);
+  const { data, error } = await client
+    .from('document_chunks')
+    .select('region')
+    .eq('document_id', documentId)
+    .neq('region', '')
+    .ilike('content', `%${pattern}%`);
+
+  if (error) throw error;
+  const counts = new Map<string, number>();
+  for (const row of (data || []) as Array<{ region: string }>) {
+    counts.set(row.region, (counts.get(row.region) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export async function updateDocumentChunkMetadata(
+  chunkId: string,
+  chapter: string,
+  region: string
+): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client
+    .from('document_chunks')
+    .update({ chapter, region })
+    .eq('id', chunkId);
+
+  if (error) throw error;
+}
+
+/** Pages that already have a figure chunk. */
+export async function figureChunkPages(
+  documentId: string
+): Promise<Set<number>> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select('page_start')
+    .eq('document_id', documentId)
+    .eq('kind', 'figure');
+
+  if (error) throw error;
+  return new Set(
+    ((data || []) as Array<{ page_start: number }>).map((row) => row.page_start)
+  );
+}
+
+/** Chapter and region of the first text chunk on a page, for tagging figures. */
+export async function getChunkMetaForPage(
+  documentId: string,
+  page: number
+): Promise<{ chapter: string; region: string } | null> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select('chapter, region')
+    .eq('document_id', documentId)
+    .neq('kind', 'figure')
+    .lte('page_start', page)
+    .gte('page_end', page)
+    .order('chunk_index', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as { chapter: string; region: string } | null) ?? null;
+}
+
+/** Descriptions already read by the vision model, keyed by page number. */
+export async function getDocumentFigures(
+  documentId: string
+): Promise<Map<number, { description: string; model: string }>> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_figures')
+    .select('page, description, model')
+    .eq('document_id', documentId);
+
+  if (error) throw error;
+  return new Map(
+    (
+      (data || []) as Array<{
+        page: number;
+        description: string;
+        model: string;
+      }>
+    ).map((row) => [
+      row.page,
+      { description: row.description, model: row.model },
+    ])
+  );
+}
+
+export async function upsertDocumentFigure(input: {
+  documentId: string;
+  page: number;
+  description: string;
+  model: string;
+}): Promise<void> {
+  const client = createServiceClient();
+  const { error } = await client.from('document_figures').upsert({
+    document_id: input.documentId,
+    page: input.page,
+    description: input.description,
+    model: input.model,
+  });
+
+  if (error) throw error;
 }
 
 export async function getDocumentChunksByIndex(
@@ -700,11 +901,24 @@ export async function getDocumentChunksByIndex(
   const client = createServiceClient();
   const { data, error } = await client
     .from('document_chunks')
-    .select(
-      'id, parent_id, chunk_index, kind, section_path, page_start, page_end, content'
-    )
+    .select(CHUNK_COLUMNS)
     .eq('document_id', documentId)
     .in('chunk_index', indexes);
+
+  if (error) throw error;
+  return (data || []) as DocumentChunkRow[];
+}
+
+/** All stored chunks for a document in reading order, without embeddings. */
+export async function listDocumentChunks(
+  documentId: string
+): Promise<DocumentChunkRow[]> {
+  const client = createServiceClient();
+  const { data, error } = await client
+    .from('document_chunks')
+    .select(CHUNK_COLUMNS)
+    .eq('document_id', documentId)
+    .order('chunk_index', { ascending: true });
 
   if (error) throw error;
   return (data || []) as DocumentChunkRow[];
@@ -717,9 +931,7 @@ export async function getDocumentChunksByIds(
   const client = createServiceClient();
   const { data, error } = await client
     .from('document_chunks')
-    .select(
-      'id, parent_id, chunk_index, kind, section_path, page_start, page_end, content'
-    )
+    .select(CHUNK_COLUMNS)
     .in('id', ids);
 
   if (error) throw error;
