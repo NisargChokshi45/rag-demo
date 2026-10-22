@@ -12,7 +12,15 @@ import {
   SkeletonCards,
   Spinner,
 } from '../components/ui';
-import { GridIcon, ListIcon, PlusIcon, ScreenIcon } from '../icons';
+import {
+  FileIcon,
+  GridIcon,
+  ListIcon,
+  ParsedDataIcon,
+  PlusIcon,
+  RefreshIcon,
+  ScreenIcon,
+} from '../icons';
 
 interface UploadProgress {
   filename: string;
@@ -717,14 +725,16 @@ export default function CandidatesPage() {
                           onClick={() => viewResume(candidate)}
                           className={buttonClass('primary', 'sm')}
                         >
-                          View resume
+                          <FileIcon />
+                          Resume
                         </button>
                         <button
                           type="button"
                           onClick={() => viewParsedResume(candidate)}
                           className={buttonClass('secondary', 'sm')}
                         >
-                          View parsed resume
+                          <ParsedDataIcon />
+                          Parsed resume
                         </button>
                         <button
                           type="button"
@@ -742,7 +752,10 @@ export default function CandidatesPage() {
                               Rescoring...
                             </>
                           ) : (
-                            'Re-score'
+                            <>
+                              <RefreshIcon />
+                              Re-score
+                            </>
                           )}
                         </button>
                       </div>
