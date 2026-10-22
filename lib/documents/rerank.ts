@@ -22,7 +22,11 @@ export type RerankMode = (typeof RERANK_MODES)[number];
 
 export const RERANK_KEEP = 6;
 const PASSAGE_CHARS = 1200;
-const RESERVED_KINDS: DocumentSearchHit['kind'][] = ['table', 'figure'];
+const RESERVED_KINDS: DocumentSearchHit['kind'][] = [
+  'table',
+  'figure',
+  'callout',
+];
 const RESERVED_WITHIN = 10;
 export const CROSS_ENCODER_MODEL =
   process.env.CROSS_ENCODER_MODEL || 'Xenova/ms-marco-MiniLM-L-6-v2';

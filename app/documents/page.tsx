@@ -48,7 +48,7 @@ interface UploadItem {
 interface DocumentChunk {
   id: string;
   chunk_index: number;
-  kind: 'section' | 'text' | 'table' | 'footnote' | 'figure';
+  kind: 'section' | 'text' | 'table' | 'footnote' | 'figure' | 'callout';
   section_path: string;
   page_start: number;
   page_end: number;
@@ -64,6 +64,7 @@ const CHUNK_KIND_LABEL: Record<
   table: { label: 'Table', tone: 'info' },
   footnote: { label: 'Footnote', tone: 'warning' },
   figure: { label: 'Figure', tone: 'success' },
+  callout: { label: 'Callout', tone: 'accent' },
 };
 
 const STRATEGIES: Array<{

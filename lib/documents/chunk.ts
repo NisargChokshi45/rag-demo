@@ -22,7 +22,8 @@ export const DOCUMENT_STRATEGIES = [
 ] as const;
 
 export type DocumentStrategy = (typeof DOCUMENT_STRATEGIES)[number];
-export type ChunkKind = 'section' | 'text' | 'table' | 'footnote' | 'figure';
+export type ChunkKind =
+  'section' | 'text' | 'table' | 'footnote' | 'figure' | 'callout';
 
 export interface ChunkDraft {
   kind: ChunkKind;

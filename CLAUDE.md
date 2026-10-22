@@ -58,7 +58,7 @@ Secrets live in `.env.local`, which is git-ignored. Never commit it or paste its
 - **Job scoping**: agent tools and searches must filter by `jobId`. Each job has its own candidate pool.
 - **Embedding calls are sequential**: use retry with exponential backoff (1s, 2s, 4s) and no `Promise.all`, to respect free-tier rate limits.
 - **Dimension sync**: `resume_chunks.embedding` is `vector(1536)` (migration 002). Keep `EMBEDDING_DIMENSIONS` in `lib/embeddings.ts` in step with it.
-- **Schema changes**: add a new numbered file in `supabase/migrations/` (the next is `019`). Don't edit migrations that have already been applied.
+- **Schema changes**: add a new numbered file in `supabase/migrations/` (the next is `020`). Don't edit migrations that have already been applied.
 - **Formatting** (`.prettierrc`): single quotes, semicolons, `trailingComma: es5`, 80 columns, 2-space indent, LF line endings. Run `pnpm format` on changed `ts`/`tsx` files.
 - **Agent limits**: `app/api/agent/route.ts` sets `maxDuration = 300` and `runtime = 'nodejs'`. The agent loop has a recursion limit of 25. `get_full_resume` is capped per screening in `lib/agent-tools.ts`, and tool results are truncated in the trace.
 - **Docs**: when a task changes status, update the matching checkbox in `FEATURES.md` / `TASKS.md`.

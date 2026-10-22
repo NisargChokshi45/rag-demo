@@ -514,7 +514,7 @@ export interface DocumentChunkRow {
   id: string;
   parent_id: string | null;
   chunk_index: number;
-  kind: 'section' | 'text' | 'table' | 'footnote' | 'figure';
+  kind: 'section' | 'text' | 'table' | 'footnote' | 'figure' | 'callout';
   section_path: string;
   chapter: string;
   region: string;
