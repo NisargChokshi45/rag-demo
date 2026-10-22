@@ -834,11 +834,11 @@ export async function figureChunkPages(
 export async function getChunkMetaForPage(
   documentId: string,
   page: number
-): Promise<{ chapter: string; region: string } | null> {
+): Promise<{ section_path: string; chapter: string; region: string } | null> {
   const client = createServiceClient();
   const { data, error } = await client
     .from('document_chunks')
-    .select('chapter, region')
+    .select('section_path, chapter, region')
     .eq('document_id', documentId)
     .neq('kind', 'figure')
     .lte('page_start', page)
@@ -848,7 +848,13 @@ export async function getChunkMetaForPage(
     .maybeSingle();
 
   if (error) throw error;
-  return (data as { chapter: string; region: string } | null) ?? null;
+  return (
+    (data as {
+      section_path: string;
+      chapter: string;
+      region: string;
+    } | null) ?? null
+  );
 }
 
 /** Descriptions already read by the vision model, keyed by page number. */

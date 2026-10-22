@@ -136,7 +136,7 @@ async function insertFigureChunk(
       parent_id: null,
       chunk_index: FIGURE_INDEX_BASE + page,
       kind: 'figure',
-      section_path: '',
+      section_path: meta?.section_path ?? '',
       chapter: meta?.chapter ?? '',
       region: meta?.region ?? '',
       page_start: page,
