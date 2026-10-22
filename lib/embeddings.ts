@@ -9,6 +9,33 @@ function formatEmbeddingInput(text: string, kind: 'document' | 'query') {
     : `task: search result | query: ${text}`;
 }
 
+/**
+ * Turns Gemini's quota response into a short sentence for the UI. The raw
+ * body is long JSON and includes the retry delay in seconds.
+ */
+function quotaMessage(details: string) {
+  let retryDelaySeconds: number | undefined;
+  try {
+    const body = JSON.parse(details) as {
+      error?: { details?: Array<{ retryDelay?: string }> };
+    };
+    const delay = body.error?.details?.find((item) => item.retryDelay);
+    retryDelaySeconds = delay?.retryDelay
+      ? Number.parseFloat(delay.retryDelay)
+      : undefined;
+  } catch {
+    retryDelaySeconds = undefined;
+  }
+
+  if (!retryDelaySeconds || !Number.isFinite(retryDelaySeconds)) {
+    return 'Embedding quota reached. Retry later.';
+  }
+  const totalMinutes = Math.ceil(retryDelaySeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `Embedding quota reached. Retry in about ${hours}h ${minutes}m.`;
+}
+
 async function embed(
   text: string,
   kind: 'document' | 'query'
@@ -32,6 +59,9 @@ async function embed(
 
   if (!response.ok) {
     const details = await response.text();
+    if (response.status === 429) {
+      throw new Error(quotaMessage(details));
+    }
     throw new Error(`Gemini embedding failed (${response.status}): ${details}`);
   }
 
