@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { Modal } from '../components/Modal';
 import {
@@ -12,7 +12,17 @@ import {
   SkeletonCards,
   Spinner,
 } from '../components/ui';
-import { CloseIcon, GridIcon, ListIcon, PlusIcon } from '../icons';
+import {
+  CloseIcon,
+  EyeIcon,
+  GridIcon,
+  ListIcon,
+  ParsedDataIcon,
+  PlusIcon,
+  RefreshIcon,
+  ScreenIcon,
+} from '../icons';
+import { reparsingDocuments } from '@/lib/client-progress';
 import { embedUntilReady, readJson } from '@/lib/documents/client';
 
 type Strategy = 'narrative' | 'long_structured' | 'element_rich';
@@ -33,6 +43,7 @@ interface DocumentItem {
   page_count: number;
   status: Status;
   error: string | null;
+  retry_at: string | null;
   created_at: string;
 }
 
@@ -91,8 +102,8 @@ const STRATEGIES: Array<{
   },
 ];
 
-// A failed embedding is shown as "Paused" with a Retry action. The stored
-// chunks are kept, so Retry resumes where the embedding stopped.
+// A failed embedding is shown as "Paused". Its stored chunks are kept until
+// Re-parse replaces them.
 const DOCUMENT_STATUS: Record<
   Status,
   { label: string; tone: 'warning' | 'success' }
@@ -128,6 +139,35 @@ const strategyLabel = (strategy: Strategy) =>
 
 const titleFromFilename = (filename: string) => filename.replace(/\.pdf$/i, '');
 
+const formatCountdown = (milliseconds: number) => {
+  const totalSeconds = Math.ceil(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  if (hours > 0) return `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+  if (minutes > 0) return `${minutes}m ${pad(seconds)}s`;
+  return `${seconds}s`;
+};
+
+// Counts down to the time Gemini's embedding quota resets. The clock runs in
+// the browser, but the target time is stored on the document, so a reload
+// shows the same deadline.
+function QuotaCountdown({ retryAt }: { retryAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const remaining = new Date(retryAt).getTime() - now;
+  if (remaining <= 0) {
+    return 'Embedding quota should be available again. Re-parse to finish indexing.';
+  }
+  return `Embedding quota reached. Retry in ${formatCountdown(remaining)}.`;
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,15 +193,16 @@ export default function DocumentsPage() {
     chunks: DocumentChunk[];
   } | null>(null);
   const [loadingViewId, setLoadingViewId] = useState<string | null>(null);
-  const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [retryRemaining, setRetryRemaining] = useState<number | null>(null);
   const [reparseProgress, setReparseProgress] = useState<{
     done: number;
     total: number;
   } | null>(null);
-  const [reparsingId, setReparsingId] = useState<string | null>(null);
-  const [reparseRemaining, setReparseRemaining] = useState<number | null>(null);
   const [reparseTarget, setReparseTarget] = useState<DocumentItem | null>(null);
+  const reparsing = useSyncExternalStore(
+    reparsingDocuments.subscribe,
+    reparsingDocuments.getSnapshot,
+    reparsingDocuments.getSnapshot
+  );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -252,8 +293,8 @@ export default function DocumentsPage() {
   };
 
   const uploadItem = async (item: UploadItem) => {
-    // Once the document row exists, an embedding error pauses it (retry from
-    // the list) instead of failing the upload.
+    // Once the document row exists, an embedding error pauses it (re-parse it
+    // from the list) instead of failing the upload.
     let documentId: string | null = null;
     try {
       updateItem(item.id, { status: 'uploading', error: undefined });
@@ -302,21 +343,6 @@ export default function DocumentsPage() {
     }
   };
 
-  const retryEmbedding = async (document: DocumentItem) => {
-    setRetryingId(document.id);
-    setRetryRemaining(null);
-    try {
-      await embedUntilReady(document.id, setRetryRemaining);
-    } catch {
-      // The route stores the latest error on the document, so the reload
-      // below shows it on the card.
-    } finally {
-      setRetryingId(null);
-      setRetryRemaining(null);
-      setReloadKey((key) => key + 1);
-    }
-  };
-
   // Re-parses one document and then embeds its chunks, one embed call at a
   // time, so each document stays within the embedding API's rate limits.
   const reparseOne = async (
@@ -333,11 +359,12 @@ export default function DocumentsPage() {
 
   const confirmReparseDocument = async (document: DocumentItem) => {
     setReparseTarget(null);
-    setReparsingId(document.id);
-    setReparseRemaining(null);
+    reparsingDocuments.set(document.id, null);
     setError(null);
     try {
-      await reparseOne(document, setReparseRemaining);
+      await reparseOne(document, (remaining) =>
+        reparsingDocuments.set(document.id, remaining)
+      );
     } catch (reparseError) {
       const message =
         reparseError instanceof Error
@@ -345,8 +372,7 @@ export default function DocumentsPage() {
           : 'Re-parse failed';
       setError(`Re-parse did not finish for ${document.title}: ${message}`);
     } finally {
-      setReparsingId(null);
-      setReparseRemaining(null);
+      reparsingDocuments.remove(document.id);
       setReloadKey((key) => key + 1);
     }
   };
@@ -457,14 +483,13 @@ export default function DocumentsPage() {
           }
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              {/* <button
                 type="button"
                 onClick={reparseAll}
                 disabled={
                   reparseProgress !== null ||
                   isUploading ||
-                  retryingId !== null ||
-                  reparsingId !== null ||
+                  reparsing.size > 0 ||
                   documents.length === 0
                 }
                 title="Re-parse every document with its current document shape"
@@ -476,16 +501,32 @@ export default function DocumentsPage() {
                 {reparseProgress
                   ? `Re-parsing ${reparseProgress.done}/${reparseProgress.total}…`
                   : 'Re-parse all'}
-              </button>
+              </button> */}
               <button
                 type="button"
                 onClick={openUploadModal}
-                disabled={reparseProgress !== null || reparsingId !== null}
+                disabled={reparseProgress !== null || reparsing.size > 0}
                 className={buttonClass('primary', 'md')}
               >
                 <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
                 Add Document
               </button>
+              {documents.length > 0 ? (
+                <Link href="/screen" className={buttonClass('success', 'md')}>
+                  <ScreenIcon />
+                  Screen Documents
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="Add documents before screening"
+                  className={buttonClass('success', 'md')}
+                >
+                  <ScreenIcon />
+                  Screen Documents
+                </button>
+              )}
             </div>
           }
         />
@@ -511,9 +552,7 @@ export default function DocumentsPage() {
                 <button
                   type="submit"
                   form="document-form"
-                  disabled={
-                    pendingCount === 0 || isUploading || retryingId !== null
-                  }
+                  disabled={pendingCount === 0 || isUploading}
                   className={buttonClass('primary', 'md', 'sm:min-w-40')}
                 >
                   {isUploading && <Spinner className="h-4 w-4 border-white" />}
@@ -662,7 +701,7 @@ export default function DocumentsPage() {
                         {item.status === 'paused' && (
                           <p className="text-sm text-amber-800">
                             {item.error} Find this document in the list and
-                            press Retry.
+                            press Re-parse.
                           </p>
                         )}
                         {item.status === 'error' && (
@@ -901,21 +940,22 @@ export default function DocumentsPage() {
                   document.status === 'processing' ||
                   document.status === 'embedding';
                 const isPaused = document.status === 'failed';
-                const isRetrying = retryingId === document.id;
-                const isReparsing = reparsingId === document.id;
+                const isReparsing = reparsing.has(document.id);
+                const reparseRemaining = reparsing.get(document.id);
                 const reparseDisabled =
                   inProgress ||
                   isUploading ||
-                  retryingId !== null ||
-                  reparsingId !== null ||
+                  reparsing.size > 0 ||
                   reparseProgress !== null;
                 return (
                   <article
                     key={document.id}
                     className={`flex flex-col rounded-xl border shadow-card transition hover:shadow-card-hover ${
-                      inProgress || isPaused
-                        ? 'border-amber-200 bg-amber-50'
-                        : 'border-slate-200 bg-surface'
+                      isReparsing
+                        ? 'border-blue-200 bg-blue-50'
+                        : inProgress || isPaused
+                          ? 'border-amber-200 bg-amber-50'
+                          : 'border-slate-200 bg-surface'
                     } ${viewMode === 'list' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'}`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -934,8 +974,12 @@ export default function DocumentsPage() {
 
                     {isPaused && (
                       <p className="mt-3 line-clamp-3 text-sm text-amber-800">
-                        {document.error ||
-                          'Embedding paused. Retry to finish indexing.'}
+                        {document.retry_at ? (
+                          <QuotaCountdown retryAt={document.retry_at} />
+                        ) : (
+                          document.error ||
+                          'Embedding paused. Re-parse to finish indexing.'
+                        )}
                       </p>
                     )}
 
@@ -949,8 +993,10 @@ export default function DocumentsPage() {
                         >
                           {loadingViewId === document.id ? (
                             <Spinner className="h-3 w-3 border-white" />
-                          ) : null}
-                          View document
+                          ) : (
+                            <EyeIcon />
+                          )}
+                          Document
                         </button>
                         <button
                           type="button"
@@ -958,67 +1004,43 @@ export default function DocumentsPage() {
                           disabled={loadingViewId === document.id}
                           className={buttonClass('secondary', 'sm')}
                         >
-                          View parsed document
+                          <ParsedDataIcon />
+                          Parsed document
                         </button>
-                        {isPaused && (
-                          <button
-                            type="button"
-                            onClick={() => retryEmbedding(document)}
-                            disabled={
-                              retryingId !== null ||
-                              isUploading ||
-                              reparsingId !== null ||
-                              reparseProgress !== null
-                            }
-                            className={buttonClass('secondary', 'sm')}
-                          >
-                            {isRetrying && (
-                              <Spinner className="h-3 w-3 border-slate-500" />
-                            )}
-                            {isRetrying
-                              ? retryRemaining && retryRemaining > 0
-                                ? `${retryRemaining} chunks left`
-                                : 'Retrying…'
-                              : 'Retry'}
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => setReparseTarget(document)}
                           disabled={reparseDisabled}
                           title="Re-parse this document with its current document shape"
-                          className={buttonClass('secondary', 'sm')}
-                        >
-                          {isReparsing && (
-                            <Spinner className="h-3 w-3 border-slate-500" />
-                          )}
-                          {isReparsing
-                            ? reparseRemaining && reparseRemaining > 0
-                              ? `${reparseRemaining} chunks left`
-                              : 'Re-parsing…'
-                            : 'Re-parse'}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <Link
-                          href={`/documents/${document.id}`}
                           className={buttonClass(
                             'secondary',
                             'sm',
                             'text-blue-700'
                           )}
                         >
-                          {document.status === 'ready'
-                            ? 'Ask questions'
-                            : 'Open'}
-                        </Link>
+                          {isReparsing ? (
+                            <>
+                              <Spinner className="h-3 w-3 border-blue-500" />
+                              {(reparseRemaining ?? 0) > 0
+                                ? `${reparseRemaining} chunks left`
+                                : 'Re-parsing…'}
+                            </>
+                          ) : (
+                            <>
+                              <RefreshIcon />
+                              Re-parse
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {/* <div className="flex items-center justify-center gap-3">
                         <time
                           dateTime={document.created_at}
                           className="text-xs text-slate-500"
                         >
                           {new Date(document.created_at).toLocaleDateString()}
                         </time>
-                      </div>
+                      </div> */}
                     </div>
                   </article>
                 );
