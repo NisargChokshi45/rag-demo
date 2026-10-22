@@ -506,6 +506,7 @@ export interface DocumentRecord {
   page_count: number;
   status: DocumentStatus;
   error: string | null;
+  retry_at: string | null;
   visual_pages: number[];
   created_at: string;
 }
@@ -527,7 +528,7 @@ const CHUNK_COLUMNS =
   'id, parent_id, chunk_index, kind, section_path, chapter, region, page_start, page_end, content';
 
 const DOCUMENT_COLUMNS =
-  'id, title, storage_path, strategy, page_count, status, error, visual_pages, created_at';
+  'id, title, storage_path, strategy, page_count, status, error, retry_at, visual_pages, created_at';
 
 export async function setDocumentVisualPages(
   documentId: string,
@@ -570,12 +571,17 @@ export async function createDocument(input: {
 export async function setDocumentStatus(
   documentId: string,
   status: DocumentStatus,
-  errorMessage: string | null = null
+  errorMessage: string | null = null,
+  retryAt: Date | null = null
 ): Promise<void> {
   const client = createServiceClient();
   const { error } = await client
     .from('documents')
-    .update({ status, error: errorMessage })
+    .update({
+      status,
+      error: errorMessage,
+      retry_at: retryAt?.toISOString() ?? null,
+    })
     .eq('id', documentId);
 
   if (error) throw error;

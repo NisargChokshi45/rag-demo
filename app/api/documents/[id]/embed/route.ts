@@ -9,6 +9,7 @@ import {
   setDocumentStatus,
 } from '@/lib/db';
 import { embedPendingChunks } from '@/lib/documents/ingest';
+import { EmbeddingQuotaError } from '@/lib/embeddings';
 
 // Stay well inside maxDuration so the response always reaches the client.
 const EMBED_BUDGET_MS = 200_000;
@@ -49,7 +50,10 @@ export async function POST(
     return NextResponse.json(progress);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Embedding failed';
-    await setDocumentStatus(id, 'failed', message).catch(() => undefined);
+    const retryAt = error instanceof EmbeddingQuotaError ? error.retryAt : null;
+    await setDocumentStatus(id, 'failed', message, retryAt).catch(
+      () => undefined
+    );
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

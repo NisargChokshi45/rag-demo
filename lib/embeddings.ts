@@ -10,10 +10,22 @@ function formatEmbeddingInput(text: string, kind: 'document' | 'query') {
 }
 
 /**
- * Turns Gemini's quota response into a short sentence for the UI. The raw
- * body is long JSON and includes the retry delay in seconds.
+ * Raised when Gemini rejects an embedding call with a 429. `retryAt` is the
+ * earliest time the call can succeed, or null when Gemini sent no delay.
  */
-function quotaMessage(details: string) {
+export class EmbeddingQuotaError extends Error {
+  readonly retryAt: Date | null;
+
+  constructor(details: string) {
+    const retryAt = quotaRetryAt(details);
+    super(quotaMessage(retryAt));
+    this.name = 'EmbeddingQuotaError';
+    this.retryAt = retryAt;
+  }
+}
+
+/** Reads the retry delay from Gemini's JSON body, which is long and noisy. */
+function quotaRetryAt(details: string): Date | null {
   let retryDelaySeconds: number | undefined;
   try {
     const body = JSON.parse(details) as {
@@ -27,10 +39,14 @@ function quotaMessage(details: string) {
     retryDelaySeconds = undefined;
   }
 
-  if (!retryDelaySeconds || !Number.isFinite(retryDelaySeconds)) {
-    return 'Embedding quota reached. Retry later.';
-  }
-  const totalMinutes = Math.ceil(retryDelaySeconds / 60);
+  if (!retryDelaySeconds || !Number.isFinite(retryDelaySeconds)) return null;
+  return new Date(Date.now() + retryDelaySeconds * 1000);
+}
+
+/** A short sentence for the UI, used when no retry time is known. */
+function quotaMessage(retryAt: Date | null) {
+  if (!retryAt) return 'Embedding quota reached. Retry later.';
+  const totalMinutes = Math.ceil((retryAt.getTime() - Date.now()) / 60_000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `Embedding quota reached. Retry in about ${hours}h ${minutes}m.`;
@@ -60,7 +76,7 @@ async function embed(
   if (!response.ok) {
     const details = await response.text();
     if (response.status === 429) {
-      throw new Error(quotaMessage(details));
+      throw new EmbeddingQuotaError(details);
     }
     throw new Error(`Gemini embedding failed (${response.status}): ${details}`);
   }
