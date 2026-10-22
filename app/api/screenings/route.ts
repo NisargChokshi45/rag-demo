@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       jobId,
+      documentId,
+      screeningType = 'job',
       query,
       report,
       status = report ? 'completed' : 'running',
@@ -98,6 +100,8 @@ export async function POST(request: NextRequest) {
       toolCalls = [],
     }: {
       jobId?: string;
+      documentId?: string;
+      screeningType?: 'job' | 'document';
       query: string;
       report?: ReportData;
       status?: 'running' | 'completed' | 'failed';
@@ -111,6 +115,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (screeningType !== 'job' && screeningType !== 'document') {
+      return NextResponse.json(
+        { error: 'screeningType must be job or document' },
+        { status: 400 }
+      );
+    }
+    if (screeningType === 'document' && !documentId) {
+      return NextResponse.json(
+        { error: 'documentId is required for document screenings' },
+        { status: 400 }
+      );
+    }
 
     const client = createServiceClient();
 
@@ -119,7 +135,9 @@ export async function POST(request: NextRequest) {
       .from('screenings')
       .insert({
         user_id: userId,
-        job_id: jobId || null,
+        screening_type: screeningType,
+        job_id: screeningType === 'job' ? jobId || null : null,
+        document_id: screeningType === 'document' ? documentId : null,
         query,
         summary: report?.summary || null,
         report: report || null,
@@ -169,7 +187,7 @@ export async function GET(request: NextRequest) {
     let query = client
       .from('screenings')
       .select(
-        'id, query, name, summary, job_id, created_at, report, status, metadata, tool_calls, feedback'
+        'id, query, name, summary, job_id, screening_type, document_id, created_at, report, status, metadata, tool_calls, feedback, documents(title)'
       )
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
