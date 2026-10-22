@@ -20,6 +20,8 @@ export interface PageItem {
   dir: string;
   hasEOL: boolean;
   bold: boolean;
+  /** Footnote number raised from this item, set by the layout pass. */
+  mark?: string;
 }
 
 const BOLD_NAME = /bold|black|heavy|semibold|demi/i;

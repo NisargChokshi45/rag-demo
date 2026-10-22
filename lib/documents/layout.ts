@@ -80,11 +80,31 @@ function isBold(item: PageItem): boolean {
  */
 function splitSuperscripts(
   items: PageItem[],
-  bodySize: number
+  bodySize: number,
+  rich: boolean
 ): { body: PageItem[]; marks: Superscript[] } {
   const body: PageItem[] = [];
   const marks: Superscript[] = [];
   for (const item of items) {
+    if (rich) {
+      // Rich mode: the marker is smaller than the item it follows, whatever
+      // the body size, and it is stored on that item so it stays in place.
+      const digits = item.str.trim();
+      const anchor = /^\d{1,3}$/.test(digits)
+        ? items.find(
+            (other) =>
+              other !== item &&
+              other.str.trim() !== '' &&
+              other.fontSize * 0.85 > item.fontSize &&
+              Math.abs(other.x + other.width - item.x) < 6 &&
+              item.y > other.y &&
+              item.y - other.y < other.fontSize * 0.8
+          )
+        : undefined;
+      if (anchor) anchor.mark = `[^${digits}]`;
+      else body.push(item);
+      continue;
+    }
     const digits = item.str.trim();
     const small = item.fontSize < bodySize * 0.8 && /^\d{1,3}$/.test(digits);
     const anchor = small
@@ -148,10 +168,11 @@ function buildLines(
     for (const item of ordered) {
       const gap = item.x - previousEnd;
       const cell = cells[cells.length - 1];
+      const str = item.str + (item.mark ?? '');
       if (!cell || gap > CELL_GAP) {
-        cells.push({ text: item.str, x0: item.x, x1: item.x + item.width });
+        cells.push({ text: str, x0: item.x, x1: item.x + item.width });
       } else {
-        cell.text += (gap > SPACE_GAP ? ' ' : '') + item.str;
+        cell.text += (gap > SPACE_GAP ? ' ' : '') + str;
         cell.x1 = item.x + item.width;
       }
       previousEnd = item.x + item.width;
@@ -290,11 +311,12 @@ function topDown(lines: TextLine[]) {
 function pageLines(
   items: PageItem[],
   page: number,
-  bodySize: number
+  bodySize: number,
+  rich: boolean
 ): TextLine[] {
   const visible = items.filter((item) => item.str.trim().length > 0);
   if (visible.length === 0) return [];
-  const { body, marks } = splitSuperscripts(visible, bodySize);
+  const { body, marks } = splitSuperscripts(visible, bodySize, rich);
   const lines = orderLines(body, page, bodySize);
   attachSuperscripts(lines, marks);
   return lines;
@@ -402,13 +424,22 @@ function insertTables(
   return ordered;
 }
 
-export async function extractLayout(data: Uint8Array): Promise<DocumentLayout> {
+export interface LayoutOptions {
+  /** element_rich: markers are placed on their own item, at any body size. */
+  richNotes?: boolean;
+}
+
+export async function extractLayout(
+  data: Uint8Array,
+  options: LayoutOptions = {}
+): Promise<DocumentLayout> {
   // pdf.js transfers the buffer to its worker, so the drawing pass gets a copy.
   const forDrawings = data.slice();
   const { totalPages, items } = await extractPageItems(data);
   const bodyFontSize = computeBodyFontSize(items);
   const bodyFamily = computeBodyFamily(items);
   const drawings = await extractDrawingPages(forDrawings, items);
+  const rich = options.richNotes === true;
 
   const lines = items.flatMap((pageItems, index) => {
     const drawing = drawings[index];
@@ -417,7 +448,7 @@ export async function extractLayout(data: Uint8Array): Promise<DocumentLayout> {
       (_, position) => !consumed.has(position)
     );
     return insertTables(
-      pageLines(remaining, index + 1, bodyFontSize),
+      pageLines(remaining, index + 1, bodyFontSize, rich),
       drawing.tables,
       index + 1,
       bodyFontSize
