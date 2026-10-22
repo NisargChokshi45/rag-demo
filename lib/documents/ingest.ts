@@ -49,8 +49,12 @@ export async function parseDocumentBuffer(
   buffer: Buffer,
   strategy: DocumentStrategy
 ) {
-  const layout = await extractLayout(new Uint8Array(buffer));
-  const blocks = buildBlocks(layout);
+  const layout = await extractLayout(new Uint8Array(buffer), {
+    richNotes: strategy === 'element_rich',
+  });
+  const blocks = buildBlocks(layout, {
+    richNotes: strategy === 'element_rich',
+  });
   const drafts = chunkBlocks(blocks, strategy);
   return {
     pageCount: layout.pageCount,

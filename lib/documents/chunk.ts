@@ -48,7 +48,7 @@ interface SectionMeta {
 const CHILD_CHARS = 900;
 const CHILD_OVERLAP_CHARS = 240;
 const PARENT_CHARS = 3300;
-const NOTE_CHARS = 500;
+const NOTE_CHARS = 700;
 
 const ABBREVIATIONS = new Set([
   'mr',
@@ -334,9 +334,24 @@ function buildSections(blocks: Block[], strategy: DocumentStrategy): Section[] {
       continue;
     }
 
-    if (strategy === 'element_rich') {
+    // Numbered notes and figure captions are their own chunks. Unnumbered
+    // small text (callout captions, chart labels) reads as prose.
+    if (
+      strategy === 'element_rich' &&
+      (block.type === 'figure' || block.type === 'callout')
+    ) {
       standalone({
-        kind: block.type === 'footnote' ? 'footnote' : 'figure',
+        kind: block.type,
+        sectionPath: path,
+        pageStart: page,
+        pageEnd: page,
+        content: block.text,
+      });
+      continue;
+    }
+    if (strategy === 'element_rich' && block.numbered) {
+      standalone({
+        kind: 'footnote',
         sectionPath: path,
         pageStart: page,
         pageEnd: page,
@@ -400,8 +415,9 @@ function pushWindows(drafts: ChunkDraft[], section: Section, units: Unit[]) {
   }
 }
 
-const NOTE_LABEL = /^\[?\^?(\d{1,3})\]?[.)]?\s+(\S[\s\S]*)$/;
+const NOTE_LABEL = /^\[?\^?(\d{1,3})\]?[.)]?\s*(\S[\s\S]*)$/;
 const NOTE_MARKER = /\[\^(\d{1,3})\]/g;
+const WORD_MARKER = /([a-z]{3,})(\d{1,2})(?=$|[\s.,;:)])/g;
 
 /**
  * Footnote markers ([^n]) in body text are replaced by the note text, so the
@@ -417,6 +433,13 @@ function linkFootnotes(drafts: ChunkDraft[]) {
 
   for (const draft of drafts) {
     if (draft.kind === 'footnote') continue;
+    // pdf.js joins a raised marker onto its word when both share a font size,
+    // e.g. "achieved7". Only a number that names an existing note counts.
+    draft.content = draft.content.replace(
+      WORD_MARKER,
+      (match, word: string, digits: string) =>
+        notes.has(Number(digits)) ? `${word}[^${digits}]` : match
+    );
     const refs = [...draft.content.matchAll(NOTE_MARKER)].map((m) =>
       Number(m[1])
     );
