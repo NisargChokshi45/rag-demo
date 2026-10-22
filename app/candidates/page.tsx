@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { Modal } from '../components/Modal';
+import { rescoringCandidates } from '@/lib/client-progress';
 import {
   Alert,
   Badge,
@@ -13,7 +14,7 @@ import {
   Spinner,
 } from '../components/ui';
 import {
-  FileIcon,
+  EyeIcon,
   GridIcon,
   ListIcon,
   ParsedDataIcon,
@@ -84,7 +85,11 @@ export default function CandidatesPage() {
     'name'
   );
   const [hasLoadedCandidates, setHasLoadedCandidates] = useState(false);
-  const [rescoreLoading, setRescoreLoading] = useState<Set<string>>(new Set());
+  const rescoring = useSyncExternalStore(
+    rescoringCandidates.subscribe,
+    rescoringCandidates.getSnapshot,
+    rescoringCandidates.getSnapshot
+  );
   const candidatesRequestId = useRef(0);
 
   const fetchCandidates = async () => {
@@ -324,7 +329,7 @@ export default function CandidatesPage() {
   };
 
   const rescoreCandidate = async (candidate: Candidate) => {
-    setRescoreLoading((prev) => new Set([...prev, candidate.id]));
+    rescoringCandidates.set(candidate.id, null);
     try {
       const response = await fetch(`/api/candidates/${candidate.id}`, {
         method: 'POST',
@@ -359,11 +364,7 @@ export default function CandidatesPage() {
         err instanceof Error ? err.message : 'Failed to rescore candidate'
       );
     } finally {
-      setRescoreLoading((prev) => {
-        const next = new Set(prev);
-        next.delete(candidate.id);
-        return next;
-      });
+      rescoringCandidates.remove(candidate.id);
     }
   };
 
@@ -675,7 +676,7 @@ export default function CandidatesPage() {
                 }
               >
                 {candidates.map((candidate) => {
-                  const isRescoring = rescoreLoading.has(candidate.id);
+                  const isRescoring = rescoring.has(candidate.id);
                   const canRescore =
                     candidate.needsRescore === true && !isRescoring;
                   const notIndexed = candidate.chunk_count === 0;
@@ -683,9 +684,11 @@ export default function CandidatesPage() {
                     <article
                       key={candidate.id}
                       className={`rounded-xl border shadow-card transition hover:shadow-card-hover ${
-                        notIndexed
-                          ? 'border-amber-200 bg-amber-50'
-                          : 'border-slate-200 bg-surface'
+                        isRescoring
+                          ? 'border-blue-200 bg-blue-50'
+                          : notIndexed
+                            ? 'border-amber-200 bg-amber-50'
+                            : 'border-slate-200 bg-surface'
                       } ${viewMode === 'list' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'}`}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -725,7 +728,7 @@ export default function CandidatesPage() {
                           onClick={() => viewResume(candidate)}
                           className={buttonClass('primary', 'sm')}
                         >
-                          <FileIcon />
+                          <EyeIcon />
                           Resume
                         </button>
                         <button
