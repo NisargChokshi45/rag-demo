@@ -3,7 +3,11 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAuth } from '@/lib/auth';
-import { getDocumentById, setDocumentStatus } from '@/lib/db';
+import {
+  countDocumentChunks,
+  getDocumentById,
+  setDocumentStatus,
+} from '@/lib/db';
 import { embedPendingChunks } from '@/lib/documents/ingest';
 
 // Stay well inside maxDuration so the response always reaches the client.
@@ -29,10 +33,16 @@ export async function POST(
       return NextResponse.json({ status: 'ready', remaining: 0 });
     }
     if (document.status === 'failed') {
-      return NextResponse.json(
-        { error: document.error || 'Document failed to process' },
-        { status: 409 }
-      );
+      // Chunks are stored before embedding starts, so a paused document
+      // resumes from its pending rows. With no stored chunks there is nothing
+      // to resume, and marking it ready would leave it unsearchable.
+      if ((await countDocumentChunks(id)) === 0) {
+        return NextResponse.json(
+          { error: 'This document has no stored text. Upload it again.' },
+          { status: 409 }
+        );
+      }
+      await setDocumentStatus(id, 'embedding');
     }
 
     const progress = await embedPendingChunks(id, EMBED_BUDGET_MS);

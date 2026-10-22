@@ -50,6 +50,7 @@ export async function POST(
       documentId: id,
       question: question.trim(),
       history: safeHistory,
+      strategy: document.strategy,
     });
     return NextResponse.json(answer);
   } catch (error) {

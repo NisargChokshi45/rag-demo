@@ -11,12 +11,20 @@ import {
 } from '@/lib/documents/chunk';
 import { createDocumentFromStorage } from '@/lib/documents/ingest';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authError = await validateAuth();
   if (authError) return authError;
 
   try {
-    const documents = await listDocuments();
+    const searchParams = new URL(request.url).searchParams;
+    const sortParam = searchParams.get('sort');
+    const sort =
+      sortParam === 'title' || sortParam === 'oldest' ? sortParam : 'newest';
+
+    const documents = await listDocuments({
+      search: searchParams.get('search') || undefined,
+      sort,
+    });
     return NextResponse.json({ documents });
   } catch (error) {
     return NextResponse.json(
