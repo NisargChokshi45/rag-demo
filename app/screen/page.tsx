@@ -25,6 +25,9 @@ type IconName =
 
 const INSPECTOR_WIDTH_SMALL = 380;
 const INSPECTOR_WIDTH_LARGE = 640;
+const HISTORY_WIDTH_DEFAULT = 256;
+const HISTORY_WIDTH_MIN = 256;
+const HISTORY_WIDTH_MAX = 420;
 
 function Icon({
   name,
@@ -329,7 +332,8 @@ export default function ScreenPage() {
     null
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(HISTORY_WIDTH_DEFAULT);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
@@ -963,6 +967,28 @@ export default function ScreenPage() {
     window.addEventListener('mouseup', onUp);
   };
 
+  const startSidebarResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    setIsResizingSidebar(true);
+    const onMove = (moveEvent: MouseEvent) => {
+      setSidebarWidth(
+        Math.min(
+          HISTORY_WIDTH_MAX,
+          Math.max(HISTORY_WIDTH_MIN, startWidth + moveEvent.clientX - startX)
+        )
+      );
+    };
+    const onUp = () => {
+      setIsResizingSidebar(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const renderReport = (reportToRender: ReportData, reportKey: string) => (
     <div className="w-full space-y-6">
       {reportToRender.summary && (
@@ -1405,36 +1431,29 @@ export default function ScreenPage() {
       <aside
         id="screening-history"
         aria-label="Screening session history"
-        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl transition-[transform,width] duration-200 md:static md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${sidebarExpanded ? 'w-96' : 'w-72'} ${
-          !sidebarOpen ? 'md:w-0' : sidebarExpanded ? 'md:w-96' : 'md:w-64'
+        style={
+          {
+            '--history-width': `${sidebarWidth}px`,
+          } as React.CSSProperties
+        }
+        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-72 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl md:relative md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none ${
+          isResizingSidebar ? '' : 'transition-[transform,width] duration-200'
+        } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${
+          !sidebarOpen ? 'md:w-0' : 'md:w-[var(--history-width)]'
         }`}
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize history sidebar"
+          onMouseDown={startSidebarResize}
+          className="absolute inset-y-0 right-0 z-10 hidden w-1.5 cursor-col-resize transition hover:bg-blue-400 md:block"
+          title="Resize history sidebar"
+        />
         <div className="border-b border-slate-200 p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="min-w-0 font-semibold text-slate-900">
-              Screening Session History
-            </h2>
-            <button
-              type="button"
-              onClick={() => setSidebarExpanded((expanded) => !expanded)}
-              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 md:flex"
-              aria-label={
-                sidebarExpanded
-                  ? 'Shrink history sidebar'
-                  : 'Expand history sidebar'
-              }
-              aria-pressed={sidebarExpanded}
-              title={
-                sidebarExpanded
-                  ? 'Shrink history sidebar'
-                  : 'Expand history sidebar'
-              }
-            >
-              <Icon name={sidebarExpanded ? 'shrink' : 'expand'} />
-            </button>
-          </div>
+          <h2 className="mb-3 font-semibold text-slate-900 text-center">
+            Screening Session History
+          </h2>
           <button
             onClick={() => {
               activeScreeningIdRef.current = null;
@@ -2092,7 +2111,7 @@ export default function ScreenPage() {
                         Candidates for a job
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        Screen the résumés in a job&apos;s candidate pool and
+                        Screen the resumes in a job&apos;s candidate pool and
                         get a scored, cited report.
                       </p>
                     </button>
@@ -2143,7 +2162,7 @@ export default function ScreenPage() {
                 <div
                   role="radiogroup"
                   aria-labelledby="screen-type-label"
-                  className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm"
+                  className="grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 text-sm"
                 >
                   {(
                     [
@@ -2158,10 +2177,10 @@ export default function ScreenPage() {
                       aria-checked={screenType === type}
                       disabled={isSessionLocked}
                       onClick={() => setScreenType(type)}
-                      className={`rounded-md px-3 py-1.5 font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`cursor-pointer rounded-md px-3 py-1.5 text-center font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 disabled:cursor-not-allowed ${
                         screenType === type
-                          ? 'bg-surface text-slate-900 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700'
+                          ? 'bg-white text-blue-700 shadow-sm ring-1 ring-blue-200'
+                          : 'text-slate-700 hover:bg-white/70 hover:text-slate-900 disabled:opacity-50'
                       }`}
                     >
                       {label}
