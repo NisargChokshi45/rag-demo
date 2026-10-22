@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { buttonClass, Spinner } from '../../components/ui';
 import { embedUntilReady, readJson } from '@/lib/documents/client';
 
 type Status = 'processing' | 'embedding' | 'ready' | 'failed';
@@ -14,6 +15,11 @@ interface DocumentDetail {
   page_count: number;
   status: Status;
   error: string | null;
+}
+
+async function fetchDocument(documentId: string): Promise<DocumentDetail> {
+  const body = await readJson(await fetch(`/api/documents/${documentId}`));
+  return body.document as DocumentDetail;
 }
 
 interface Citation {
@@ -51,6 +57,7 @@ export default function DocumentChatPage() {
   const [document, setDocument] = useState<DocumentDetail | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
@@ -61,25 +68,22 @@ export default function DocumentChatPage() {
 
     (async () => {
       try {
-        const body = await readJson(
-          await fetch(`/api/documents/${documentId}`)
-        );
+        const loaded = await fetchDocument(documentId);
         if (cancelled) return;
-        setDocument(body.document);
+        setDocument(loaded);
 
         // An interrupted upload resumes here, so chat is never left stuck.
-        if (
-          body.document.status === 'embedding' ||
-          body.document.status === 'processing'
-        ) {
-          await embedUntilReady(documentId, (left) => {
-            if (!cancelled) setRemaining(left);
-          });
+        if (loaded.status === 'embedding' || loaded.status === 'processing') {
+          try {
+            await embedUntilReady(documentId, (left) => {
+              if (!cancelled) setRemaining(left);
+            });
+          } catch {
+            // A failed run is stored on the document; the refresh below shows
+            // it with a Retry action instead of a page-level error.
+          }
           if (cancelled) return;
-          const refreshed = await readJson(
-            await fetch(`/api/documents/${documentId}`)
-          );
-          setDocument(refreshed.document);
+          setDocument(await fetchDocument(documentId));
         }
       } catch (error) {
         if (!cancelled) {
@@ -94,6 +98,26 @@ export default function DocumentChatPage() {
       cancelled = true;
     };
   }, [documentId]);
+
+  const retryEmbedding = async () => {
+    setRetrying(true);
+    setRemaining(null);
+    try {
+      await embedUntilReady(documentId, setRemaining);
+    } catch {
+      // Shown from the stored error after the refresh below.
+    } finally {
+      setRetrying(false);
+      setRemaining(null);
+      try {
+        setDocument(await fetchDocument(documentId));
+      } catch (error) {
+        setLoadError(
+          error instanceof Error ? error.message : 'Failed to load document'
+        );
+      }
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -177,8 +201,24 @@ export default function DocumentChatPage() {
         </div>
       )}
       {document.status === 'failed' && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          Processing failed: {document.error || 'unknown error'}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <span>
+            Embedding paused
+            {document.error ? `: ${document.error}` : '.'}
+          </span>
+          <button
+            type="button"
+            onClick={retryEmbedding}
+            disabled={retrying}
+            className={buttonClass('secondary', 'sm')}
+          >
+            {retrying && <Spinner className="h-3 w-3 border-slate-500" />}
+            {retrying
+              ? remaining !== null && remaining > 0
+                ? `${remaining} chunks left`
+                : 'Retrying…'
+              : 'Retry'}
+          </button>
         </div>
       )}
 
