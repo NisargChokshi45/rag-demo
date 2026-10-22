@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { updateScreeningFeedback } from '@/lib/screenings-api';
 import { MenuIcon, TrashIcon } from '../icons';
 import { FEATURE_FLAGS } from '@/lib/config';
+import type { DocumentAnswer, GraphTurn } from '@/lib/documents/graph';
 import { Modal } from '../components/Modal';
 import { Alert, buttonClass, Spinner } from '../components/ui';
 
@@ -17,7 +19,12 @@ type IconName =
   | 'user'
   | 'assistant'
   | 'citation'
+  | 'expand'
+  | 'shrink'
   | 'close';
+
+const INSPECTOR_WIDTH_SMALL = 380;
+const INSPECTOR_WIDTH_LARGE = 640;
 
 function Icon({
   name,
@@ -69,6 +76,8 @@ function Icon({
         <path d="M14 4v4h4M8 12h8M8 16h6" />
       </>
     ),
+    expand: <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />,
+    shrink: <path d="M9 4v5H4M15 20v-5h5M4 9l6-6M20 15l-6 6" />,
     close: <path d="m6 6 12 12M18 6 6 18" />,
   }[name];
 
@@ -153,11 +162,22 @@ interface ReportMessage {
   report: Omit<ReportData, 'query'> & { query: string };
 }
 
+type ScreenType = 'job' | 'document';
+
+interface DocumentOption {
+  id: string;
+  title: string;
+  status: 'processing' | 'embedding' | 'ready' | 'failed';
+}
+
 interface ScreeningHistory {
   id: string;
   query: string;
   name?: string | null;
+  screeningType: ScreenType;
   jobId?: string | null;
+  documentId?: string | null;
+  documentTitle?: string | null;
   timestamp: number;
   report: ReportData | null;
   feedback?: 'like' | 'dislike' | null;
@@ -172,8 +192,68 @@ interface ConversationMessage {
   content: string;
 }
 
+// Document screenings store the DocumentAnswer JSON as the assistant turn.
+function parseDocumentAnswer(content: string): DocumentAnswer | null {
+  try {
+    const parsed = JSON.parse(content) as Partial<DocumentAnswer> | null;
+    return parsed &&
+      typeof parsed.answer === 'string' &&
+      Array.isArray(parsed.citations)
+      ? (parsed as DocumentAnswer)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderDocumentAnswer(answer: DocumentAnswer, answerKey: string) {
+  return (
+    <div className="w-full space-y-4">
+      <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+        {answer.answer}
+      </p>
+      {!answer.answerable && (
+        <p className="text-xs text-amber-700">
+          The document does not clearly answer this question.
+        </p>
+      )}
+      {answer.unverifiedNumbers.length > 0 && (
+        <p className="text-xs text-amber-700">
+          Check these figures against the source:{' '}
+          {answer.unverifiedNumbers.join(', ')}
+        </p>
+      )}
+      {answer.citations.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">
+            Citations
+          </h3>
+          {answer.citations.map((citation) => (
+            <article
+              key={`${answerKey}-${citation.label}`}
+              className="rounded-lg border border-gray-200 bg-surface p-3"
+            >
+              <p className="text-xs text-gray-500">
+                <span className="font-medium text-gray-700">
+                  {citation.label}
+                </span>{' '}
+                · {citation.pages} · {citation.kind}
+                {citation.sectionPath && <> · {citation.sectionPath}</>}
+              </p>
+              <p className="mt-2 text-sm text-gray-700">{citation.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getConversationPreview(message: ConversationMessage): string {
   if (message.role === 'user') return message.content;
+
+  const documentAnswer = parseDocumentAnswer(message.content);
+  if (documentAnswer) return documentAnswer.answer;
 
   try {
     const parsed = JSON.parse(message.content) as ReportData;
@@ -233,6 +313,13 @@ export default function ScreenPage() {
   const [query, setQuery] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
+  const [screenType, setScreenType] = useState<ScreenType | null>(null);
+  const [documents, setDocuments] = useState<DocumentOption[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<'all' | ScreenType>('all');
+  const [documentAnswer, setDocumentAnswer] = useState<DocumentAnswer | null>(
+    null
+  );
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -241,8 +328,8 @@ export default function ScreenPage() {
   const [activeScreeningId, setActiveScreeningId] = useState<string | null>(
     null
   );
-  const [isHistorySession, setIsHistorySession] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
@@ -264,7 +351,7 @@ export default function ScreenPage() {
   const [currentReportIndex, setCurrentReportIndex] = useState<number | null>(
     null
   );
-  const [inspectorWidth, setInspectorWidth] = useState(380);
+  const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_WIDTH_SMALL);
   const [progress, setProgress] = useState<string>('');
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
@@ -288,6 +375,7 @@ export default function ScreenPage() {
         conversation: ConversationMessage[];
         toolCalls: ToolCall[];
         report: ReportData | null;
+        documentAnswer: DocumentAnswer | null;
         progress: string;
       }
     >
@@ -323,7 +411,11 @@ export default function ScreenPage() {
             id: s.id,
             query: s.query,
             name: s.name,
+            // Rows from before migration 017 have no type and are job screenings.
+            screeningType: s.screening_type === 'document' ? 'document' : 'job',
             jobId: s.job_id,
+            documentId: s.document_id,
+            documentTitle: s.documents?.title ?? null,
             timestamp: new Date(s.created_at).getTime(),
             report: s.report,
             feedback: s.feedback,
@@ -360,14 +452,29 @@ export default function ScreenPage() {
       window.location.search
     ).get('screeningId');
     loadHistory();
+    // A job deep link (e.g. from the jobs page) skips the source chooser.
+    const jobIdParam = new URLSearchParams(window.location.search).get('jobId');
+    if (jobIdParam) setScreenType('job');
+    fetch('/api/documents')
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || 'Unable to load documents');
+        setDocuments(data.documents);
+      })
+      .catch((loadError) =>
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Unable to load documents'
+        )
+      );
     fetch('/api/jobs')
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to load jobs');
         setJobs(data.jobs);
-        setSelectedJobId(
-          new URLSearchParams(window.location.search).get('jobId') || ''
-        );
+        setSelectedJobId(jobIdParam || '');
       })
       .catch((loadError) =>
         setError(
@@ -393,11 +500,14 @@ export default function ScreenPage() {
   }, [editingSubmittedQuery, isEditingSubmittedQuery]);
 
   const createSession = async (q: string) => {
+    const isDocumentSession = screenType === 'document';
     const response = await fetch('/api/screenings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jobId: selectedJobId || undefined,
+        screeningType: isDocumentSession ? 'document' : 'job',
+        jobId: isDocumentSession ? undefined : selectedJobId || undefined,
+        documentId: isDocumentSession ? selectedDocumentId : undefined,
         query: q,
         status: 'running',
       }),
@@ -416,6 +526,7 @@ export default function ScreenPage() {
       conversation: [],
       toolCalls: [],
       report: null,
+      documentAnswer: null,
       progress: '',
     });
 
@@ -424,7 +535,13 @@ export default function ScreenPage() {
       id: screeningId,
       query: q,
       name: null,
-      jobId: selectedJobId || undefined,
+      screeningType: isDocumentSession ? 'document' : 'job',
+      jobId: isDocumentSession ? null : selectedJobId || undefined,
+      documentId: isDocumentSession ? selectedDocumentId : null,
+      documentTitle: isDocumentSession
+        ? (documents.find((doc) => doc.id === selectedDocumentId)?.title ??
+          null)
+        : null,
       timestamp: Date.now(),
       report: null,
       feedback: null,
@@ -465,7 +582,6 @@ export default function ScreenPage() {
 
   const loadFromHistory = async (item: ScreeningHistory) => {
     updateScreeningUrl(item.id);
-    setIsHistorySession(true);
     activeScreeningIdRef.current = item.id;
     setActiveScreeningId(item.id);
     setIsEditingSubmittedQuery(false);
@@ -474,6 +590,9 @@ export default function ScreenPage() {
     setError(null);
     setMessageFeedback({});
     setCurrentReportIndex(null);
+    setDocumentAnswer(null);
+    setScreenType(item.screeningType);
+    setSelectedDocumentId(item.documentId || '');
 
     // Check if this session is currently being streamed
     const liveSession = liveSessionsRef.current.get(item.id);
@@ -484,6 +603,7 @@ export default function ScreenPage() {
       setToolCalls(liveSession.toolCalls);
       setConversation(liveSession.conversation);
       setReport(liveSession.report);
+      setDocumentAnswer(liveSession.documentAnswer);
       setProgress(liveSession.progress);
       return;
     }
@@ -509,6 +629,7 @@ export default function ScreenPage() {
         setConversation(conv);
         setIsLoading(screening.status === 'running');
         setSelectedJobId(screening.job_id || '');
+        setSelectedDocumentId(screening.document_id || '');
 
         const hasAssessments =
           screening.screening_assessments &&
@@ -545,7 +666,22 @@ export default function ScreenPage() {
             ...call,
           }))
         );
-        setReport(report);
+        if (screening.screening_type === 'document') {
+          // Document sessions show the last stored answer, not a candidate report.
+          setReport(null);
+          setDocumentAnswer(
+            [...conv]
+              .reverse()
+              .map((message: ConversationMessage) =>
+                message.role === 'assistant'
+                  ? parseDocumentAnswer(message.content)
+                  : null
+              )
+              .find((answer: DocumentAnswer | null) => answer !== null) ?? null
+          );
+        } else {
+          setReport(report);
+        }
 
         if (conv.length > 0 && conv[conv.length - 1].role === 'assistant') {
           setCurrentReportIndex(conv.length - 1);
@@ -803,6 +939,13 @@ export default function ScreenPage() {
     setInspector('chunks');
   };
 
+  // Toggle between the small and large preset widths. Dragging the edge still
+  // resizes freely; this button snaps back to whichever preset is next.
+  const toggleInspectorWidth = () => {
+    const isLarge = inspectorWidth >= INSPECTOR_WIDTH_LARGE;
+    setInspectorWidth(isLarge ? INSPECTOR_WIDTH_SMALL : INSPECTOR_WIDTH_LARGE);
+  };
+
   const startInspectorResize = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -940,8 +1083,95 @@ export default function ScreenPage() {
     </div>
   );
 
+  // Document screenings answer from one document via its cited chat endpoint.
+  // The call is not streamed, so the answer is persisted once it arrives.
+  const submitDocumentQuery = async (screeningQuery: string) => {
+    if (!selectedDocumentId) {
+      setIsLoading(false);
+      setError('Choose a document to screen.');
+      return;
+    }
+
+    let screeningId: string | null = activeScreeningIdRef.current;
+    const baseConversation = [...conversation];
+
+    try {
+      if (!screeningId) {
+        screeningId = await createSession(screeningQuery);
+        updateScreeningUrl(screeningId);
+        activeScreeningIdRef.current = screeningId;
+        setActiveScreeningId(screeningId);
+      }
+
+      const history: GraphTurn[] = baseConversation.map((message) => ({
+        role: message.role,
+        content:
+          parseDocumentAnswer(message.content)?.answer ?? message.content,
+      }));
+      const response = await fetch(
+        `/api/documents/${selectedDocumentId}/chat`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: screeningQuery, history }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Document screening failed');
+      }
+
+      const answer = data as DocumentAnswer;
+      const isActiveSession = activeScreeningIdRef.current === screeningId;
+      const liveSession = liveSessionsRef.current.get(screeningId);
+      if (liveSession) liveSession.documentAnswer = answer;
+
+      const nextConversation: ConversationMessage[] = [
+        ...baseConversation,
+        { role: 'user', content: screeningQuery },
+        { role: 'assistant', content: JSON.stringify(answer) },
+      ];
+      if (isActiveSession) {
+        setDocumentAnswer(answer);
+        setConversation(nextConversation);
+        setCurrentReportIndex(nextConversation.length - 1);
+      }
+      await finalizeSession(
+        screeningId,
+        { query: screeningQuery, summary: answer.answer },
+        [],
+        nextConversation
+      );
+      await loadHistory(true);
+      liveSessionsRef.current.delete(screeningId);
+    } catch (err) {
+      if (screeningId) {
+        try {
+          await finalizeSession(
+            screeningId,
+            { query: screeningQuery },
+            [],
+            baseConversation,
+            'failed'
+          );
+          await loadHistory(true);
+        } catch (persistError) {
+          console.error('Failed to persist screening failure:', persistError);
+        }
+        liveSessionsRef.current.delete(screeningId);
+      }
+      if (activeScreeningIdRef.current === screeningId) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    } finally {
+      if (activeScreeningIdRef.current === screeningId) {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const submitQuery = async (screeningQuery: string) => {
-    if (!screeningQuery.trim()) return;
+    if (!screeningQuery.trim() || !screenType) return;
     setSubmittedQuery(screeningQuery);
     setIsEditingSubmittedQuery(false);
     setEditingSubmittedQuery('');
@@ -950,8 +1180,14 @@ export default function ScreenPage() {
     setError(null);
     setToolCalls([]);
     setReport(null);
+    setDocumentAnswer(null);
     setCurrentReportIndex(null);
     setProgress('Starting analysis...');
+
+    if (screenType === 'document') {
+      await submitDocumentQuery(screeningQuery);
+      return;
+    }
 
     let screeningId: string | null = activeScreeningIdRef.current;
     let reportData: ReportData | null = null;
@@ -1142,6 +1378,13 @@ export default function ScreenPage() {
     void submitQuery(query.trim());
   };
 
+  // The source and its dropdown are fixed once a session exists, since the
+  // job pool or document is set when the session is created.
+  const isSessionLocked = isLoading || activeScreeningId !== null;
+  const canSubmit =
+    screenType === 'job' ||
+    (screenType === 'document' && selectedDocumentId !== '');
+
   const previousConversation =
     currentReportIndex !== null
       ? conversation.slice(0, currentReportIndex - 1)
@@ -1162,17 +1405,38 @@ export default function ScreenPage() {
       <aside
         id="screening-history"
         aria-label="Screening session history"
-        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-72 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl transition-transform duration-200 md:static md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none md:transition-[width] ${
+        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl transition-[transform,width] duration-200 md:static md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${sidebarOpen ? 'md:w-64' : 'md:w-0'}`}
+        } ${sidebarExpanded ? 'w-96' : 'w-72'} ${
+          !sidebarOpen ? 'md:w-0' : sidebarExpanded ? 'md:w-96' : 'md:w-64'
+        }`}
       >
         <div className="border-b border-slate-200 p-4">
-          <h2 className="mb-3 font-semibold text-slate-900">
-            Screening Session History
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="min-w-0 font-semibold text-slate-900">
+              Screening Session History
+            </h2>
+            <button
+              type="button"
+              onClick={() => setSidebarExpanded((expanded) => !expanded)}
+              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 md:flex"
+              aria-label={
+                sidebarExpanded
+                  ? 'Shrink history sidebar'
+                  : 'Expand history sidebar'
+              }
+              aria-pressed={sidebarExpanded}
+              title={
+                sidebarExpanded
+                  ? 'Shrink history sidebar'
+                  : 'Expand history sidebar'
+              }
+            >
+              <Icon name={sidebarExpanded ? 'shrink' : 'expand'} />
+            </button>
+          </div>
           <button
             onClick={() => {
-              setIsHistorySession(false);
               activeScreeningIdRef.current = null;
               setActiveScreeningId(null);
               updateScreeningUrl(null);
@@ -1181,6 +1445,9 @@ export default function ScreenPage() {
               setQuery('');
               setSubmittedQuery('');
               setReport(null);
+              setDocumentAnswer(null);
+              setScreenType(null);
+              setSelectedDocumentId('');
               setToolCalls([]);
               setMessageFeedback({});
               setCurrentReportIndex(null);
@@ -1191,6 +1458,31 @@ export default function ScreenPage() {
             <span className="text-base leading-none">+</span>
             New Session
           </button>
+          <div
+            role="group"
+            aria-label="Filter screening history"
+            className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1 text-xs"
+          >
+            {(['all', 'job', 'document'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={historyFilter === filter}
+                onClick={() => setHistoryFilter(filter)}
+                className={`rounded-md px-2 py-1 font-medium transition ${
+                  historyFilter === filter
+                    ? 'bg-surface text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {filter === 'all'
+                  ? 'All'
+                  : filter === 'job'
+                    ? 'Jobs'
+                    : 'Documents'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -1202,74 +1494,97 @@ export default function ScreenPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 hover:bg-gray-50 transition group border-b border-gray-100 flex items-start justify-between gap-2"
-                >
-                  <button
-                    onClick={() => {
-                      void loadFromHistory(item);
-                      closeSidebarOnMobile();
-                    }}
-                    className="min-w-0 flex-1 rounded text-left"
+              {history
+                .filter(
+                  (item) =>
+                    historyFilter === 'all' ||
+                    item.screeningType === historyFilter
+                )
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3 hover:bg-gray-50 transition group border-b border-gray-100 flex items-start justify-between gap-2"
                   >
-                    <p className="text-xs text-gray-500 mb-1">
-                      {new Date(item.timestamp).toLocaleDateString()} at{' '}
-                      {new Date(item.timestamp).toLocaleTimeString()}
-                    </p>
-                    <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
-                      {item.name || item.query}
-                    </p>
-                    {item.report && item.report.assessments && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {item.report.assessments.length} candidates
+                    <button
+                      onClick={() => {
+                        void loadFromHistory(item);
+                        closeSidebarOnMobile();
+                      }}
+                      className="min-w-0 flex-1 rounded text-left"
+                    >
+                      <p className="text-xs text-gray-500 mb-1">
+                        {new Date(item.timestamp).toLocaleDateString()} at{' '}
+                        {new Date(item.timestamp).toLocaleTimeString()}
+                        <span
+                          className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            item.screeningType === 'document'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}
+                        >
+                          {item.screeningType === 'document'
+                            ? 'Document'
+                            : 'Job'}
+                        </span>
                       </p>
-                    )}
-                  </button>
-                  <div className="flex-shrink-0 flex items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditingSessionId(item.id);
-                        setEditingSessionName(item.name || item.query);
-                      }}
-                      className="text-gray-400 hover:text-blue-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-                      title="Edit screening name"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="16"
-                        height="16"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                        className="block h-4 w-4 shrink-0"
+                      <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600">
+                        {item.name || item.query}
+                      </p>
+                      {item.screeningType === 'document' && (
+                        <p className="text-xs text-gray-400 mt-1 truncate">
+                          {item.documentTitle || 'Deleted document'}
+                        </p>
+                      )}
+                      {item.screeningType === 'job' &&
+                        item.report?.assessments && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {item.report.assessments.length} candidates
+                          </p>
+                        )}
+                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditingSessionId(item.id);
+                          setEditingSessionName(item.name || item.query);
+                        }}
+                        className="text-gray-400 hover:text-blue-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                        title="Edit screening name"
                       >
-                        <path d="m4 20 4.5-1 9.7-9.7a2.1 2.1 0 0 0-3-3L5.5 16 4 20Zm9.8-12.8 3 3" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setDeleteError(null);
-                        setDeletingSessionId(item.id);
-                      }}
-                      disabled={
-                        process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE ===
-                        'true'
-                      }
-                      className="text-gray-400 hover:text-red-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
-                      title="Delete screening"
-                    >
-                      <TrashIcon />
-                    </button>
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                          className="block h-4 w-4 shrink-0"
+                        >
+                          <path d="m4 20 4.5-1 9.7-9.7a2.1 2.1 0 0 0-3-3L5.5 16 4 20Zm9.8-12.8 3 3" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setDeleteError(null);
+                          setDeletingSessionId(item.id);
+                        }}
+                        disabled={
+                          process.env.NEXT_PUBLIC_DISABLE_SESSION_DELETE ===
+                          'true'
+                        }
+                        className="text-gray-400 hover:text-red-600 transition p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                        title="Delete screening"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </div>
@@ -1352,7 +1667,15 @@ export default function ScreenPage() {
                             : ''
                         }
                       >
-                        {getConversationReport(message) ? (
+                        {message.role === 'assistant' &&
+                        parseDocumentAnswer(message.content) ? (
+                          renderDocumentAnswer(
+                            parseDocumentAnswer(
+                              message.content
+                            ) as DocumentAnswer,
+                            `conversation-${index}`
+                          )
+                        ) : getConversationReport(message) ? (
                           renderReport(
                             getConversationReport(message) as ReportData,
                             `conversation-${index}`
@@ -1614,7 +1937,7 @@ export default function ScreenPage() {
             )}
 
             {/* Final Report */}
-            {report && (
+            {(report || documentAnswer) && (
               <>
                 <div className="flex items-start justify-start gap-2">
                   <span
@@ -1624,13 +1947,19 @@ export default function ScreenPage() {
                   >
                     <Icon name="assistant" size="lg" />
                   </span>
-                  {renderReport(report, 'current-report')}
+                  {report
+                    ? renderReport(report, 'current-report')
+                    : documentAnswer &&
+                      renderDocumentAnswer(documentAnswer, 'current-report')}
                 </div>
                 <div className="ml-10 flex items-start justify-start gap-1 text-gray-500">
                   <button
                     type="button"
                     onClick={() =>
-                      copyText(report.text || JSON.stringify(report, null, 2))
+                      copyText(
+                        documentAnswer?.answer ??
+                          (report?.text || JSON.stringify(report, null, 2))
+                      )
                     }
                     className="rounded p-2 hover:bg-gray-100 hover:text-gray-900"
                     aria-label="Copy agent response"
@@ -1727,7 +2056,7 @@ export default function ScreenPage() {
               </>
             )}
 
-            {isLoading && !report && (
+            {isLoading && !report && !documentAnswer && (
               <div className="flex justify-start">
                 <div className="flex max-w-[85%] items-center gap-3 rounded-lg bg-surface px-4 py-4 border border-gray-200">
                   <div className="flex gap-1">
@@ -1740,7 +2069,51 @@ export default function ScreenPage() {
               </div>
             )}
 
-            {!report &&
+            {screenType === null &&
+              !activeScreeningId &&
+              !submittedQuery &&
+              conversation.length === 0 && (
+                <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 py-12 text-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      What would you like to screen?
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Choose a source to start a new screening session.
+                    </p>
+                  </div>
+                  <div className="grid w-full max-w-xl gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setScreenType('job')}
+                      className="rounded-lg border border-slate-200 bg-surface p-5 text-left transition hover:border-blue-400 hover:shadow-md"
+                    >
+                      <p className="font-semibold text-slate-900">
+                        Candidates for a job
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Screen the résumés in a job&apos;s candidate pool and
+                        get a scored, cited report.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScreenType('document')}
+                      className="rounded-lg border border-slate-200 bg-surface p-5 text-left transition hover:border-emerald-400 hover:shadow-md"
+                    >
+                      <p className="font-semibold text-slate-900">Documents</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Ask screening questions of an uploaded document and get
+                        answers with citations.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {screenType !== null &&
+              !report &&
+              !documentAnswer &&
               !isLoading &&
               !submittedQuery &&
               !query.trim() &&
@@ -1761,27 +2134,107 @@ export default function ScreenPage() {
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-2">
               <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="job"
+                <span
+                  id="screen-type-label"
                   className="text-xs font-medium text-gray-700"
                 >
-                  Screen for job (optional)
-                </label>
-                <select
-                  id="job"
-                  value={selectedJobId}
-                  onChange={(e) => setSelectedJobId(e.target.value)}
-                  className="select-control w-full text-sm"
-                  disabled={isLoading || isHistorySession}
+                  What to screen
+                </span>
+                <div
+                  role="radiogroup"
+                  aria-labelledby="screen-type-label"
+                  className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm"
                 >
-                  <option value="">General screening criteria</option>
-                  {jobs.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.title} - {job.skills.join(', ')}
-                    </option>
+                  {(
+                    [
+                      ['job', 'Candidates for a job'],
+                      ['document', 'Documents'],
+                    ] as const
+                  ).map(([type, label]) => (
+                    <button
+                      key={type}
+                      type="button"
+                      role="radio"
+                      aria-checked={screenType === type}
+                      disabled={isSessionLocked}
+                      onClick={() => setScreenType(type)}
+                      className={`rounded-md px-3 py-1.5 font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                        screenType === type
+                          ? 'bg-surface text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
+              {screenType === 'job' && (
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="job"
+                    className="text-xs font-medium text-gray-700"
+                  >
+                    Screen for job (optional)
+                  </label>
+                  <select
+                    id="job"
+                    value={selectedJobId}
+                    onChange={(e) => setSelectedJobId(e.target.value)}
+                    className="select-control w-full text-sm"
+                    disabled={isSessionLocked}
+                  >
+                    <option value="">General screening criteria</option>
+                    {jobs.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.title} - {job.skills.join(', ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {screenType === 'document' && (
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="document"
+                    className="text-xs font-medium text-gray-700"
+                  >
+                    Document to screen (required)
+                  </label>
+                  <select
+                    id="document"
+                    value={selectedDocumentId}
+                    onChange={(e) => setSelectedDocumentId(e.target.value)}
+                    className="select-control w-full text-sm"
+                    disabled={isSessionLocked}
+                  >
+                    <option value="">
+                      {activeScreeningId
+                        ? 'Original document is no longer available'
+                        : 'Choose a document'}
+                    </option>
+                    {documents.map((doc) => (
+                      <option
+                        key={doc.id}
+                        value={doc.id}
+                        disabled={doc.status !== 'ready'}
+                      >
+                        {doc.title}
+                        {doc.status !== 'ready' ? ` (${doc.status})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {documents.length === 0 && (
+                    <p className="text-xs text-gray-500">
+                      No documents yet. Upload one on the{' '}
+                      <Link href="/documents" className="underline">
+                        Documents page
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </div>
+              )}
               <textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -1791,9 +2244,15 @@ export default function ScreenPage() {
                     e.currentTarget.form?.requestSubmit();
                   }
                 }}
-                placeholder="Ask screening questions (e.g., 'Find candidates with Java and AWS experience')"
+                placeholder={
+                  screenType === 'document'
+                    ? "Ask a screening question about this document (e.g., 'What is the reported revenue for 2024?')"
+                    : screenType === 'job'
+                      ? "Ask screening questions (e.g., 'Find candidates with Java and AWS experience')"
+                      : 'Choose what to screen above to start'
+                }
                 className="field h-16 resize-none p-3"
-                disabled={isLoading}
+                disabled={isLoading || !canSubmit}
                 aria-describedby="screening-prompt-hint"
               />
               {/* <p id="screening-prompt-hint" className="text-xs text-gray-500">
@@ -1802,10 +2261,14 @@ export default function ScreenPage() {
               </p> */}
               <button
                 type="submit"
-                disabled={isLoading || !query.trim()}
+                disabled={isLoading || !query.trim() || !canSubmit}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:bg-gray-400"
               >
-                {isLoading ? 'Screening...' : 'Screen Candidates'}
+                {isLoading
+                  ? 'Screening...'
+                  : screenType === 'document'
+                    ? 'Screen Document'
+                    : 'Screen Candidates'}
               </button>
               <p
                 id="screening-prompt-hint"
@@ -1843,19 +2306,45 @@ export default function ScreenPage() {
                   ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
                   : `Resume: ${resume?.name || 'Candidate'}`}
               </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setInspector(null);
-                  setResume(null);
-                  setSelectedSearchChunks(null);
-                }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                aria-label="Close sidebar"
-                title="Close sidebar"
-              >
-                <Icon name="close" />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleInspectorWidth}
+                  className="hidden h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900 md:flex"
+                  aria-label={
+                    inspectorWidth >= INSPECTOR_WIDTH_LARGE
+                      ? 'Shrink sidebar'
+                      : 'Expand sidebar'
+                  }
+                  aria-pressed={inspectorWidth >= INSPECTOR_WIDTH_LARGE}
+                  title={
+                    inspectorWidth >= INSPECTOR_WIDTH_LARGE
+                      ? 'Shrink sidebar'
+                      : 'Expand sidebar'
+                  }
+                >
+                  <Icon
+                    name={
+                      inspectorWidth >= INSPECTOR_WIDTH_LARGE
+                        ? 'shrink'
+                        : 'expand'
+                    }
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspector(null);
+                    setResume(null);
+                    setSelectedSearchChunks(null);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                  aria-label="Close sidebar"
+                  title="Close sidebar"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {inspector === 'chunks' && selectedSearchChunks ? (

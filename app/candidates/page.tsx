@@ -629,12 +629,6 @@ export default function CandidatesPage() {
                   </button>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-500" aria-live="polite">
-                Showing {candidates.length}{' '}
-                {candidates.length === 1 ? 'candidate' : 'candidates'}
-                {hasFilters ? ' matching your filters' : ''}
-                {loading && ' · updating…'}
-              </p>
             </section>
 
             {candidates.length === 0 ? (
