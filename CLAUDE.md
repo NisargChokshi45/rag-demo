@@ -26,7 +26,7 @@ Run `nvm use 24` first. The dev server is already running, so don't start it.
 
 Required (`lib/env.ts`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`.
 
-Optional: `GROQ_CHAT_MODEL`, `GEMINI_EMBEDDING_MODEL`, `NEXT_PUBLIC_AUTH_ENABLED` (default off), `NEXT_PUBLIC_USER_DATA_ISOLATION` (only effective when auth is on).
+Optional: `GROQ_CHAT_MODEL`, `GEMINI_EMBEDDING_MODEL`, `NEXT_PUBLIC_AUTH_ENABLED` (default off), `NEXT_PUBLIC_USER_DATA_ISOLATION` (only effective when auth is on). Documents: `RERANK_MODE` (unset: `llm`, or `none` for `element_rich` documents; or set `none` / `llm` / `cross-encoder` to force one), `CROSS_ENCODER_MODEL`, `GEMINI_VISION_MODEL` (default `gemini-3.8-flash`), `VISION_MAX_PAGES` (default 60).
 
 Secrets live in `.env.local`, which is git-ignored. Never commit it or paste its values into code or docs.
 
@@ -44,7 +44,7 @@ Secrets live in `.env.local`, which is git-ignored. Never commit it or paste its
 - `lib/supabase/`: `client.ts` (browser), `server.ts` (service-role and authenticated server clients), `middleware.ts` (session refresh)
 - `lib/hooks/useAuth.ts`: client auth hook
 - `middleware.ts`: root Supabase session middleware
-- `supabase/`: `schema.sql`, `migrations/001`–`015`, `seed.sql`, `cleanup.sql`
+- `supabase/`: `schema.sql`, `migrations/001`–`018`, `seed.sql`, `cleanup.sql`
 - `scripts/`: reindex, migration, and Supabase helper scripts, plus demo pipeline and custom-query tools
 - `resumes/`: 25 sample resume PDFs (test data)
 - Root `*.md` files: setup, auth, screening, and deployment guides. `PLAN.md`, `TASKS.md`, and `FEATURES.md` track status.
@@ -58,7 +58,7 @@ Secrets live in `.env.local`, which is git-ignored. Never commit it or paste its
 - **Job scoping**: agent tools and searches must filter by `jobId`. Each job has its own candidate pool.
 - **Embedding calls are sequential**: use retry with exponential backoff (1s, 2s, 4s) and no `Promise.all`, to respect free-tier rate limits.
 - **Dimension sync**: `resume_chunks.embedding` is `vector(1536)` (migration 002). Keep `EMBEDDING_DIMENSIONS` in `lib/embeddings.ts` in step with it.
-- **Schema changes**: add a new numbered file in `supabase/migrations/` (the next is `016`). Don't edit migrations that have already been applied.
+- **Schema changes**: add a new numbered file in `supabase/migrations/` (the next is `019`). Don't edit migrations that have already been applied.
 - **Formatting** (`.prettierrc`): single quotes, semicolons, `trailingComma: es5`, 80 columns, 2-space indent, LF line endings. Run `pnpm format` on changed `ts`/`tsx` files.
 - **Agent limits**: `app/api/agent/route.ts` sets `maxDuration = 300` and `runtime = 'nodejs'`. The agent loop has a recursion limit of 25. `get_full_resume` is capped per screening in `lib/agent-tools.ts`, and tool results are truncated in the trace.
 - **Docs**: when a task changes status, update the matching checkbox in `FEATURES.md` / `TASKS.md`.
