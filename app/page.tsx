@@ -32,6 +32,58 @@ const destinations = [
   },
 ];
 
+const docSteps = [
+  {
+    title: 'Plan',
+    lines: [
+      'Question names a chapter',
+      'or region? Limit search',
+      'to it, else whole document',
+    ],
+  },
+  {
+    title: 'Retrieve',
+    lines: [
+      'Hybrid search: vector +',
+      'keyword, fused with RRF',
+      'Top 20, widens if thin',
+    ],
+  },
+  {
+    title: 'Re-rank',
+    lines: [
+      'LLM, cross-encoder or none',
+      'Keeps the best 6 passages',
+      'Tables & figures keep a slot',
+    ],
+    highlight: true,
+  },
+  {
+    title: 'Expand',
+    lines: [
+      'Long reports: swap child',
+      'windows for parent sections',
+      'Narrative: add neighbours',
+    ],
+  },
+  {
+    title: 'Generate',
+    lines: [
+      'GROQ answers as JSON',
+      'with passage labels',
+      'Abstains if unanswerable',
+    ],
+  },
+  {
+    title: 'Verify',
+    lines: [
+      'Checks citations exist',
+      'Flags numbers not in',
+      'the cited passages',
+    ],
+  },
+];
+
 function ArchitectureDiagram() {
   return (
     <div className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-8">
@@ -43,7 +95,8 @@ function ArchitectureDiagram() {
           System Architecture
         </h2>
         <p className="text-sm text-slate-500">
-          How a resume moves from upload to a cited screening answer.
+          How a resume moves from upload to a cited screening answer, and how a
+          document question is retrieved, re-ranked and verified.
           <span className="lg:hidden">
             {' '}
             Swipe sideways to see the full diagram.
@@ -53,15 +106,16 @@ function ArchitectureDiagram() {
 
       <div className="-mx-5 overflow-x-auto px-5 sm:-mx-8 sm:px-8">
         <svg
-          viewBox="0 0 1400 750"
+          viewBox="0 0 1400 1290"
           role="img"
           aria-labelledby="architecture-heading architecture-title"
           className="w-full min-w-[720px] font-sans"
         >
           <title id="architecture-title">
             Job creation, resume processing with embeddings and vector storage,
-            and screening with a GROQ model that streams cited results to the
-            UI.
+            screening with re-ranked candidates and a GROQ model that streams
+            cited results to the UI, and a document pipeline that routes,
+            retrieves, re-ranks, expands, answers and verifies.
           </title>
           {/* Background groups */}
           <defs>
@@ -88,7 +142,7 @@ function ArchitectureDiagram() {
             x="20"
             y="30"
             width="420"
-            height="670"
+            height="310"
             rx="12"
             fill="url(#gradOrange)"
             opacity="0.3"
@@ -99,7 +153,7 @@ function ArchitectureDiagram() {
             x="480"
             y="30"
             width="420"
-            height="670"
+            height="550"
             rx="12"
             fill="url(#gradBlue)"
             opacity="0.3"
@@ -110,7 +164,7 @@ function ArchitectureDiagram() {
             x="940"
             y="30"
             width="420"
-            height="670"
+            height="870"
             rx="12"
             fill="url(#gradGreen)"
             opacity="0.3"
@@ -308,7 +362,7 @@ function ArchitectureDiagram() {
             fill="#1e3a8a"
             textAnchor="middle"
           >
-            Split into semantic chunks
+            800-char windows, 100 overlap
           </text>
 
           {/* Arrow down */}
@@ -527,7 +581,7 @@ function ArchitectureDiagram() {
             fill="#064e3b"
             textAnchor="middle"
           >
-            Cosine similarity + job-scoped
+            Cosine similarity, top 15, job-scoped
           </text>
 
           {/* Arrow down */}
@@ -541,10 +595,19 @@ function ArchitectureDiagram() {
             markerEnd="url(#arrowGreen)"
           />
 
-          {/* GROQ + Processing */}
+          {/* Re-rank */}
+          <line
+            x1="1150"
+            y1="415"
+            x2="1150"
+            y2="445"
+            stroke="#10b981"
+            strokeWidth="2"
+            markerEnd="url(#arrowGreen)"
+          />
           <rect
             x="980"
-            y="455"
+            y="445"
             width="340"
             height="100"
             rx="8"
@@ -554,7 +617,106 @@ function ArchitectureDiagram() {
           />
           <text
             x="1150"
-            y="485"
+            y="475"
+            fontSize="16"
+            fontWeight="bold"
+            fill="#166534"
+            textAnchor="middle"
+          >
+            Re-rank Candidates
+          </text>
+          <text
+            x="1150"
+            y="499"
+            fontSize="12"
+            fill="#064e3b"
+            textAnchor="middle"
+          >
+            Group chunks by candidate, best match first
+          </text>
+          <text
+            x="1150"
+            y="519"
+            fontSize="12"
+            fill="#064e3b"
+            textAnchor="middle"
+          >
+            +3 per matched job skill (max +15), top 3
+          </text>
+
+          {/* Fetch full resumes */}
+          <line
+            x1="1150"
+            y1="545"
+            x2="1150"
+            y2="575"
+            stroke="#10b981"
+            strokeWidth="2"
+            markerEnd="url(#arrowGreen)"
+          />
+          <rect
+            x="980"
+            y="575"
+            width="340"
+            height="70"
+            rx="8"
+            fill="white"
+            stroke="#10b981"
+            strokeWidth="2"
+          />
+          <text
+            x="1150"
+            y="605"
+            fontSize="16"
+            fontWeight="bold"
+            fill="#166534"
+            textAnchor="middle"
+          >
+            Fetch Full Resumes
+          </text>
+          <text
+            x="1150"
+            y="627"
+            fontSize="12"
+            fill="#064e3b"
+            textAnchor="middle"
+          >
+            Complete text, capped at 3 candidates
+          </text>
+
+          {/* Arrow back to candidates */}
+          <path
+            d="M 980 610 Q 920 610 860 520"
+            stroke="#34d399"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            markerEnd="url(#arrowGreenLight)"
+          />
+
+          {/* GROQ + Processing */}
+          <line
+            x1="1150"
+            y1="645"
+            x2="1150"
+            y2="675"
+            stroke="#10b981"
+            strokeWidth="2"
+            markerEnd="url(#arrowGreen)"
+          />
+          <rect
+            x="980"
+            y="675"
+            width="340"
+            height="100"
+            rx="8"
+            fill="white"
+            stroke="#10b981"
+            strokeWidth="2"
+          />
+          <text
+            x="1150"
+            y="705"
             fontSize="16"
             fontWeight="bold"
             fill="#166534"
@@ -564,7 +726,7 @@ function ArchitectureDiagram() {
           </text>
           <text
             x="1150"
-            y="510"
+            y="730"
             fontSize="12"
             fill="#064e3b"
             textAnchor="middle"
@@ -573,7 +735,7 @@ function ArchitectureDiagram() {
           </text>
           <text
             x="1150"
-            y="530"
+            y="750"
             fontSize="12"
             fill="#064e3b"
             textAnchor="middle"
@@ -581,26 +743,16 @@ function ArchitectureDiagram() {
             citations & structured output
           </text>
 
-          {/* Arrow back to candidates */}
-          <path
-            d="M 980 505 Q 940 505 860 500"
-            stroke="#34d399"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="5,5"
-            markerEnd="url(#arrowGreenLight)"
-          />
-
           {/* Response to UI */}
           <path
-            d="M 1150 555 Q 1150 575 1150 590"
+            d="M 1150 775 L 1150 805"
             stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
           <rect
             x="1020"
-            y="590"
+            y="805"
             width="260"
             height="60"
             rx="6"
@@ -610,13 +762,127 @@ function ArchitectureDiagram() {
           />
           <text
             x="1150"
-            y="625"
+            y="840"
             fontSize="16"
             fontWeight="bold"
             fill="#166534"
             textAnchor="middle"
           >
             Stream to UI with Citations
+          </text>
+
+          {/* ===== DOCUMENT Q&A PIPELINE (LangGraph) ===== */}
+          <rect
+            x="20"
+            y="930"
+            width="1340"
+            height="330"
+            rx="12"
+            fill="url(#gradPurple)"
+            opacity="0.3"
+            stroke="#a855f7"
+            strokeWidth="2"
+          />
+          <text
+            x="690"
+            y="965"
+            fontSize="18"
+            fontWeight="bold"
+            fill="#6b21a8"
+            textAnchor="middle"
+          >
+            Document Q&A (LangGraph)
+          </text>
+          <text
+            x="690"
+            y="988"
+            fontSize="12"
+            fill="#581c87"
+            textAnchor="middle"
+          >
+            Uploaded reports are parsed, chunked by document shape, embedded and
+            stored the same way, then each question runs through these steps
+          </text>
+
+          {docSteps.map((step, i) => {
+            const x = 50 + i * 215;
+            return (
+              <g key={step.title}>
+                <rect
+                  x={x}
+                  y="1010"
+                  width="190"
+                  height="110"
+                  rx="8"
+                  fill="white"
+                  stroke="#a855f7"
+                  strokeWidth={step.highlight ? 3 : 2}
+                />
+                <text
+                  x={x + 95}
+                  y="1038"
+                  fontSize="16"
+                  fontWeight="bold"
+                  fill="#6b21a8"
+                  textAnchor="middle"
+                >
+                  {step.title}
+                </text>
+                {step.lines.map((line, j) => (
+                  <text
+                    key={line}
+                    x={x + 95}
+                    y={1062 + j * 18}
+                    fontSize="12"
+                    fill="#581c87"
+                    textAnchor="middle"
+                  >
+                    {line}
+                  </text>
+                ))}
+                {i < docSteps.length - 1 && (
+                  <line
+                    x1={x + 190}
+                    y1="1065"
+                    x2={x + 215}
+                    y2="1065"
+                    stroke="#a855f7"
+                    strokeWidth="2"
+                    markerEnd="url(#arrowPurple)"
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* Rewrite loop from Verify back to Retrieve */}
+          <path
+            d="M 1220 1120 C 1220 1200 360 1200 360 1120"
+            stroke="#c084fc"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            markerEnd="url(#arrowPurple)"
+          />
+          <text
+            x="790"
+            y="1180"
+            fontSize="12"
+            fill="#6b21a8"
+            fontStyle="italic"
+            textAnchor="middle"
+          >
+            Not grounded: rewrite as a keyword query and retry once
+          </text>
+          <text
+            x="690"
+            y="1238"
+            fontSize="12"
+            fill="#581c87"
+            textAnchor="middle"
+          >
+            Re-rank defaults to the LLM; element-rich documents skip it because
+            prose rerankers under-rate tables. RERANK_MODE overrides.
           </text>
 
           {/* Arrow markers */}
@@ -670,6 +936,16 @@ function ArchitectureDiagram() {
               orient="auto"
             >
               <polygon points="0,0 10,5 0,10" fill="#10b981" />
+            </marker>
+            <marker
+              id="arrowPurple"
+              markerWidth="10"
+              markerHeight="10"
+              refX="5"
+              refY="5"
+              orient="auto"
+            >
+              <polygon points="0,0 10,5 0,10" fill="#a855f7" />
             </marker>
             <marker
               id="arrowGreenLight"
