@@ -2,7 +2,8 @@
 
 ## Current status
 
-- **Build Status**: ✅ Production-build verified (Node 24)
+- **Build Status**: Production build last verified on Node 24 (Sep 27); not re-run since the Documents feature landed
+- **Scope**: also ships the Documents feature (migrations 016–020, `/documents`, `lib/documents/`); see **[FEATURES.md](./FEATURES.md)**
 - **Code Coverage**: ~99% implemented against **[PLAN.md](./PLAN.md)**
 - **Live Environment**: Agent has run successfully with real Groq calls; UI refinements completed (Sep 26)
 - **UI Polish**: Hydration errors fixed, chat icons enlarged, session rename feature added, sidebar optimized
@@ -32,7 +33,7 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 - [x] Install dependencies with **`pnpm`**
 - [x] Verify the app builds successfully under Node 24 (**`pnpm build`** passes)
 - [x] Provision the Supabase project and enable the **`vector`** extension
-- [x] Run migrations in order (11 migrations total: 001_initial_schema → 011_screening_message_feedback)
+- [x] Run migrations in order (20 migrations total as of Oct 24: 001_initial_schema → 020_document_retry_at)
 - [x] Create the **`resumes`** storage bucket for upload/ingestion flows
 - [x] Confirm the runtime secrets are valid and usable by the server-side app code
 - [x] Verify the app starts cleanly with live Supabase connection
@@ -79,7 +80,7 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 
 **Notes**:
 - **`/resumes`** folder contains PDF corpus for smoke-test uploads
-- Fetch cap for **`get_full_resume`** is **2 candidates per screening** (hard-coded in agent-tools.ts line 148, using Set<string> to prevent duplicate-ID bypass)
+- Fetch cap for **`get_full_resume`** was **2 candidates per screening** in `lib/agent-tools.ts` (now unused). The live route (`app/api/agent/route.ts`) fetches the top **3**, using a `Set<string>` to prevent duplicate-ID bypass
 - Embeddings are embedded sequentially with retry/backoff to respect Google Gemini free-tier TPM limits
 
 ---
@@ -161,9 +162,9 @@ See **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** for the exact setup flow.
 - [x] Route refactored to eliminate agent loop complexity
 - [x] Search → select → fetch → report flow implemented
 - [x] Streaming maintained for live UI rendering
-- [x] Token usage predictable (search 1x + fetch 2x max + report 1x)
+- [x] Token usage predictable (search 1x + fetch 3x max + report 1x)
 - [x] Production build passes (Sep 27)
-- [x] Fetch cap (2) enforced: deterministic, never exceeded
+- [x] Fetch cap enforced: deterministic, never exceeded (3 in the route today; was 2 when first written)
 - [x] Job-scoped retrieval working: jobId passed to searchChunks → candidate filtering
 
 **Technical Details**:
@@ -268,11 +269,11 @@ The three test queries from PLAN Section 7.7 should be run in order:
 **Code-level** ✓:
 - [x] **`pnpm build`** completes successfully on Node 24
 - [x] Service-role key not exposed in client bundles (server-only in **[`lib/supabase/server.ts`](./lib/supabase/server.ts)**)
-- [x] Fetch cap logic fixed: uses **`Set<string>`** to prevent duplicate-ID bypass (line 148 in agent-tools.ts)
-- [x] Agent loop recursion limit set (25, higher than PLAN's minimum 10)
+- [x] Fetch cap logic fixed: uses **`Set<string>`** to prevent duplicate-ID bypass (`lib/agent-tools.ts`, now unused; the route keeps the same `Set<string>` approach)
+- [x] ~~Agent loop recursion limit set (25)~~ superseded: the agent loop was replaced by a fixed pipeline, so there is no recursion limit
 - [x] Embeddings fixed to 1536 dimensions with validation on every call
 - [x] Chunk size 800 with 100-char overlap (constants verified in chunk.ts)
-- [x] 11 migrations applied successfully to Supabase
+- [x] Migrations 001–011 applied successfully to Supabase (012–020 added later; apply with `pnpm db:migrate`)
 - [x] Auth protection added to admin routes (**`/api/admin/*`**) - validateAuth() guards GET/POST handlers
 - [x] **`/app/upload`** directory cleanup - directory never created (upload integrated into candidates page)
 - [x] React hydration mismatch errors fixed (mounted guard + suppressHydrationWarning, Sep 26)
@@ -297,7 +298,7 @@ These deviations were made for better product fit or to address discovered const
 
 2. **Upload Flow Merged into Candidates Page** (PLAN anticipated separate upload page)
    - Upload UI integrated into **`app/candidates/page.tsx`** (modal with drag-and-drop)
-   - **`/app/upload`** directory exists but is empty (can be deleted)
+   - There is no `/app/upload` directory
    - Reduces page count; UX benefit of co-locating upload with candidate list
 
 3. **Job Scoping Implemented** (PLAN noted as "single global pool, deliberate MVP cut")
@@ -337,11 +338,11 @@ These deviations were made for better product fit or to address discovered const
    - Allows targeted iteration on specific agent outputs
 
 ### Model Configuration
-9. **Recursion Limit Set to 25** (PLAN specified "capped at 10")
-   - Allows agentic exploration with more tool calls
-   - Trade-off: higher latency, more Groq tokens, but better coverage on complex queries
+9. **Agent Loop Replaced by a Fixed Pipeline** (PLAN specified a LangGraph tool loop capped at 10, later raised to 25)
+   - `app/api/agent/route.ts` now runs search → rank → fetch → report in order; no recursion limit
+   - Trade-off: predictable token use, but the model no longer decides which tools to call
 
-10. **Fetch Cap Reduced to 2** (PLAN specified "max 8")
+10. **Fetch Cap Reduced** (PLAN specified "max 8"; 2 in `lib/agent-tools.ts`, 3 in the live route)
     - Stricter constraint on full-resume fetches to prevent token overflow
     - Fixed duplicate-ID bypass: uses Set<string> for distinct candidate tracking
 
@@ -401,7 +402,7 @@ These deviations were made for better product fit or to address discovered const
 
 9. Replace admin auth with Supabase RLS policies (currently uses app-level validateAuth)
 10. Add admin dashboard UI for reindex and migration status (currently API-only)
-11. Reduce recursion limit to 10 if token usage is excessive (currently 25 for better coverage)
+11. Wire `lib/agent-tools.ts` back in or delete it (currently unused)
 12. Implement per-job candidate filtering UI toggle (currently filtered server-side)
 13. Archive old screenings after 30 days (data retention policy)
 
@@ -419,10 +420,9 @@ These deviations were made for better product fit or to address discovered const
 │                                                                    │
 │  2. Screen Candidates                                              │
 │     ├─ app/screen/page.tsx → select job, enter query               │
-│     ├─ POST /api/agent → LangGraph tool loop (25 recursion limit)  │
-│     │   ├─ Tool: list_all_candidates (job-scoped)                  │
-│     │   ├─ Tool: search_chunks (vector search + rerank)            │
-│     │   └─ Tool: get_full_resume (fetch limit: 2)                  │
+│     ├─ POST /api/agent → fixed pipeline (no agent loop)            │
+│     │   ├─ search_chunks (job-scoped vector search + skill boost)  │
+│     │   └─ get_full_resume (top 3 candidates)                      │
 │     └─ Final structured report: ScreeningReportSchema (Zod)        │
 │                                                                    │
 │  3. Iterate & Persist                                              │
@@ -444,7 +444,7 @@ Database (Supabase):
 Key Constraints:
   - Embedding: 1536 dimensions (Gemini Embedding 2)
   - Chunk size: 800 chars, 100-char overlap
-  - Fetch cap: 2 candidates per screening
-  - Recursion limit: 25 (tool calls max)
+  - Fetch cap: 3 candidates per screening (route-level)
+  - No agent loop or recursion limit (fixed pipeline)
   - Groq model: mixtral-8x7b-32768 (configurable)
 ```

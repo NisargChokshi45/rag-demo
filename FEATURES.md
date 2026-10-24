@@ -14,7 +14,7 @@ This document tracks all features for the LangChain-based resume screening RAG s
 
 ## [PLAN.md](./PLAN.md) Implementation Checklist
 
-Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against current code (not against this document's own status labels below, which had drifted in places - see "Deviations" at the end of this section).
+Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against current code (not against this document's own status labels below, which had drifted in places - see "Deviations" at the end of this section). Re-synced with the code on 2026-10-24; `file:line` references were dropped because they went stale.
 
 ### Build Order
 
@@ -28,11 +28,11 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 - [x] Sample resume PDFs present in `resumes/` (e.g. `adelina_project_manager.pdf`, `anudeep_java_developer.pdf`, …)
 
 **3. Ingestion pipeline**
-- [x] Signed-upload flow (`app/api/upload-url/route.ts`, `app/upload/page.tsx`)
+- [x] Signed-upload flow (`app/api/upload-url/route.ts`, upload UI on `app/candidates/page.tsx`)
 - [x] `api/ingest`: parse → reject empty text → chunk → sequential embed with retry/backoff → insert
-- [x] Sequential embedding with exponential backoff (`app/api/ingest/route.ts:107-120`, 1s/2s/4s via `Math.pow(2, attempt) * 1000`)
-- [x] Batch delay between embedding calls (`app/api/ingest/route.ts:136-139`)
-- [x] Candidate rolled back (`deleteCandidate`) if chunk insertion fails (`app/api/ingest/route.ts:156`)
+- [x] Sequential embedding with exponential backoff (`app/api/ingest/route.ts`, 1s/2s/4s via `Math.pow(2, attempt) * 1000`)
+- [x] Batch delay between embedding calls (`app/api/ingest/route.ts`)
+- [x] Candidate rolled back (`deleteCandidate`) if chunk insertion fails (`app/api/ingest/route.ts`)
 - [x] `runtime = "nodejs"`, `maxDuration = 300` set on ingest route
 - [x] `002_gemini_embedding_2.sql` migration exists (`supabase/migrations/`)
 
@@ -40,9 +40,8 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 - [x] Upload → candidates listed (`app/candidates/page.tsx`, `app/api/candidates/route.ts`)
 
 **5. Agent route**
-- [x] Three tools implemented: `list_all_candidates`, `search_chunks`, `get_full_resume` (`lib/agent-tools.ts`)
-- [x] LangGraph `createReactAgent` tool loop with recursion limit 10 (`app/api/agent/route.ts:68`)
-- [x] Final structured-output call via `withStructuredOutput(ScreeningReportSchema)` (`app/api/agent/route.ts:131`)
+- [x] Three tools defined: `list_all_candidates`, `search_chunks`, `get_full_resume` (`lib/agent-tools.ts`). Not used by the current route (see next item)
+- [~] **Deviation:** the agent loop was replaced by a fixed pipeline (embed → `searchChunks` → skill-boost ranking → full resumes for the top 3 → one `model.invoke` report call, parsed by `parseReportResponse`) in `app/api/agent/route.ts`. No `createReactAgent`, no recursion limit. `lib/agent-tools.ts` is unused
 - [x] `runtime = "nodejs"`, `maxDuration = 300` set on agent route
 
 **6. Screen page UI**
@@ -59,12 +58,12 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 ### Hard Technical Constraints
 
 - [x] 1. Uploads go client → Supabase Storage via signed URL, never raw POST to a Next.js route
-- [x] 2. Embedding dimension is 1536, validated on every call (`lib/embeddings.ts:37-41`)
-- [x] 3. Task-prompt formatting (`title: none | text: ...` / `task: search result | query: ...`) (`lib/embeddings.ts:5-9`)
+- [x] 2. Embedding dimension is 1536, validated on every call (`lib/embeddings.ts`)
+- [x] 3. Task-prompt formatting (`title: none | text: ...` / `task: search result | query: ...`) (`lib/embeddings.ts`)
 - [x] 4. Sequential embedding with retry/backoff, not `Promise.all` fan-out (`app/api/ingest/route.ts`)
 - [x] 5. `maxDuration` + `runtime = "nodejs"` set on both `ingest` and `agent` routes
 - [x] 6. PDF parsing uses `unpdf`, not `pdf-parse` (`lib/pdf.ts`)
-- [x] 7. `get_full_resume` capped at 8 distinct candidates per run (`lib/agent-tools.ts:146`)
+- [x] 7. Full-resume fetch is capped server-side at 3 distinct candidates per screening (`app/api/agent/route.ts`); the PLAN's cap of 8 was lowered. The unused `lib/agent-tools.ts` has its own cap of 2
 - [x] 8. Sample resume PDFs present in `resumes/`
 - [x] 9. Service-role key server-only (`lib/supabase/server.ts`), `.env`/`.env.local` gitignored (`.gitignore:20-22`)
 
@@ -85,9 +84,10 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 
 ### Known Gaps (not in PLAN.md's cut-line, but real)
 
-- [ ] Job-scoped search: `search_chunks`/`list_all_candidates` don't accept or filter by `jobId` (0 matches in `lib/agent-tools.ts`) - candidate pool is global regardless of selected job
-- [ ] No `/api/jobs/[id]` route (no GET-one/PUT/DELETE for a single job)
-- [ ] No `/api/screenings` route despite persistence functions existing in `lib/db.ts`
+- [ ] `lib/agent-tools.ts` is dead code: no route imports it (screening runs its own pipeline). Delete it or wire it back in
+- [ ] `lib/models.ts` passes `GROQ_CHAT_MODEL` with no fallback, so an unset variable gives the Groq client no model. The documented default `openai/gpt-oss-120b` lives only in `lib/env.ts` (`getEnvConfig`), which nothing calls
+- [ ] `app/api/documents/*` routes set no `maxDuration` or `runtime` (only `agent` and `ingest` do). The embed route is time-budgeted but still bound by the platform default
+- [ ] `app/api/debug` and `app/api/admin/*` are not covered by PLAN.md
 
 ---
 
@@ -98,7 +98,7 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 #### ✅ PDF Upload with Signed URLs
 - **Status:** Implemented
 - **Description:** Users upload resume PDFs via Supabase Storage signed upload URLs (client-side, avoids 4.5MB POST limit)
-- **Files:** `app/upload/page.tsx`, `app/api/upload-url/route.ts`
+- **Files:** `app/candidates/page.tsx`, `app/api/upload-url/route.ts`
 - **Verified:** PDF successfully downloads from Supabase Storage in ingest route
 
 #### ✅ PDF Parsing
@@ -157,54 +157,27 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 
 ### AI-Powered Screening
 
-#### ✅ Agent Loop (LangGraph)
-- **Status:** Implemented
-- **Description:** Agentic reasoning loop using LangGraph's `createReactAgent` for tool calling
-- **Files:** `app/api/agent/route.ts`, `lib/agent-tools.ts`, `lib/models.ts`
-- **Spec:**
-  - Model: Groq `llama-3.3-70b-versatile` (or configurable via `GROQ_CHAT_MODEL`)
-  - Tool calling loop with 10-step recursion limit (per [PLAN.md](./PLAN.md))
-  - Streaming events with `version: "v2"`
-  - Temperature: 0.2 for agent reasoning
+#### ✅ Fixed Screening Pipeline
+- **Status:** Implemented (replaced the original LangGraph agent loop)
+- **Description:** `POST /api/agent` runs a fixed sequence and streams each step as NDJSON (`progress`, `tool-call`, `tool-result`, `report`, `error`) so the UI can show a live trace
+- **Files:** `app/api/agent/route.ts`, `lib/db.ts`, `lib/embeddings.ts`, `lib/models.ts`
+- **Steps:**
+  1. Embed the question (`embedQuery`) and run `searchChunks` (top 15 chunks, filtered by `jobId`)
+  2. Group chunks by candidate; relevance is the best chunk similarity (0-100), plus +3 per job skill mentioned in the candidate's chunks (max +15); keep the top 5
+  3. Fetch full resumes for the top 3 (`getFullResumeById`, route-level cap of 3)
+  4. One Groq call (`model.invoke`) builds the report, parsed and validated by `parseReportResponse` against `lib/schema.ts`
+- **Token control:** the report prompt gets full evidence chunks but each resume cut to 1,000 characters, a job description capped at 300 characters, and the last 2 conversation turns. The streamed trace carries the full resume text
+- **Required request fields:** `query`, `sessionId`; optional `jobId`, `conversationHistory`
+- **Model:** `GROQ_CHAT_MODEL`, passed through by `lib/models.ts` with no code fallback (the `openai/gpt-oss-120b` default is in `lib/env.ts`, which nothing calls)
 
-#### ✅ Agent Tools (3 Core Tools)
-- **Status:** Implemented
-- **Description:** Three LangChain tools for agent reasoning
-- **Files:** `lib/agent-tools.ts`
-
-**Tool 1: `list_all_candidates`**
-- Lists all ingested candidates with ID, name, role, and chunk count
-- Used by agent to explore full candidate pool
-- No parameters
-
-**Tool 2: `search_chunks` (Vector Search + Reranking)**
-- Search resume chunks by vector similarity
-- Parameters: `query` (string)
-- Returns: Top 5 candidates with relevance scores (0-10)
-- Reranking: Uses Groq LLM to rate relevance of each chunk group
-- Returns candidate ID, name, relevance score, and top 3 chunks per candidate
-
-**Tool 3: `get_full_resume`**
-- Retrieve complete resume text for a specific candidate
-- Parameters: `candidateId` (string)
-- Returns: Full resume text
-- Fetch cap: Max 8 distinct candidates per agent run (enforced in tool implementation)
-
-#### ✅ LLM Reranking
-- **Status:** Implemented
-- **Description:** Groq LLM reranking inside `search_chunks` tool to improve relevance scoring
-- **Files:** `lib/agent-tools.ts:66-74`, `lib/models.ts`
-- **Process:**
-  - Vector search returns top 15 chunks
-  - Group by candidate
-  - For each candidate, use Groq to rate relevance on 0-10 scale
-  - Return top 5 candidates sorted by score
-  - Sequential processing (not parallelized)
+#### ⚠️ Legacy Agent Tools (unused)
+- **Status:** Code remains, not wired in
+- **Description:** `lib/agent-tools.ts` defines the LangChain tools `list_all_candidates`, `search_chunks` and `get_full_resume` (cap of 2 distinct resumes) from the earlier `createReactAgent` design. No route imports it. Remove it or wire it back in deliberately
 
 #### ✅ Structured Screening Reports
 - **Status:** Implemented
-- **Description:** Generate structured candidate assessment reports using Zod schemas and LLM structured output
-- **Files:** `lib/schema.ts`, `app/api/agent/route.ts:118-119`
+- **Description:** Structured candidate assessment reports validated with Zod
+- **Files:** `lib/schema.ts`, `app/api/agent/route.ts`
 - **Schema:**
   ```typescript
   {
@@ -221,32 +194,26 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
     summary: string
   }
   ```
-- **Process:**
-  - Agent loop completes
-  - Collect all tool call history
-  - Call Groq with structured output schema
-  - Generate final report with assessments for each candidate
+- **Process:** gathered search and resume results are placed in the report prompt, one Groq call returns the assessments, and `parseReportResponse` parses and validates them
 
 #### ✅ Job Context Integration
-- **Status:** Implemented (Partial)
-- **Description:** Include job criteria in agent reasoning
-- **Files:** `app/api/agent/route.ts:36-43`, `app/screen/page.tsx:48-49`
+- **Status:** Implemented
+- **Description:** Include job criteria in screening
+- **Files:** `app/api/agent/route.ts`, `app/screen/page.tsx`
 - **Features:**
-  - Job selection dropdown on screening page
-  - Job description, experience, and skills passed to agent system prompt
-  - Agent uses job context to reason about candidate fit
-- **⚠️ Limitation:** Search not job-scoped (searches all candidates globally; see Issue #1 in review)
+  - Job selection on the screening page
+  - Search and listing are scoped to the selected job (`jobId` through `searchChunks` and `listCandidates`)
+  - Job title, top skills and experience feed the skill boost and the report prompt
 
 ---
 
 ### User Interface
 
-#### ✅ Upload Page
-- **Status:** Implemented
-- **Description:** Multi-file resume upload interface
-- **Files:** `app/upload/page.tsx`
+#### ✅ Resume Upload
+- **Status:** Implemented (folded into the Candidates page; there is no `/upload` page)
+- **Description:** Multi-file resume upload
+- **Files:** `app/candidates/page.tsx`, `app/api/upload-url/route.ts`, `app/api/ingest/route.ts`
 - **Features:**
-  - Textarea for job description
   - Multi-file picker for resumes
   - Signed URL generation via `api/upload-url`
   - Upload progress indicator
@@ -327,44 +294,29 @@ Derived directly from [PLAN.md](./PLAN.md). Checked items are verified against c
 ### Job Management
 
 #### 🔄 Job CRUD Operations
-- **Status:** In Progress - Create/List implemented, Read-one/Update/Delete missing
-- **Description:** Full Create, Read, Update, Delete for job postings
+- **Status:** Implemented except where intentionally disabled
 - **Implemented:**
-  - `app/jobs/page.tsx` (list jobs)
-  - `app/api/jobs/route.ts` (`GET` all jobs, `POST` create)
-- **Still needed:**
-  - `app/jobs/[id]/page.tsx` (view job details)
-  - `app/api/jobs/[id]/route.ts` (GET one, PUT, DELETE)
-  - Edit job details
-  - Delete job (soft delete recommended to preserve screenings)
+  - `app/jobs/page.tsx` (list, create, edit)
+  - `app/api/jobs/route.ts` (`GET`, `POST`) and `app/api/jobs/[id]/route.ts` (`PATCH`, `DELETE`)
+- **Intentionally disabled:** `DELETE` returns 403 unless `FEATURE_FLAGS.JOB_DELETION_ENABLED` is on (it is off)
+- **Not built:** `app/jobs/[id]/page.tsx` job detail page
 
-#### 📋 Job Selection Enforcement
-- **Status:** Planned
-- **Description:** Scope candidate pool and screening to specific jobs
-- **Files:** `lib/agent-tools.ts`, `lib/db.ts`, `supabase/schema.sql`
-- **Changes:**
-  - Add `jobId` parameter to `search_chunks` and `list_all_candidates` tools
-  - Filter candidates by job in RPC function (requires job_candidates relationship table or job_id on candidates)
-  - Update system prompt to restrict search to job-specific candidates
-- **Prerequisite:** Decide on data model (option A: add job_id to candidates; option B: create job_candidates join table)
-- **Impact:** Resolves Issue #1 from review (job-scoped filtering)
+#### ✅ Job Selection Enforcement
+- **Status:** Implemented
+- **Description:** Candidates carry a `job_id` (migration `007_candidate_job.sql`) and `match_resume_chunks` filters by it (migration `012`). `searchChunks` and `listCandidates` take `jobId`, so each job screens only its own pool
 
 ---
 
 ### Screening Management & Persistence
 
-#### 🔄 Screening History Database
-- **Status:** In Progress - Persistence implemented, no API route or export yet
-- **Description:** Persist screening queries and reports to database (not just localStorage)
+#### ✅ Screening History Database
+- **Status:** Implemented
+- **Description:** Screening sessions and reports persist to the database, including document sessions (`screening_type`, `document_id`, migration `017`)
 - **Implemented:**
-  - `supabase/migrations/004_screenings.sql` - `screenings` + `screening_assessments` tables
-  - `lib/db.ts`: `createScreening`, `getScreeningsByJob`, `getAssessmentsByCandidate`
-  - `app/api/agent/route.ts` calls `createScreening` after report generation
-- **Still needed:**
-  - `app/api/screenings/route.ts` (GET, DELETE) - no route currently exposes `getScreeningsByJob`
-  - Delete screening
-  - Export screening report as JSON/CSV
-- **Impact:** Resolves Issue #2 from review (history persistence); enables auditing
+  - Migrations `004`, `006`, `008`-`011`, `015`: `screenings`, `screening_assessments`, session persistence, feedback, names
+  - `app/api/screenings/route.ts` (`POST`, `GET`) and `app/api/screenings/[id]/route.ts` (`GET`, `PATCH`, `DELETE`)
+  - `DELETE` returns 403 unless `FEATURE_FLAGS.SCREENING_DELETION_ENABLED` is on (it is off)
+- **Not built:** export of a screening report as JSON/CSV
 
 #### 📋 Screening Comparison
 - **Status:** Planned

@@ -1,5 +1,7 @@
 # Agentic Resume-Screening RAG - TypeScript MVP
 
+> **Original design doc, kept for history.** The built app differs in places (screening is a fixed pipeline rather than a LangGraph agent loop, fetch cap is 3, jobs table, auth flag, Documents feature). See "Deviations from PLAN.md" in [FEATURES.md](./FEATURES.md) and the project notes in `CLAUDE.md`.
+
 ## Goal
 - Ship a working MVP - A Next.js app (React + Node, one Vercel project) where a recruiter creates jobs, uploads resumes, then asks free-form screening questions and gets back a grounded, structured report, with an agent that decides for itself which resumes to search and fetch in full.
 
