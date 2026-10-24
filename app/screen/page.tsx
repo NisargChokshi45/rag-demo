@@ -488,7 +488,12 @@ export default function ScreenPage() {
   }, []);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll only the results pane. scrollIntoView would also scroll the
+    // overflow-hidden page root and push the prompt box up, leaving a gap.
+    const pane = messagesEndRef.current?.closest<HTMLElement>(
+      '[data-results-pane]'
+    );
+    pane?.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -1657,7 +1662,10 @@ export default function ScreenPage() {
         </div> */}
 
         {/* Results Area */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <div
+          data-results-pane
+          className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8"
+        >
           <div className="max-w-4xl mx-auto">
             {previousConversation.length > 0 && (
               <div className="mb-6 space-y-4">
