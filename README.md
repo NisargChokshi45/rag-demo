@@ -1,18 +1,19 @@
 # Agentic Resume Screening RAG - TypeScript MVP
 
-A production-ready Next.js application that uses an agentic RAG (Retrieval-Augmented Generation) loop to screen resumes against job descriptions and custom screening questions. Features real-time tool tracing, LLM-based reranking, and grounded structured reports.
+A Next.js application with two RAG (Retrieval-Augmented Generation) features: screening resumes against job descriptions and custom questions, and answering questions over long-form PDF documents with citations. Screening streams a live trace of each retrieval step and produces a grounded structured report.
 
 ## What It Does
 
 1. **Jobs**: Recruiters create Jobs and upload candidate resume PDFs (resumes stored globally, keyed by job)
 2. **Parse & Ingest**: PDFs are parsed, chunked, embedded, and indexed in Postgres (pgvector)
-3. **Screen**: Free-form questions about candidates are answered via an agent loop (job-specific candidate pool):
-   - **`list_all_candidates`** - fetch candidates for this job
-   - **`search_chunks`** - vector search + LLM reranking (filtered by job)
-   - **`get_full_resume`** - fetch full resume text to overcome fragmentation
+3. **Screen**: Free-form questions about candidates run a fixed pipeline in `app/api/agent/route.ts` (job-specific candidate pool):
+   - **`search_chunks`** - vector search over the job's chunks (top 15), grouped by candidate, with a score boost for chunks that mention the job's required skills (top 5 kept)
+   - **`get_full_resume`** - full resume text for the top 3 candidates, to overcome fragmentation
+   - One Groq call turns the evidence into the structured report
 4. **Report**: Structured report with scored candidates, evidence quotes, and unknowns
+5. **Documents** (`/documents`): upload long PDFs (narrative, chapter-structured, or table and chart heavy). They are parsed into typed chunks and answered through a LangGraph pipeline (retrieve, rerank, expand, generate, verify). `/screen` can screen a job's candidates or a document.
 
-**Key insight**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → Three fixes (full-resume fetch, agent loop, LLM reranking) → shipped in production.
+**Key insight**: Three failure modes of naive RAG (fragmentation, coverage, hallucination) → fixes: full-resume fetch for the top candidates, job-scoped search with skill-aware ranking, and a report prompt restricted to retrieved evidence. (The original design used a tool-calling agent loop; screening was later simplified to a fixed pipeline for predictable token use. `lib/agent-tools.ts` still holds the old tools but nothing calls it.)
 
 ## Tech Stack
 
@@ -20,7 +21,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 - **Models**: Gemini Embedding 2 via **`GOOGLE_API_KEY`** (1536-dim vectors), Groq via **`GROQ_API_KEY`** (chat, tool calling, reranking, and reports)
 - **Database**: Supabase (Postgres + pgvector for embeddings)
 - **Storage**: Supabase Storage (raw PDFs)
-- **Agent framework**: LangChain + LangGraph
+- **Orchestration**: LangChain; LangGraph for the document answer pipeline
 - **PDF Parsing**: unpdf (robust for serverless)
 - **Validation**: Zod (structured schema)
 - **Package Manager**: pnpm
@@ -32,7 +33,7 @@ A production-ready Next.js application that uses an agentic RAG (Retrieval-Augme
 Follow **[CREDENTIALS_SETUP.md](./CREDENTIALS_SETUP.md)** to:
 - Create a Supabase project (free tier)
 - Get Google API key (free tier)
-- Create **`.env.local`** with four env vars
+- Create **`.env.local`** with the five required env vars (Supabase URL, anon key and service-role key, `GOOGLE_API_KEY`, `GROQ_API_KEY`)
 
 ### 2. Install & Run
 
@@ -70,14 +71,18 @@ Follow **[PHASE8_DEPLOYMENT.md](./PHASE8_DEPLOYMENT.md)** to:
 
 ```
 app/
-  jobs/page.tsx               Jobs + Resume uploader
-  candidates/page.tsx         List ingested candidates
-  screen/page.tsx             Chat UI with tool trace & report
+  jobs/page.tsx               Jobs
+  candidates/page.tsx         Candidates, resume upload and re-score
+  documents/page.tsx          Document list, upload, parsed/PDF viewers
+  documents/[id]/page.tsx     Document chat with sources and trace
+  screen/page.tsx             Chat UI with tool trace & report (jobs or documents)
   api/
     upload-url/route.ts       Generate signed upload URLs
     ingest/route.ts           Parse → chunk → embed → insert
     candidates/route.ts       List candidates
-    agent/route.ts            Tool-calling loop + final report
+    jobs/, screenings/        Job and saved-session CRUD
+    agent/route.ts            Fixed screening pipeline + final report
+    documents/                List, upload-url, [id], chat, embed, reparse
 
 lib/
   supabase/
@@ -87,11 +92,13 @@ lib/
   chunk.ts                    800/100 sliding-window splitter
   embeddings.ts               Gemini embeddings with task types
   db.ts                       DB queries (insert, search, fetch)
-  agent-tools.ts              Tool definitions (list, search, fetch)
+  agent-tools.ts              Tool definitions (unused by the current route)
+  documents/                  Document parsing, chunking, retrieval, LangGraph answer pipeline
   schema.ts                   Zod schemas (ScreeningReport, etc.)
 
 supabase/
   schema.sql                  DDL: candidates, resume_chunks, RPC function
+  migrations/                 001–020 (documents added in 016–020)
 
 resumes/                      25 sample resume PDFs (test data)
 
@@ -104,25 +111,24 @@ TASKS.md                      Task checklist (Phases 0–8)
 
 ## Key Design Decisions
 
-### 1. **LangGraph Tool-Calling Agent**
-- Transparent LangGraph **`createReactAgent`** loop with a recursion limit of 25
-| Gemini Embedding 2 dims | Request and validate 1536 dimensions; stored as **`vector(1536)`** |
-| Google/Groq free-tier limits | Sequential embedding and reranking with retry/backoff |
-- Traces streamed live to UI (every tool call visible)
-- Cap: 25 steps per query (Vercel's 300s timeout is sufficient)
+### 1. **Fixed Screening Pipeline**
+- `app/api/agent/route.ts` runs search → rank → fetch full resumes → report in a fixed order, with no agent loop
+- Predictable cost: one embedding call, one vector search, up to 3 resume fetches, one Groq call
+- Each step is streamed to the UI as a tool-call/tool-result event, so retrieval is visible
+- Document Q&A is the part that uses LangGraph (`lib/documents/graph.ts`)
 
-### 2. **LLM Reranking Inside `search_chunks` Tool**
-- After vector search retrieves 15 chunks, Groq ranks top 5 by relevance
-- Fixes precision without separate UI logic
-- Cost: ~1 extra generate call per query
+### 2. **Skill-Boosted Ranking**
+- Vector search retrieves 15 chunks, grouped by candidate; relevance is the best chunk similarity
+- Candidates whose chunks mention the job's skills get +3 per skill (max +15); the top 5 are kept
+- No LLM rerank in screening (document Q&A has one, selected by `RERANK_MODE`)
 
 ### 3. **Full-Resume Fetch Over Re-Chunking**
-- **`get_full_resume`** fetches full resume text (capped at 2 candidates per screening)
+- Full resume text is fetched for the top 3 candidates per screening (route-level cap); the report prompt sees each cut to 1,000 characters
 - Avoids chunking artifacts (dates split across chunks, etc.)
 - Simpler than adaptive chunking; trades compute for accuracy
 
 ### 4. **Job-Specific Candidate Filtering**
-- Candidates are filtered by job_id during screening (agent tools respect job scope)
+- Candidates are filtered by job_id during screening (search and listing respect job scope)
 - All resumes indexed globally; queries filter to relevant job's pool
 - Enables multi-job workflows without candidate isolation overhead
 
@@ -151,7 +157,7 @@ TASKS.md                      Task checklist (Phases 0–8)
 - ✅ Supabase Storage bucket permissions: signed URLs only
 - ✅ POST **`/api/admin/reindex`** protected with **`validateAuth()`** middleware
 - ✅ React hydration mismatch errors fixed (mounted guards + suppressHydrationWarning on html root)
-- ⚠️ MVP has no user auth (add via Supabase Auth if multi-tenant needed)
+- ⚠️ Supabase Auth is implemented but off by default (`NEXT_PUBLIC_AUTH_ENABLED`). Document lists are not yet filtered per user
 
 ## Performance Targets
 
@@ -160,16 +166,16 @@ TASKS.md                      Task checklist (Phases 0–8)
 | Upload 5 PDFs              | <30s   | Parsing + chunking + batch embed   |
 | Vector search              | <2s    | HNSW index on pgvector             |
 | Full agent query (3 tools) | <5s    | Streaming; includes Gemini latency |
-| Final structured report    | <1s    | **`generateObject`** over tool history |
+| Final structured report    | <1s    | One Groq call over the gathered evidence |
 
 ## Troubleshooting
 
 **Upload fails**:
 - Check **`.env.local`** has valid Supabase URL/keys
-- Verify **`resumes`** Storage bucket exists and is public
+- Verify the Storage bucket exists (uploads and document viewing use signed URLs)
 - Check Google API quota
 
-**Agent query hangs**:
+**Screening query hangs**:
 - Verify **`GOOGLE_API_KEY`** is for Gemini (not Google Cloud)
 - Check free-tier quota (15 req/min; wait if hit)
 - Review logs: **`pnpm dev`** console or Vercel logs on production
@@ -183,10 +189,9 @@ See **[PHASE7_E2E_TESTING.md](./PHASE7_E2E_TESTING.md)** for detailed troublesho
 
 ## Next Steps (Phase 9+)
 
-- [ ] Multi-tenant: per-job-id candidate isolation
+- [ ] Multi-tenant: per-user isolation for documents
 - [ ] Advanced filtering: skills, years, education, location
 - [ ] Batch screening: upload CSV of queries, export results
-- [ ] User authentication: Supabase Auth or OAuth
 - [ ] Candidate notes: recruiters can annotate screening results
 - [ ] Resume comparison: side-by-side view of top candidates
 - [ ] Custom models: OpenAI, Claude, local LLMs
@@ -201,4 +206,4 @@ For questions or issues:
 
 ---
 
-**Build status**: ✅ Clean &nbsp;|&nbsp; **Last updated**: 2026-09-26 (UI polish + hydration fixes completed)
+**Last updated**: 2026-10-24 (docs synced with the fixed screening pipeline and the Documents feature)
