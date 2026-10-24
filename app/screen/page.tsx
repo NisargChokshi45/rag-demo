@@ -209,7 +209,11 @@ function parseDocumentAnswer(content: string): DocumentAnswer | null {
   }
 }
 
-function renderDocumentAnswer(answer: DocumentAnswer, answerKey: string) {
+function renderDocumentAnswer(
+  answer: DocumentAnswer,
+  answerKey: string,
+  onViewCitations: (citations: DocumentAnswer['citations']) => void
+) {
   return (
     <div className="w-full space-y-4">
       <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
@@ -227,25 +231,16 @@ function renderDocumentAnswer(answer: DocumentAnswer, answerKey: string) {
         </p>
       )}
       {answer.citations.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Citations
-          </h3>
-          {answer.citations.map((citation) => (
-            <article
-              key={`${answerKey}-${citation.label}`}
-              className="rounded-lg border border-gray-200 bg-surface p-3"
-            >
-              <p className="text-xs text-gray-500">
-                <span className="font-medium text-gray-700">
-                  {citation.label}
-                </span>{' '}
-                · {citation.pages} · {citation.kind}
-                {citation.sectionPath && <> · {citation.sectionPath}</>}
-              </p>
-              <p className="mt-2 text-sm text-gray-700">{citation.excerpt}</p>
-            </article>
-          ))}
+        <div key={`${answerKey}-citations`}>
+          <button
+            type="button"
+            onClick={() => onViewCitations(answer.citations)}
+            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-700"
+            title="Open document citations in sidebar"
+          >
+            <Icon name="citation" />
+            Document citations ({answer.citations.length})
+          </button>
         </div>
       )}
     </div>
@@ -338,7 +333,12 @@ export default function ScreenPage() {
   const [editingSubmittedQuery, setEditingSubmittedQuery] = useState('');
   const [isEditingSubmittedQuery, setIsEditingSubmittedQuery] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [inspector, setInspector] = useState<'resume' | 'chunks' | null>(null);
+  const [inspector, setInspector] = useState<
+    'resume' | 'chunks' | 'document-citations' | null
+  >(null);
+  const [documentCitations, setDocumentCitations] = useState<
+    DocumentAnswer['citations']
+  >([]);
   const [resume, setResume] = useState<{
     name: string;
     pdfUrl: string;
@@ -941,6 +941,11 @@ export default function ScreenPage() {
       tool: citation.tool,
     });
     setInspector('chunks');
+  };
+
+  const viewDocumentCitations = (citations: DocumentAnswer['citations']) => {
+    setDocumentCitations(citations);
+    setInspector('document-citations');
   };
 
   // Toggle between the small and large preset widths. Dragging the edge still
@@ -1692,7 +1697,8 @@ export default function ScreenPage() {
                             parseDocumentAnswer(
                               message.content
                             ) as DocumentAnswer,
-                            `conversation-${index}`
+                            `conversation-${index}`,
+                            viewDocumentCitations
                           )
                         ) : getConversationReport(message) ? (
                           renderReport(
@@ -1969,7 +1975,11 @@ export default function ScreenPage() {
                   {report
                     ? renderReport(report, 'current-report')
                     : documentAnswer &&
-                      renderDocumentAnswer(documentAnswer, 'current-report')}
+                      renderDocumentAnswer(
+                        documentAnswer,
+                        'current-report',
+                        viewDocumentCitations
+                      )}
                 </div>
                 <div className="ml-10 flex items-start justify-start gap-1 text-gray-500">
                   <button
@@ -2321,9 +2331,11 @@ export default function ScreenPage() {
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-2 border-b border-gray-200 p-4">
               <h2 className="min-w-0 truncate font-semibold text-gray-900">
-                {inspector === 'chunks'
-                  ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
-                  : `Resume: ${resume?.name || 'Candidate'}`}
+                {inspector === 'document-citations'
+                  ? 'Document citations'
+                  : inspector === 'chunks'
+                    ? `Resume citation: ${selectedSearchChunks?.candidateName || 'Candidate'}`
+                    : `Resume: ${resume?.name || 'Candidate'}`}
               </h2>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -2356,6 +2368,7 @@ export default function ScreenPage() {
                     setInspector(null);
                     setResume(null);
                     setSelectedSearchChunks(null);
+                    setDocumentCitations([]);
                   }}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   aria-label="Close sidebar"
@@ -2366,7 +2379,25 @@ export default function ScreenPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {inspector === 'chunks' && selectedSearchChunks ? (
+              {inspector === 'document-citations' ? (
+                <div className="space-y-3 text-sm text-gray-700">
+                  {documentCitations.map((citation) => (
+                    <article
+                      key={citation.label}
+                      className="rounded-lg border border-gray-200 bg-surface p-3"
+                    >
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium text-gray-700">
+                          {citation.label}
+                        </span>{' '}
+                        · {citation.pages} · {citation.kind}
+                        {citation.sectionPath && <> · {citation.sectionPath}</>}
+                      </p>
+                      <p className="mt-2 leading-relaxed">{citation.excerpt}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : inspector === 'chunks' && selectedSearchChunks ? (
                 <div className="space-y-4 text-sm text-gray-700">
                   <p className="rounded bg-gray-50 p-3 text-gray-600">
                     Tool: {selectedSearchChunks.tool}
