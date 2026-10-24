@@ -1880,7 +1880,7 @@ export default function ScreenPage() {
                         autoFocus
                       />
                     ) : (
-                      <p className="font-medium text-gray-900">
+                      <p className="whitespace-pre-line text-sm font-medium leading-relaxed text-gray-900">
                         {submittedQuery}
                       </p>
                     )}
