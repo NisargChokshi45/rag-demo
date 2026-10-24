@@ -239,13 +239,8 @@ pnpm build
 - Verify API billing is enabled on Google Cloud
 - Try test query on `/api/debug`
 
-### "Maximum recursion depth exceeded"
-- Agent made >10 tool calls
-- Try more specific query or smaller candidate pool
-- Check agent loop recursion limit in `app/api/agent/route.ts`
-
 ### Screenings not saved
-- Check `jobId` is being sent to `/api/agent`
+- Check the screen page calls `POST /api/screenings` after the report (the agent route itself does not save)
 - Verify `SUPABASE_SERVICE_ROLE_KEY` is correct
 - Check service role key has write permissions in Supabase
 
@@ -257,7 +252,7 @@ pnpm build
 ## Performance Notes
 
 - **Embedding**: ~1-2s per resume (depends on chunk count + API latency)
-- **Search**: ~500-1000ms (vector search + LLM rerank)
+- **Search**: ~500-1000ms (embed + vector search)
 - **Report**: ~1-2s (structured output generation)
 - **Full ingest**: 30-50s for 25 resumes sequentially
 

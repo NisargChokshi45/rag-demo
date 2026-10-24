@@ -138,11 +138,11 @@ No type errors = ready to deploy.
 
 1. **Uploaded**: PDF → text (unpdf) → chunks (800/100 split) → embeddings (Gemini) → Postgres
 2. **Listed**: `/candidates` queried `SELECT candidates, COUNT(chunks)...` from Supabase
-3. **Searched**: Query → embedding (Gemini) → vector similarity search → top-20 chunks from HNSW index
-4. **Reranked**: Gemini re-ranked chunks for relevance (LLM reranking)
-5. **Full-resume**: For top candidates, fetch full resume text (20k chars each, max 8 per query)
+3. **Searched**: Query → embedding (Gemini) → vector similarity search → top-15 chunks from HNSW index
+4. **Ranked**: candidates ranked by best chunk similarity plus a job-skill boost (no LLM rerank)
+5. **Full-resume**: For top candidates, fetch full resume text (20k chars each, top 3 per query)
 6. **Streamed**: All tool calls sent as NDJSON to browser in real-time
-7. **Structured**: Final `generateObject` call produced Zod schema with scores, evidence, unknowns
+7. **Structured**: Final Groq call produced a report validated against the Zod schema with scores, evidence, unknowns
 
 ## Troubleshooting (1 min)
 
