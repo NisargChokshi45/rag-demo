@@ -9,6 +9,11 @@ import type { DocumentAnswer, GraphTurn } from '@/lib/documents/graph';
 import { Modal } from '../components/Modal';
 import { Alert, buttonClass, Spinner } from '../components/ui';
 
+// Message action buttons appear on hover or keyboard focus; touch devices
+// (no hover) always show them.
+const ACTIONS_ON_HOVER =
+  'opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100';
+
 type IconName =
   | 'copy'
   | 'edit'
@@ -17,7 +22,6 @@ type IconName =
   | 'dislike'
   | 'retry'
   | 'user'
-  | 'assistant'
   | 'citation'
   | 'expand'
   | 'shrink'
@@ -67,12 +71,6 @@ function Icon({
         <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
       </>
     ),
-    assistant: (
-      <>
-        <rect x="5" y="7" width="14" height="12" rx="3" />
-        <path d="M12 7V4m-2 0h4M8.5 12h.01M15.5 12h.01M9 16h6" />
-      </>
-    ),
     citation: (
       <>
         <path d="M6 4h9l3 3v13H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
@@ -104,6 +102,31 @@ function Icon({
       className={`block shrink-0 ${sizeClasses}`}
     >
       {paths}
+    </svg>
+  );
+}
+
+// Google Gemini sparkle, filled with the Gemini brand gradient.
+function GeminiIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      aria-hidden="true"
+      className="block h-6 w-6 shrink-0"
+    >
+      <defs>
+        <linearGradient id="gemini-gradient" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stopColor="#4285F4" />
+          <stop offset="50%" stopColor="#9B72CB" />
+          <stop offset="100%" stopColor="#D96570" />
+        </linearGradient>
+      </defs>
+      <path
+        fill="url(#gemini-gradient)"
+        d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12Z"
+      />
     </svg>
   );
 }
@@ -1425,6 +1448,11 @@ export default function ScreenPage() {
     currentReportIndex !== null
       ? conversation.slice(0, currentReportIndex - 1)
       : conversation;
+  const hasCurrentAnswer = Boolean(report || documentAnswer);
+  const lastAssistantIndex = previousConversation.reduce(
+    (last, message, i) => (message.role === 'assistant' ? i : last),
+    -1
+  );
 
   const activeSession = activeScreeningId
     ? history.find((item) => item.id === activeScreeningId)
@@ -1674,197 +1702,206 @@ export default function ScreenPage() {
           <div className="max-w-4xl mx-auto">
             {previousConversation.length > 0 && (
               <div className="mb-6 space-y-4">
-                {previousConversation.map((message, index) => (
-                  <div
-                    key={`${message.role}-${index}`}
-                    className={`flex items-start gap-2 ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    {message.role === 'assistant' && (
-                      <span
-                        className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-700"
-                        aria-label="Assistant"
-                        title="Assistant"
-                      >
-                        <Icon name="assistant" size="lg" />
-                      </span>
-                    )}
+                {previousConversation.map((message, index) => {
+                  const isDefaultVisible =
+                    !hasCurrentAnswer && index === lastAssistantIndex;
+                  return (
                     <div
-                      className={`max-w-[85%] ${
+                      key={`${message.role}-${index}`}
+                      className={`flex items-start gap-2 ${
                         message.role === 'user'
-                          ? 'flex w-fit max-w-[85%] flex-col items-end text-gray-900 md:max-w-[70%]'
-                          : 'text-gray-700'
+                          ? 'justify-end'
+                          : 'justify-start'
                       }`}
                     >
+                      {message.role === 'assistant' && (
+                        <span
+                          className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-700"
+                          aria-label="Assistant"
+                          title="Assistant"
+                        >
+                          <GeminiIcon />
+                        </span>
+                      )}
                       <div
-                        className={
+                        className={`group/msg max-w-[85%] ${
                           message.role === 'user'
-                            ? 'rounded-lg bg-gray-100 p-4'
-                            : ''
-                        }
-                      >
-                        {message.role === 'assistant' &&
-                        parseDocumentAnswer(message.content) ? (
-                          renderDocumentAnswer(
-                            parseDocumentAnswer(
-                              message.content
-                            ) as DocumentAnswer,
-                            `conversation-${index}`,
-                            viewDocumentCitations
-                          )
-                        ) : getConversationReport(message) ? (
-                          renderReport(
-                            getConversationReport(message) as ReportData,
-                            `conversation-${index}`
-                          )
-                        ) : (
-                          <p
-                            className={`whitespace-pre-line text-sm leading-relaxed ${
-                              message.role === 'user' ? 'font-medium' : ''
-                            }`}
-                          >
-                            {getConversationPreview(message)}
-                          </p>
-                        )}
-                      </div>
-                      <div
-                        className={`mt-2 flex gap-1 text-gray-500 ${
-                          message.role === 'user'
-                            ? 'w-full justify-end'
-                            : 'justify-start'
+                            ? 'flex w-fit max-w-[85%] flex-col items-end text-gray-900 md:max-w-[70%]'
+                            : 'text-gray-700'
                         }`}
                       >
-                        {message.role === 'user' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => copyText(message.content)}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
-                              aria-label="Copy query"
-                              title="Copy"
+                        <div
+                          className={
+                            message.role === 'user'
+                              ? 'rounded-lg bg-gray-100 p-4'
+                              : ''
+                          }
+                        >
+                          {message.role === 'assistant' &&
+                          parseDocumentAnswer(message.content) ? (
+                            renderDocumentAnswer(
+                              parseDocumentAnswer(
+                                message.content
+                              ) as DocumentAnswer,
+                              `conversation-${index}`,
+                              viewDocumentCitations
+                            )
+                          ) : getConversationReport(message) ? (
+                            renderReport(
+                              getConversationReport(message) as ReportData,
+                              `conversation-${index}`
+                            )
+                          ) : (
+                            <p
+                              className={`whitespace-pre-line text-sm leading-relaxed ${
+                                message.role === 'user' ? 'font-medium' : ''
+                              }`}
                             >
-                              <Icon name="copy" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!FEATURE_FLAGS.QUERY_EDIT_ENABLED) return;
-                                setSubmittedQuery(message.content);
-                                setEditingSubmittedQuery(message.content);
-                                setIsEditingSubmittedQuery(true);
-                              }}
-                              disabled={!FEATURE_FLAGS.QUERY_EDIT_ENABLED}
-                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_EDIT_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
-                              aria-label="Edit query"
-                              title={
-                                !FEATURE_FLAGS.QUERY_EDIT_ENABLED
-                                  ? 'This feature is disabled in public view'
-                                  : 'Edit'
-                              }
-                            >
-                              <Icon name="edit" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (
+                              {getConversationPreview(message)}
+                            </p>
+                          )}
+                        </div>
+                        <div
+                          className={`mt-2 flex gap-1 text-gray-500 ${
+                            message.role === 'user'
+                              ? 'w-full justify-end'
+                              : 'justify-start'
+                          } ${isDefaultVisible ? '' : ACTIONS_ON_HOVER}`}
+                        >
+                          {message.role === 'user' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => copyText(message.content)}
+                                className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                                aria-label="Copy query"
+                                title="Copy"
+                              >
+                                <Icon name="copy" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!FEATURE_FLAGS.QUERY_EDIT_ENABLED) return;
+                                  setSubmittedQuery(message.content);
+                                  setEditingSubmittedQuery(message.content);
+                                  setIsEditingSubmittedQuery(true);
+                                }}
+                                disabled={!FEATURE_FLAGS.QUERY_EDIT_ENABLED}
+                                className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_EDIT_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
+                                aria-label="Edit query"
+                                title={
+                                  !FEATURE_FLAGS.QUERY_EDIT_ENABLED
+                                    ? 'This feature is disabled in public view'
+                                    : 'Edit'
+                                }
+                              >
+                                <Icon name="edit" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    !FEATURE_FLAGS.QUERY_RETRY_ENABLED ||
+                                    isLoading
+                                  )
+                                    return;
+                                  setSubmittedQuery(message.content);
+                                  void submitQuery(message.content);
+                                }}
+                                disabled={
                                   !FEATURE_FLAGS.QUERY_RETRY_ENABLED ||
                                   isLoading
-                                )
-                                  return;
-                                setSubmittedQuery(message.content);
-                                void submitQuery(message.content);
-                              }}
-                              disabled={
-                                !FEATURE_FLAGS.QUERY_RETRY_ENABLED || isLoading
-                              }
-                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_RETRY_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
-                              aria-label="Retry query"
-                              title={
-                                !FEATURE_FLAGS.QUERY_RETRY_ENABLED
-                                  ? 'This feature is disabled in public view'
-                                  : 'Retry'
-                              }
-                            >
-                              <Icon name="retry" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyText(
-                                  getConversationPreview(message) ||
-                                    message.content
-                                )
-                              }
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
-                              aria-label="Copy agent response"
-                              title="Copy"
-                            >
-                              <Icon name="copy" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleFeedback(index, 'like')}
-                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'like' ? 'bg-green-100 text-green-700' : ''}`}
-                              aria-label="Like agent response"
-                              title="Like"
-                            >
-                              <Icon name="like" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void handleFeedback(index, 'dislike')
-                              }
-                              className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
-                              aria-label="Dislike agent response"
-                              title="Dislike"
-                            >
-                              <Icon name="dislike" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!isLoading) {
-                                  void submitQuery(
-                                    conversation[index - 1]?.content ||
-                                      submittedQuery
-                                  );
                                 }
-                              }}
-                              className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
-                              disabled={isLoading}
-                              aria-label="Retry screening query"
-                              title="Retry"
-                            >
-                              <Icon name="retry" />
-                            </button>
-                          </>
-                        )}
+                                className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${!FEATURE_FLAGS.QUERY_RETRY_ENABLED ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
+                                aria-label="Retry query"
+                                title={
+                                  !FEATURE_FLAGS.QUERY_RETRY_ENABLED
+                                    ? 'This feature is disabled in public view'
+                                    : 'Retry'
+                                }
+                              >
+                                <Icon name="retry" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  copyText(
+                                    getConversationPreview(message) ||
+                                      message.content
+                                  )
+                                }
+                                className="rounded p-2 hover:bg-gray-200 hover:text-gray-900"
+                                aria-label="Copy agent response"
+                                title="Copy"
+                              >
+                                <Icon name="copy" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleFeedback(index, 'like')
+                                }
+                                className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'like' ? 'bg-green-100 text-green-700' : ''}`}
+                                aria-label="Like agent response"
+                                title="Like"
+                              >
+                                <Icon name="like" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleFeedback(index, 'dislike')
+                                }
+                                className={`rounded p-2 hover:bg-gray-200 hover:text-gray-900 ${messageFeedback[index] === 'dislike' ? 'bg-red-100 text-red-700' : ''}`}
+                                aria-label="Dislike agent response"
+                                title="Dislike"
+                              >
+                                <Icon name="dislike" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isLoading) {
+                                    void submitQuery(
+                                      conversation[index - 1]?.content ||
+                                        submittedQuery
+                                    );
+                                  }
+                                }}
+                                className="rounded p-2 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                                disabled={isLoading}
+                                aria-label="Retry screening query"
+                                title="Retry"
+                              >
+                                <Icon name="retry" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
+                      {message.role === 'user' && (
+                        <span
+                          className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"
+                          aria-label="User"
+                          title="User"
+                        >
+                          <Icon name="user" size="lg" />
+                        </span>
+                      )}
                     </div>
-                    {message.role === 'user' && (
-                      <span
-                        className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"
-                        aria-label="User"
-                        title="User"
-                      >
-                        <Icon name="user" size="lg" />
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             {/* Submitted Query Display */}
             {submittedQuery && (
               <div className="mb-6 flex items-start justify-end gap-2">
-                <div className="w-fit max-w-[85%] md:max-w-[70%]">
+                <div className="group/msg w-fit max-w-[85%] md:max-w-[70%]">
                   <div className="rounded-lg bg-gray-100 p-4 text-white">
                     {/* <p className="mb-1 text-sm text-gray-600">Your Query:</p> */}
                     {isEditingSubmittedQuery ? (
@@ -1885,7 +1922,11 @@ export default function ScreenPage() {
                       </p>
                     )}
                   </div>
-                  <div className="mt-2 flex justify-end gap-1 text-gray-500">
+                  <div
+                    className={`mt-2 flex justify-end gap-1 text-gray-500 ${
+                      isEditingSubmittedQuery ? '' : ACTIONS_ON_HOVER
+                    }`}
+                  >
                     {isEditingSubmittedQuery ? (
                       <>
                         <button
@@ -1983,7 +2024,7 @@ export default function ScreenPage() {
                     aria-label="Assistant"
                     title="Assistant"
                   >
-                    <Icon name="assistant" size="lg" />
+                    <GeminiIcon />
                   </span>
                   {report
                     ? renderReport(report, 'current-report')
