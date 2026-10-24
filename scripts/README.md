@@ -260,7 +260,7 @@ CREATE TABLE screening_assessments (
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Upload Interface                     │
-│              (app/upload/page.tsx)                      │
+│              (app/candidates/page.tsx)                  │
 └──────────────────────┬──────────────────────────────────┘
                        │
                        ▼

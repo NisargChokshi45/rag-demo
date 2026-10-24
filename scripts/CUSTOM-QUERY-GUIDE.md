@@ -1,5 +1,7 @@
 # Custom Query Guide: How It Works
 
+> **Note (2026-10-24):** `test-custom-query.ts` only parses, chunks and embeds with Gemini and ranks by vector similarity. It makes no LLM call, so the "Claude" extraction, scoring and reranking shown below are illustrative of what the report step does, not output of this script. The app itself uses Groq, with no LLM rerank in job screening.
+
 ## Example Query: "How many years of experience does the candidate have?"
 
 The RAG pipeline is **specifically designed** to handle custom, specific queries. Here's how:
