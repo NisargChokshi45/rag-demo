@@ -86,7 +86,7 @@ const docSteps = [
 
 function ArchitectureDiagram() {
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-8">
+    <div className="w-full rounded-xl border border-slate-200 bg-surface p-5 shadow-card sm:p-8">
       <div className="mb-6 flex flex-col gap-1 sm:mb-8">
         <h2
           id="architecture-heading"
@@ -120,25 +120,50 @@ function ArchitectureDiagram() {
           {/* Background groups */}
           <defs>
             <linearGradient id="gradOrange" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#fef3c7" />
-              <stop offset="100%" stopColor="#fed7aa" />
+              <stop
+                offset="0%"
+                style={{ stopColor: 'rgb(var(--c-amber-100))' }}
+              />
+              <stop
+                offset="100%"
+                style={{ stopColor: 'rgb(var(--c-orange-200))' }}
+              />
             </linearGradient>
             <linearGradient id="gradBlue" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#dbeafe" />
-              <stop offset="100%" stopColor="#bfdbfe" />
+              <stop
+                offset="0%"
+                style={{ stopColor: 'rgb(var(--c-blue-100))' }}
+              />
+              <stop
+                offset="100%"
+                style={{ stopColor: 'rgb(var(--c-blue-200))' }}
+              />
             </linearGradient>
             <linearGradient id="gradGreen" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#dcfce7" />
-              <stop offset="100%" stopColor="#bbf7d0" />
+              <stop
+                offset="0%"
+                style={{ stopColor: 'rgb(var(--c-green-100))' }}
+              />
+              <stop
+                offset="100%"
+                style={{ stopColor: 'rgb(var(--c-green-200))' }}
+              />
             </linearGradient>
             <linearGradient id="gradPurple" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#e9d5ff" />
-              <stop offset="100%" stopColor="#d8b4fe" />
+              <stop
+                offset="0%"
+                style={{ stopColor: 'rgb(var(--c-purple-200))' }}
+              />
+              <stop
+                offset="100%"
+                style={{ stopColor: 'rgb(var(--c-purple-300))' }}
+              />
             </linearGradient>
           </defs>
 
           {/* Section backgrounds */}
           <rect
+            className="stroke-amber-400"
             x="20"
             y="30"
             width="420"
@@ -146,10 +171,10 @@ function ArchitectureDiagram() {
             rx="12"
             fill="url(#gradOrange)"
             opacity="0.3"
-            stroke="#fbbf24"
             strokeWidth="2"
           />
           <rect
+            className="stroke-blue-400"
             x="480"
             y="30"
             width="420"
@@ -157,10 +182,10 @@ function ArchitectureDiagram() {
             rx="12"
             fill="url(#gradBlue)"
             opacity="0.3"
-            stroke="#60a5fa"
             strokeWidth="2"
           />
           <rect
+            className="stroke-green-400"
             x="940"
             y="30"
             width="420"
@@ -168,37 +193,36 @@ function ArchitectureDiagram() {
             rx="12"
             fill="url(#gradGreen)"
             opacity="0.3"
-            stroke="#4ade80"
             strokeWidth="2"
           />
 
           {/* Section titles */}
           <text
+            className="fill-amber-800"
             x="230"
             y="65"
             fontSize="18"
             fontWeight="bold"
-            fill="#92400e"
             textAnchor="middle"
           >
             Job Creation
           </text>
           <text
+            className="fill-blue-800"
             x="690"
             y="65"
             fontSize="18"
             fontWeight="bold"
-            fill="#1e40af"
             textAnchor="middle"
           >
             Resume Processing
           </text>
           <text
+            className="fill-green-800"
             x="1150"
             y="65"
             fontSize="18"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Screening
@@ -207,30 +231,29 @@ function ArchitectureDiagram() {
           {/* ===== JOB CREATION FLOW ===== */}
           {/* Create Job box */}
           <rect
+            className="fill-surface stroke-amber-500"
             x="60"
             y="100"
             width="320"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#f59e0b"
             strokeWidth="2"
           />
           <text
+            className="fill-amber-800"
             x="220"
             y="135"
             fontSize="16"
             fontWeight="bold"
-            fill="#92400e"
             textAnchor="middle"
           >
             Create Job
           </text>
           <text
+            className="fill-amber-900"
             x="220"
             y="160"
             fontSize="13"
-            fill="#78350f"
             textAnchor="middle"
           >
             Define criteria & requirements
@@ -238,41 +261,40 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-amber-500"
             x1="220"
             y1="180"
             x2="220"
             y2="220"
-            stroke="#f59e0b"
             strokeWidth="2"
             markerEnd="url(#arrowOrange)"
           />
 
           {/* Store Job */}
           <rect
+            className="fill-surface stroke-amber-500"
             x="60"
             y="220"
             width="320"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#f59e0b"
             strokeWidth="2"
           />
           <text
+            className="fill-amber-800"
             x="220"
             y="255"
             fontSize="16"
             fontWeight="bold"
-            fill="#92400e"
             textAnchor="middle"
           >
             Store in Supabase
           </text>
           <text
+            className="fill-amber-900"
             x="220"
             y="280"
             fontSize="13"
-            fill="#78350f"
             textAnchor="middle"
           >
             job_id, criteria, metadata
@@ -280,44 +302,49 @@ function ArchitectureDiagram() {
 
           {/* Arrow to screening */}
           <path
+            className="stroke-amber-400"
             d="M 380 260 Q 460 260 480 360"
-            stroke="#fbbf24"
             strokeWidth="2"
             fill="none"
             strokeDasharray="5,5"
             markerEnd="url(#arrowOrangeLight)"
           />
-          <text x="420" y="305" fontSize="11" fill="#92400e" fontStyle="italic">
+          <text
+            className="fill-amber-800"
+            x="420"
+            y="305"
+            fontSize="11"
+            fontStyle="italic"
+          >
             Links to candidate search
           </text>
 
           {/* ===== RESUME PROCESSING FLOW ===== */}
           {/* Upload Resume */}
           <rect
+            className="fill-surface stroke-blue-500"
             x="520"
             y="100"
             width="340"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#3b82f6"
             strokeWidth="2"
           />
           <text
+            className="fill-blue-800"
             x="690"
             y="135"
             fontSize="16"
             fontWeight="bold"
-            fill="#1e40af"
             textAnchor="middle"
           >
             Upload Resume (PDF)
           </text>
           <text
+            className="fill-blue-900"
             x="690"
             y="160"
             fontSize="13"
-            fill="#1e3a8a"
             textAnchor="middle"
           >
             Multi-page documents accepted
@@ -325,41 +352,40 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-blue-500"
             x1="690"
             y1="180"
             x2="690"
             y2="220"
-            stroke="#3b82f6"
             strokeWidth="2"
             markerEnd="url(#arrowBlue)"
           />
 
           {/* Parse */}
           <rect
+            className="fill-surface stroke-blue-500"
             x="520"
             y="220"
             width="340"
             height="75"
             rx="8"
-            fill="white"
-            stroke="#3b82f6"
             strokeWidth="2"
           />
           <text
+            className="fill-blue-800"
             x="690"
             y="250"
             fontSize="16"
             fontWeight="bold"
-            fill="#1e40af"
             textAnchor="middle"
           >
             Parse & Chunk
           </text>
           <text
+            className="fill-blue-900"
             x="690"
             y="272"
             fontSize="12"
-            fill="#1e3a8a"
             textAnchor="middle"
           >
             800-char windows, 100 overlap
@@ -367,41 +393,40 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-blue-500"
             x1="690"
             y1="295"
             x2="690"
             y2="335"
-            stroke="#3b82f6"
             strokeWidth="2"
             markerEnd="url(#arrowBlue)"
           />
 
           {/* Embed */}
           <rect
+            className="fill-surface stroke-blue-500"
             x="520"
             y="335"
             width="340"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#3b82f6"
             strokeWidth="2"
           />
           <text
+            className="fill-blue-800"
             x="690"
             y="370"
             fontSize="16"
             fontWeight="bold"
-            fill="#1e40af"
             textAnchor="middle"
           >
             Generate Embeddings
           </text>
           <text
+            className="fill-blue-900"
             x="690"
             y="395"
             fontSize="13"
-            fill="#1e3a8a"
             textAnchor="middle"
           >
             Using Gemini API
@@ -409,50 +434,49 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-blue-500"
             x1="690"
             y1="415"
             x2="690"
             y2="455"
-            stroke="#3b82f6"
             strokeWidth="2"
             markerEnd="url(#arrowBlue)"
           />
 
           {/* Vector Storage */}
           <rect
+            className="fill-surface stroke-blue-500"
             x="520"
             y="455"
             width="340"
             height="90"
             rx="8"
-            fill="white"
-            stroke="#3b82f6"
             strokeWidth="2"
           />
           <text
+            className="fill-blue-800"
             x="690"
             y="490"
             fontSize="16"
             fontWeight="bold"
-            fill="#1e40af"
             textAnchor="middle"
           >
             Vector Storage
           </text>
           <text
+            className="fill-blue-900"
             x="690"
             y="515"
             fontSize="13"
-            fill="#1e3a8a"
             textAnchor="middle"
           >
             pgvector + Supabase
           </text>
           <text
+            className="fill-blue-900"
             x="690"
             y="535"
             fontSize="12"
-            fill="#1e3a8a"
             textAnchor="middle"
             fontStyle="italic"
           >
@@ -461,8 +485,8 @@ function ArchitectureDiagram() {
 
           {/* Arrow to screening */}
           <path
+            className="stroke-blue-400"
             d="M 860 500 Q 900 500 940 420"
-            stroke="#60a5fa"
             strokeWidth="2"
             fill="none"
             markerEnd="url(#arrowBlueBright)"
@@ -471,30 +495,29 @@ function ArchitectureDiagram() {
           {/* ===== SCREENING FLOW ===== */}
           {/* User Question */}
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="100"
             width="340"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="135"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             User Question
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="160"
             fontSize="13"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Job-specific or platform-wide
@@ -502,41 +525,40 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="180"
             x2="1150"
             y2="220"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
 
           {/* Embed Question */}
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="220"
             width="340"
             height="75"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="250"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Embed Question
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="272"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Gemini embeddings
@@ -544,41 +566,40 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="295"
             x2="1150"
             y2="335"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
 
           {/* Vector Search */}
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="335"
             width="340"
             height="80"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="365"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Semantic Search
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="390"
             fontSize="13"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Cosine similarity, top 15, job-scoped
@@ -586,59 +607,58 @@ function ArchitectureDiagram() {
 
           {/* Arrow down */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="415"
             x2="1150"
             y2="455"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
 
           {/* Re-rank */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="415"
             x2="1150"
             y2="445"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="445"
             width="340"
             height="100"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="475"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Re-rank Candidates
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="499"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Group chunks by candidate, best match first
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="519"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             +3 per matched job skill (max +15), top 3
@@ -646,39 +666,38 @@ function ArchitectureDiagram() {
 
           {/* Fetch full resumes */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="545"
             x2="1150"
             y2="575"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="575"
             width="340"
             height="70"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="605"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Fetch Full Resumes
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="627"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Complete text, capped at 3 candidates
@@ -686,8 +705,8 @@ function ArchitectureDiagram() {
 
           {/* Arrow back to candidates */}
           <path
+            className="stroke-emerald-400"
             d="M 980 610 Q 920 610 860 520"
-            stroke="#34d399"
             strokeWidth="2"
             fill="none"
             strokeDasharray="5,5"
@@ -696,48 +715,47 @@ function ArchitectureDiagram() {
 
           {/* GROQ + Processing */}
           <line
+            className="stroke-emerald-500"
             x1="1150"
             y1="645"
             x2="1150"
             y2="675"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
           <rect
+            className="fill-surface stroke-emerald-500"
             x="980"
             y="675"
             width="340"
             height="100"
             rx="8"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="705"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             GROQ API Call
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="730"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             Score candidates, generate
           </text>
           <text
+            className="fill-emerald-900"
             x="1150"
             y="750"
             fontSize="12"
-            fill="#064e3b"
             textAnchor="middle"
           >
             citations & structured output
@@ -745,27 +763,26 @@ function ArchitectureDiagram() {
 
           {/* Response to UI */}
           <path
+            className="stroke-emerald-500"
             d="M 1150 775 L 1150 805"
-            stroke="#10b981"
             strokeWidth="2"
             markerEnd="url(#arrowGreen)"
           />
           <rect
+            className="fill-surface stroke-emerald-500"
             x="1020"
             y="805"
             width="260"
             height="60"
             rx="6"
-            fill="white"
-            stroke="#10b981"
             strokeWidth="2"
           />
           <text
+            className="fill-green-800"
             x="1150"
             y="840"
             fontSize="16"
             fontWeight="bold"
-            fill="#166534"
             textAnchor="middle"
           >
             Stream to UI with Citations
@@ -773,6 +790,7 @@ function ArchitectureDiagram() {
 
           {/* ===== DOCUMENT Q&A PIPELINE (LangGraph) ===== */}
           <rect
+            className="stroke-purple-500"
             x="20"
             y="930"
             width="1340"
@@ -780,24 +798,23 @@ function ArchitectureDiagram() {
             rx="12"
             fill="url(#gradPurple)"
             opacity="0.3"
-            stroke="#a855f7"
             strokeWidth="2"
           />
           <text
+            className="fill-purple-800"
             x="690"
             y="965"
             fontSize="18"
             fontWeight="bold"
-            fill="#6b21a8"
             textAnchor="middle"
           >
             Document Q&A (LangGraph)
           </text>
           <text
+            className="fill-purple-900"
             x="690"
             y="988"
             fontSize="12"
-            fill="#581c87"
             textAnchor="middle"
           >
             Uploaded reports are parsed, chunked by document shape, embedded and
@@ -809,32 +826,31 @@ function ArchitectureDiagram() {
             return (
               <g key={step.title}>
                 <rect
+                  className="fill-surface stroke-purple-500"
                   x={x}
                   y="1010"
                   width="190"
                   height="110"
                   rx="8"
-                  fill="white"
-                  stroke="#a855f7"
                   strokeWidth={step.highlight ? 3 : 2}
                 />
                 <text
+                  className="fill-purple-800"
                   x={x + 95}
                   y="1038"
                   fontSize="16"
                   fontWeight="bold"
-                  fill="#6b21a8"
                   textAnchor="middle"
                 >
                   {step.title}
                 </text>
                 {step.lines.map((line, j) => (
                   <text
+                    className="fill-purple-900"
                     key={line}
                     x={x + 95}
                     y={1062 + j * 18}
                     fontSize="12"
-                    fill="#581c87"
                     textAnchor="middle"
                   >
                     {line}
@@ -842,11 +858,11 @@ function ArchitectureDiagram() {
                 ))}
                 {i < docSteps.length - 1 && (
                   <line
+                    className="stroke-purple-500"
                     x1={x + 190}
                     y1="1065"
                     x2={x + 215}
                     y2="1065"
-                    stroke="#a855f7"
                     strokeWidth="2"
                     markerEnd="url(#arrowPurple)"
                   />
@@ -857,28 +873,28 @@ function ArchitectureDiagram() {
 
           {/* Rewrite loop from Verify back to Retrieve */}
           <path
+            className="stroke-purple-400"
             d="M 1220 1120 C 1220 1200 360 1200 360 1120"
-            stroke="#c084fc"
             strokeWidth="2"
             fill="none"
             strokeDasharray="5,5"
             markerEnd="url(#arrowPurple)"
           />
           <text
+            className="fill-purple-800"
             x="790"
             y="1180"
             fontSize="12"
-            fill="#6b21a8"
             fontStyle="italic"
             textAnchor="middle"
           >
             Not grounded: rewrite as a keyword query and retry once
           </text>
           <text
+            className="fill-purple-900"
             x="690"
             y="1238"
             fontSize="12"
-            fill="#581c87"
             textAnchor="middle"
           >
             Re-rank defaults to the LLM; element-rich documents skip it because
@@ -895,7 +911,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#f59e0b" />
+              <polygon className="fill-amber-500" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowOrangeLight"
@@ -905,7 +921,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#fbbf24" />
+              <polygon className="fill-amber-400" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowBlue"
@@ -915,7 +931,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#3b82f6" />
+              <polygon className="fill-blue-500" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowBlueBright"
@@ -925,7 +941,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#60a5fa" />
+              <polygon className="fill-blue-400" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowGreen"
@@ -935,7 +951,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#10b981" />
+              <polygon className="fill-emerald-500" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowPurple"
@@ -945,7 +961,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#a855f7" />
+              <polygon className="fill-purple-500" points="0,0 10,5 0,10" />
             </marker>
             <marker
               id="arrowGreenLight"
@@ -955,7 +971,7 @@ function ArchitectureDiagram() {
               refY="5"
               orient="auto"
             >
-              <polygon points="0,0 10,5 0,10" fill="#34d399" />
+              <polygon className="fill-emerald-400" points="0,0 10,5 0,10" />
             </marker>
           </defs>
         </svg>
