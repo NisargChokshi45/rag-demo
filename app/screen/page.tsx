@@ -1426,6 +1426,11 @@ export default function ScreenPage() {
       ? conversation.slice(0, currentReportIndex - 1)
       : conversation;
 
+  const activeSession = activeScreeningId
+    ? history.find((item) => item.id === activeScreeningId)
+    : undefined;
+  const activeSessionTitle = activeSession?.name || activeSession?.query;
+
   return (
     <div className="relative flex h-[calc(100dvh-4rem)] overflow-hidden bg-slate-50">
       {sidebarOpen && (
@@ -1446,7 +1451,7 @@ export default function ScreenPage() {
             '--history-width': `${sidebarWidth}px`,
           } as React.CSSProperties
         }
-        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-72 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl md:relative md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none ${
+        className={`fixed left-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-72 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200 bg-surface shadow-xl md:relative md:top-0 md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none ${
           isResizingSidebar ? '' : 'transition-[transform,width] duration-200'
         } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${
           !sidebarOpen ? 'md:w-0' : 'md:w-[var(--history-width)]'
@@ -1647,7 +1652,7 @@ export default function ScreenPage() {
             {sidebarOpen ? 'Hide history' : 'History'}
           </button>
           <p className="min-w-0 truncate text-sm text-slate-500">
-            {submittedQuery || 'New screening session'}
+            {activeSessionTitle || submittedQuery || 'New screening session'}
           </p>
         </div>
 
