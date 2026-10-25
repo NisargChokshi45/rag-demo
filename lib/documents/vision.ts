@@ -26,6 +26,17 @@ export const MAX_FIGURE_PAGES = Number(process.env.VISION_MAX_PAGES) || 60;
 const FIGURE_INDEX_BASE = 100_000;
 const VISION_BACKOFF_MS = [1000, 2000, 4000];
 
+/**
+ * Raised when Gemini rejects a vision call with a 429. The page is left
+ * pending, so a later resume reads it. It is never cached as failed.
+ */
+export class VisionQuotaError extends Error {
+  constructor() {
+    super('Figure reading reached the Gemini quota. Resume later.');
+    this.name = 'VisionQuotaError';
+  }
+}
+
 const PROMPT = `This PDF is one page of a report. Describe every chart, graph or
 figure on it so the values can be searched.
 - Give the figure title and any caption or note, quoted as printed.
@@ -73,6 +84,7 @@ async function askVision(pagePdf: Uint8Array): Promise<string> {
 
   if (!response.ok) {
     const details = await response.text();
+    if (response.status === 429) throw new VisionQuotaError();
     throw new Error(`Gemini vision failed (${response.status}): ${details}`);
   }
 
@@ -91,6 +103,7 @@ export async function askVisionWithRetry(pagePdf: Uint8Array): Promise<string> {
     try {
       return await askVision(pagePdf);
     } catch (error) {
+      if (error instanceof VisionQuotaError) throw error;
       lastError = error;
       if (attempt < VISION_BACKOFF_MS.length) {
         await delay(VISION_BACKOFF_MS[attempt]);
@@ -192,6 +205,8 @@ export async function describePendingFigures(
       const pagePdf = await splitPage(source, page);
       answer = (await askVisionWithRetry(pagePdf)).trim();
     } catch (error) {
+      // A quota error is not a page problem, so the page stays pending.
+      if (error instanceof VisionQuotaError) throw error;
       // Figures are best effort: a page that keeps failing is recorded with a
       // marker and does not hold the document back from ready.
       const message = error instanceof Error ? error.message : String(error);
