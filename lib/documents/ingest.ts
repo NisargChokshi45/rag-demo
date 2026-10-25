@@ -1,5 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { embedDocument, EMBEDDING_DIMENSIONS } from '@/lib/embeddings';
+import {
+  embedDocument,
+  EMBEDDING_DIMENSIONS,
+  EmbeddingQuotaError,
+} from '@/lib/embeddings';
 import {
   countPendingDocumentChunks,
   createDocument,
@@ -201,6 +205,9 @@ async function embedWithRetry(text: string): Promise<number[]> {
       }
       return vector;
     } catch (error) {
+      // A 429 means the quota window is spent. Retrying inside it only spends
+      // more calls, so the error goes straight to the caller.
+      if (error instanceof EmbeddingQuotaError) throw error;
       lastError = error;
       if (attempt < EMBED_BACKOFF_MS.length) {
         await delay(EMBED_BACKOFF_MS[attempt]);
@@ -215,31 +222,41 @@ export interface EmbedProgress {
   remaining: number;
 }
 
-export async function embedPendingChunks(
-  documentId: string,
-  budgetMs: number
-): Promise<EmbedProgress> {
-  const started = Date.now();
-
-  // Chart pages are read first, so their figure chunks are embedded below.
-  const figuresLeft = await describePendingFigures(
-    documentId,
-    Math.floor(budgetMs / 2)
-  );
-
-  while (Date.now() - started < budgetMs) {
+/** Embeds stored chunks that have no vector yet, until the time left runs out. */
+async function embedStoredChunks(documentId: string, timeLeft: () => number) {
+  while (timeLeft() > 0) {
     const pending = await getPendingDocumentChunks(documentId, EMBED_BATCH);
     if (pending.length === 0) break;
 
     for (const chunk of pending) {
+      if (timeLeft() <= 0) break;
       const label = chunk.section_path
         ? `${chunk.section_path}\n${chunk.content}`
         : chunk.content;
       const vector = await embedWithRetry(label);
       await setDocumentChunkEmbedding(chunk.id, vector);
-      if (Date.now() - started >= budgetMs) break;
     }
   }
+}
+
+export async function embedPendingChunks(
+  documentId: string,
+  budgetMs: number
+): Promise<EmbedProgress> {
+  const started = Date.now();
+  const timeLeft = () => budgetMs - (Date.now() - started);
+
+  // Text goes first, so a quota error while reading figures never holds back
+  // the chunks that search depends on.
+  await embedStoredChunks(documentId, timeLeft);
+
+  // Figures are read after the text. Each figure becomes a pending chunk, so
+  // the second pass below embeds it.
+  const figuresLeft = await describePendingFigures(
+    documentId,
+    Math.max(0, Math.floor(timeLeft() / 2))
+  );
+  await embedStoredChunks(documentId, timeLeft);
 
   const remaining = await countPendingDocumentChunks(documentId);
   if (remaining === 0 && figuresLeft === 0) {
