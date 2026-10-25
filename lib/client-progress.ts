@@ -39,5 +39,7 @@ export function createPendingStore<Value>(): PendingStore<Value> {
 
 // Document id to chunks still left to embed (null until the first report).
 export const reparsingDocuments = createPendingStore<number | null>();
+// Document id to chunks still left to embed while resuming a paused document.
+export const resumingDocuments = createPendingStore<number | null>();
 // Candidate id to nothing; presence alone means a rescore is in flight.
 export const rescoringCandidates = createPendingStore<null>();
