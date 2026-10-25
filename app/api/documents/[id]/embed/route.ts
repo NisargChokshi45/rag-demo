@@ -33,6 +33,14 @@ export async function POST(
     if (document.status === 'ready') {
       return NextResponse.json({ status: 'ready', remaining: 0 });
     }
+    if (document.status === 'processing') {
+      // Parsing never finished, so chunks may be missing. Only Re-parse can
+      // rebuild them; embedding now would mark a partial document ready.
+      return NextResponse.json(
+        { error: 'This document was not fully parsed. Re-parse it instead.' },
+        { status: 409 }
+      );
+    }
     if (document.status === 'failed') {
       // Chunks are stored before embedding starts, so a paused document
       // resumes from its pending rows. With no stored chunks there is nothing
