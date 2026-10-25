@@ -22,7 +22,7 @@ import {
   RefreshIcon,
   ScreenIcon,
 } from '../icons';
-import { reparsingDocuments } from '@/lib/client-progress';
+import { reparsingDocuments, resumingDocuments } from '@/lib/client-progress';
 import { embedUntilReady, readJson } from '@/lib/documents/client';
 
 type Strategy = 'narrative' | 'long_structured' | 'element_rich';
@@ -163,7 +163,7 @@ function QuotaCountdown({ retryAt }: { retryAt: string }) {
 
   const remaining = new Date(retryAt).getTime() - now;
   if (remaining <= 0) {
-    return 'Embedding quota should be available again. Re-parse to finish indexing.';
+    return 'Embedding quota should be available again. Resume to finish indexing.';
   }
   return `Embedding quota reached. Retry in ${formatCountdown(remaining)}.`;
 }
@@ -203,6 +203,13 @@ export default function DocumentsPage() {
     reparsingDocuments.getSnapshot,
     reparsingDocuments.getSnapshot
   );
+  const resuming = useSyncExternalStore(
+    resumingDocuments.subscribe,
+    resumingDocuments.getSnapshot,
+    resumingDocuments.getSnapshot
+  );
+  // One document at a time: a re-parse or resume blocks every other action.
+  const busy = reparsing.size > 0 || resuming.size > 0;
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -357,6 +364,25 @@ export default function DocumentsPage() {
     await embedUntilReady(document.id, onProgress);
   };
 
+  // Embeds the chunks already stored for a paused or stuck document. Nothing is
+  // re-parsed, so only the chunks still pending use embedding quota.
+  const resumeDocument = async (document: DocumentItem) => {
+    resumingDocuments.set(document.id, null);
+    setError(null);
+    try {
+      await embedUntilReady(document.id, (remaining) =>
+        resumingDocuments.set(document.id, remaining)
+      );
+    } catch (resumeError) {
+      const message =
+        resumeError instanceof Error ? resumeError.message : 'Resume failed';
+      setError(`Resume did not finish for ${document.title}: ${message}`);
+    } finally {
+      resumingDocuments.remove(document.id);
+      setReloadKey((key) => key + 1);
+    }
+  };
+
   const confirmReparseDocument = async (document: DocumentItem) => {
     setReparseTarget(null);
     reparsingDocuments.set(document.id, null);
@@ -505,7 +531,7 @@ export default function DocumentsPage() {
               <button
                 type="button"
                 onClick={openUploadModal}
-                disabled={reparsing.size > 0}
+                disabled={busy}
                 className={buttonClass('primary', 'md')}
               >
                 <PlusIcon className="h-4 w-4 fill-none stroke-current stroke-2" />
@@ -701,7 +727,7 @@ export default function DocumentsPage() {
                         {item.status === 'paused' && (
                           <p className="text-sm text-amber-800">
                             {item.error} Find this document in the list and
-                            press Re-parse.
+                            press Resume.
                           </p>
                         )}
                         {item.status === 'error' && (
@@ -942,13 +968,21 @@ export default function DocumentsPage() {
                 const isPaused = document.status === 'failed';
                 const isReparsing = reparsing.has(document.id);
                 const reparseRemaining = reparsing.get(document.id);
-                const reparseDisabled =
-                  inProgress || isUploading || reparsing.size > 0;
+                const isResuming = resuming.has(document.id);
+                const resumeRemaining = resuming.get(document.id);
+                // Resume reuses the stored chunks, so it fits any document that
+                // is paused or was left mid-embedding.
+                const showResume =
+                  !isReparsing &&
+                  (isResuming ||
+                    document.status === 'failed' ||
+                    document.status === 'embedding');
+                const reparseDisabled = isUploading || busy;
                 return (
                   <article
                     key={document.id}
                     className={`flex flex-col rounded-xl border shadow-card transition hover:shadow-card-hover ${
-                      isReparsing
+                      isReparsing || isResuming
                         ? 'border-blue-200 bg-blue-50'
                         : inProgress || isPaused
                           ? 'border-amber-200 bg-amber-50'
@@ -975,7 +1009,7 @@ export default function DocumentsPage() {
                           <QuotaCountdown retryAt={document.retry_at} />
                         ) : (
                           document.error ||
-                          'Embedding paused. Re-parse to finish indexing.'
+                          'Embedding paused. Resume to finish indexing.'
                         )}
                       </p>
                     )}
@@ -1004,31 +1038,56 @@ export default function DocumentsPage() {
                           <ParsedDataIcon />
                           Parsed document
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setReparseTarget(document)}
-                          disabled={reparseDisabled}
-                          title="Re-parse this document with its current document shape"
-                          className={buttonClass(
-                            'secondary',
-                            'sm',
-                            'text-blue-700'
-                          )}
-                        >
-                          {isReparsing ? (
-                            <>
-                              <Spinner className="h-3 w-3 border-blue-500" />
-                              {(reparseRemaining ?? 0) > 0
-                                ? `${reparseRemaining} chunks left`
-                                : 'Re-parsing…'}
-                            </>
-                          ) : (
-                            <>
-                              <RefreshIcon />
-                              Re-parse
-                            </>
-                          )}
-                        </button>
+                        {showResume && (
+                          <button
+                            type="button"
+                            onClick={() => resumeDocument(document)}
+                            disabled={isUploading || busy}
+                            title="Embed the chunks that are still pending. Nothing is re-parsed."
+                            className={buttonClass('primary', 'sm')}
+                          >
+                            {isResuming ? (
+                              <>
+                                <Spinner className="h-3 w-3 border-white" />
+                                {(resumeRemaining ?? 0) > 0
+                                  ? `${resumeRemaining} chunks left`
+                                  : 'Resuming…'}
+                              </>
+                            ) : (
+                              <>
+                                <RefreshIcon />
+                                Resume
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {!showResume && (
+                          <button
+                            type="button"
+                            onClick={() => setReparseTarget(document)}
+                            disabled={reparseDisabled}
+                            title="Re-parse this document with its current document shape"
+                            className={buttonClass(
+                              'secondary',
+                              'sm',
+                              'text-blue-700'
+                            )}
+                          >
+                            {isReparsing ? (
+                              <>
+                                <Spinner className="h-3 w-3 border-blue-500" />
+                                {(reparseRemaining ?? 0) > 0
+                                  ? `${reparseRemaining} chunks left`
+                                  : 'Re-parsing…'}
+                              </>
+                            ) : (
+                              <>
+                                <RefreshIcon />
+                                Re-parse
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                       {/* <div className="flex items-center justify-center gap-3">
                         <time
